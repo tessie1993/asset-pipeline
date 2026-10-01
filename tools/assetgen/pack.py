@@ -36,6 +36,8 @@ Usage::
     python3 tools/assetgen/pack.py kit-api
     python3 tools/assetgen/pack.py material-search <words...> [--previews DIR] [--limit N]
     python3 tools/assetgen/pack.py done <pack> <id>
+    python3 tools/assetgen/pack.py critic-brief <pack> <id>
+    python3 tools/assetgen/pack.py reviewed <pack> <id> ACCEPT|REFINE|REQUEST-INPUT
     python3 tools/assetgen/pack.py accept <pack> <id>
     python3 tools/assetgen/pack.py reopen <pack> <id>
     python3 tools/assetgen/pack.py status <pack>
@@ -69,6 +71,7 @@ MODELS_DIR = Path("assets/models")
 EVIDENCE_DIR = Path("production/qa/evidence")
 KIT = Path("tools/blender/assetgen/kit.py")
 KIT_README = Path("tools/blender/assetgen/README.md")
+BLENDER_NOTES = Path("tools/blender/assetgen/blender-5.2-notes.md")
 CV_TOOL = Path("tools/assetgen/cv.py")
 SKILLS_DIR = Path(".claude/skills")
 RUN_LOCK = Path(".scratch/assetgen/run.json")  # read by the hooks in .claude/hooks/
@@ -91,18 +94,27 @@ CANVA_ASPECT_RATIO = "LANDSCAPE_16_9"
 CANVA_PAGE = (1680, 945)
 MIN_VIEW_PX = 16
 DEFAULT_LENS_MM = 85.0  # the renders' camera unless the builder records another lens or --ortho
-BUILD_CYCLES = 5  # the standard number of build -> render -> compare cycles per object
+BUILD_CYCLES = 8  # the standard number of build -> render -> compare cycles per object
 # Context budget: a builder makes at most this many cycle builds (plus one final build); then it writes
 # a handoff in its notes and a fresh builder continues from them, so no builder's context fills up
 # with every earlier cycle's images and code.
-BUILDS_PER_BUILDER = 3
+BUILDS_PER_BUILDER = 5
+# Fresh-context reviews: after a builder's final build a critic that did not build the object judges
+# it against the reference; a REFINE review goes back to a builder, at most this many rounds.
+CRITIC_ROUNDS = 3
+CRITIC_ROUTES = ("ACCEPT", "REFINE", "REQUEST-INPUT")
 AGENTS_DIR = Path(".scratch/assetgen/agents")  # per-builder build counts, kept by the build gate hook
 
 POLYHAVEN_ASSETS = f"{downloads.POLYHAVEN_API}/assets?t=textures"
 AMBIENTCG_SEARCH = ("https://ambientcg.com/api/v2/full_json?type=Material&include=imageData"
                     "&limit={limit}&q={query}")
 AMBIENTCG_PREVIEW = "256-PNG"
-SEARCH_LIMIT = 8
+CGBOOKCASE_CATALOG = "https://www.cgbookcase.com/api/textures"
+CGBOOKCASE_THUMBNAIL = "https://cgbookcase.b-cdn.net/textures/thumbnails/{name}_1K/{name}_1K_BaseColor.png?width=256"
+CGBOOKCASE_FILES = ("Base_Color", "Normal", "Roughness")  # the maps kit.material needs
+CATALOG_DIR = Path(".scratch/assetgen/catalogs")
+CATALOG_MAX_AGE_S = 24 * 3600
+SEARCH_LIMIT = 6
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 CANVA_STAGES = ("create", "open", "add-pages", "read-pages", "place", "check", "commit", "export")
 BLANK_DESIGN_BRIEF = ("A completely blank one-page landscape design with a plain white background and "
@@ -111,8 +123,8 @@ BLANK_DESIGN_BRIEF = ("A completely blank one-page landscape design with a plain
 
 # The analysis sections of a builder's notes (templates/builder_notes.md); each must have content
 # before the first build (the build gate hook checks it).
-ANALYSIS_SECTIONS = ("What it is", "Views", "Size and proportions", "Parts inventory", "Textures",
-                     "Details and nuances", "Skills, add-ons and tools", "Build plan")
+ANALYSIS_SECTIONS = ("What it is", "Views", "Size and proportions", "Close observation", "Parts inventory",
+                     "Materials and shaders", "Details and nuances", "Skills, add-ons and tools", "Build plan")
 REPORT_SECTION = "Report"
 
 
@@ -186,6 +198,11 @@ def cv_report_path(root: Path, pack: str, object_id: str) -> Path:
 def cv_reference_path(root: Path, pack: str, object_id: str) -> Path:
     """Written by ``cv.py measure``: the reference's views measured."""
     return evidence_dir(root, pack, object_id) / f"{object_id}_cv_reference.json"
+
+
+def review_path(root: Path, pack: str, object_id: str, number: int) -> Path:
+    """The critic's review of round ``number``."""
+    return evidence_dir(root, pack, object_id) / f"{object_id}_review_{number}.md"
 
 
 def read_json(path: Path) -> dict | None:
@@ -660,14 +677,25 @@ def kit_api(root: Path) -> str:
 # Texture search
 # --------------------------------------------------------------------------------- #
 
+def _matched(haystack: str, words: list[str]) -> int:
+    """How many of ``words`` are whole words of ``haystack`` (singular or plural): "fur" finds
+    fur, not furniture."""
+    tokens = set(re.findall(r"[a-z0-9]+", haystack.lower()))
+    count = 0
+    for word in (word.lower() for word in words):
+        stem = word[:-1] if word.endswith("s") and len(word) > 3 else word
+        if word in tokens or stem in tokens or stem + "s" in tokens or stem + "es" in tokens:
+            count += 1
+    return count
+
+
 def rank_polyhaven(assets: dict, words: list[str]) -> list[dict]:
     """Poly Haven textures matching any of ``words`` in their id, name, tags or categories, most
     words matched first, then most downloaded."""
-    lowered = [word.lower() for word in words]
     ranked = []
     for asset_id, info in assets.items():
         haystack = " ".join([asset_id, info.get("name", "")] + info.get("tags", []) + info.get("categories", [])).lower()
-        matched = sum(word in haystack for word in lowered)
+        matched = _matched(haystack, words)
         if matched:
             size = [round(mm / 1000, 2) for mm in info.get("dimensions", [])]
             ranked.append({"ref": f"polyhaven:{asset_id}", "name": info.get("name", asset_id),
@@ -684,20 +712,91 @@ def ambientcg_rows(found: dict) -> list[dict]:
             for asset in found.get("foundAssets", [])]
 
 
-def material_search(words: list[str], previews: Path | None = None, limit: int = SEARCH_LIMIT) -> dict[str, list[dict]]:
-    """Textures for ``words`` from Poly Haven and ambientCG; with ``previews``, their thumbnails
-    are saved there so they can be looked at before one is chosen."""
-    polyhaven = rank_polyhaven(downloads.get_json(POLYHAVEN_ASSETS), words)[:limit]
-    found = downloads.get_json(AMBIENTCG_SEARCH.format(limit=limit, query=urllib.parse.quote(" ".join(words))))
-    ambientcg = ambientcg_rows(found)[:limit]
+def rank_cgbookcase(catalog: list, words: list[str]) -> list[dict]:
+    """cgbookcase textures that have the maps kit.material needs, most words matched first, newest
+    first among equals (the API gives no download counts)."""
+    ranked = []
+    for texture in catalog:
+        if not all(name in texture.get("files", []) for name in CGBOOKCASE_FILES):
+            continue
+        haystack = " ".join([texture.get("title", "")] + texture.get("tags", []) + texture.get("categories", [])
+                            + texture.get("colors", [])).lower()
+        matched = _matched(haystack, words)
+        if matched:
+            name = texture["title"].replace(" ", "")
+            ranked.append({"ref": f"cgbookcase:{name}", "name": texture["title"], "matched": matched,
+                           "released": texture.get("releasedate", ""), "maps": texture.get("files", []),
+                           "thumbnail": CGBOOKCASE_THUMBNAIL.format(name=name)})
+    ranked.sort(key=lambda row: (-row["matched"], row["released"] and -int(row["released"].replace("-", "")), row["ref"]))
+    return ranked
+
+
+def blendkit_rows(results: list[dict]) -> list[dict]:
+    """Rows for Blendkit's free CC0 materials (Blender node materials, often procedural)."""
+    rows = []
+    for asset in results:
+        parameters = asset.get("dictParameters") or {}
+        rows.append({"ref": f"blendkit:{asset['assetBaseId']}", "name": asset.get("name", ""),
+                     "size_m": parameters.get("textureSizeMeters"), "procedural": parameters.get("procedural"),
+                     "thumbnail": asset.get("thumbnailMiddleUrl") or asset.get("thumbnailSmallUrl")})
+    return rows
+
+
+def _catalog(root: Path, name: str, url: str):
+    """A library's whole catalog, downloaded at most once a day."""
+    path = root / CATALOG_DIR / f"{name}.json"
+    if path.exists() and datetime.datetime.now().timestamp() - path.stat().st_mtime < CATALOG_MAX_AGE_S:
+        return json.loads(path.read_text(encoding="utf-8"))
+    catalog = downloads.get_json(url)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(catalog), encoding="utf-8")
+    return catalog
+
+
+def material_search(words: list[str], previews: Path | None = None, limit: int = SEARCH_LIMIT,
+                    root: Path = REPO_ROOT) -> dict[str, list[dict]]:
+    """Texture sets and materials for ``words`` from Poly Haven, ambientCG, cgbookcase and Blendkit
+    (free CC0 only). With ``previews``, their thumbnails are saved there and, when the CV
+    libraries are installed, laid out in one labelled ``sheet.png`` to look at before choosing."""
+    found = {}
+    errors = {}
+    searches = {
+        "polyhaven": lambda: rank_polyhaven(_catalog(root, "polyhaven", POLYHAVEN_ASSETS), words),
+        "ambientcg": lambda: ambientcg_rows(downloads.get_json(
+            AMBIENTCG_SEARCH.format(limit=limit, query=urllib.parse.quote(" ".join(words))))),
+        "cgbookcase": lambda: rank_cgbookcase(_catalog(root, "cgbookcase", CGBOOKCASE_CATALOG), words),
+        "blendkit": lambda: blendkit_rows(downloads.blendkit_search(words, limit)),
+    }
+    for library, search in searches.items():
+        try:
+            found[library] = search()[:limit]
+        except downloads.FetchError as error:
+            found[library] = []
+            errors[library] = str(error)
     if previews is not None:
         previews.mkdir(parents=True, exist_ok=True)
-        for row in polyhaven + ambientcg:
-            if row.get("thumbnail"):
+        shown = []
+        for rows in found.values():
+            for row in rows:
+                if not row.get("thumbnail"):
+                    continue
                 target = previews / (row["ref"].replace(":", "_") + ".png")
-                target.write_bytes(downloads.get_bytes(row["thumbnail"]))
+                try:
+                    target.write_bytes(downloads.get_bytes(row["thumbnail"]))
+                except downloads.FetchError:
+                    continue
                 row["preview"] = str(target)
-    return {"polyhaven": polyhaven, "ambientcg": ambientcg}
+                shown.append((target, row["ref"]))
+        try:
+            import cv  # the CV libraries are optional here
+            if cv.cv2 is not None and shown:
+                found["sheet"] = str(cv.contact_sheet([path for path, _ in shown], [ref for _, ref in shown],
+                                                      previews / "sheet.png"))
+        except Exception as error:  # a missing sheet never stops the search
+            errors["sheet"] = str(error)
+    if errors:
+        found["errors"] = errors
+    return found
 
 
 # --------------------------------------------------------------------------------- #
@@ -844,7 +943,7 @@ def brief(root: Path, pack: str, object_id: str) -> str:
         mount="hangs on a wall (origin at the centre of its back)" if origin == "back"
               else "stands on the ground (origin at the centre of its base)",
         previews=root / PREVIEWS_DIR / pack / object_id, builds_per_builder=BUILDS_PER_BUILDER,
-        compare=evidence / f"{object_id}_compare.png",
+        compare=evidence / f"{object_id}_compare.png", blender_notes=root / BLENDER_NOTES,
     ).strip()
 
 
@@ -863,6 +962,8 @@ def report_problems(root: Path, pack: str, object_id: str) -> list[str]:
     else:
         if not build.get("final"):
             problems.append(f"build {build['build']} is not a final build: build once more with --final")
+        elif not (build.get("bake") or {}).get("baked"):
+            problems.append(f"build {build['build']} did not bake its textures (the final build bakes them)")
         cv = read_json(cv_report_path(root, pack, object_id))
         if cv is None or cv.get("build") != build["build"]:
             problems.append(f"build {build['build']} has no CV compare (cv.py compare)")
@@ -892,6 +993,52 @@ def done(root: Path, pack: str, object_id: str) -> dict:
     return entry["done"]
 
 
+def critic_brief(root: Path, pack: str, object_id: str) -> str:
+    """The instructions for the critic of the object's next review round."""
+    manifest = load(root, pack)
+    entry = find_object(manifest, object_id)
+    if "done" not in entry:
+        raise PackError(f"{object_id} is not done yet: the critic reviews a finished final build")
+    previous = entry.get("reviews", [])
+    number = len(previous) + 1
+    if number > CRITIC_ROUNDS:
+        raise PackError(f"{object_id} has had all {CRITIC_ROUNDS} review rounds; the user reviews it now")
+    evidence = evidence_dir(root, pack, object_id)
+    if previous:
+        last = review_path(root, pack, object_id, previous[-1]["round"])
+        earlier = (f"VERIFY FIRST: the previous review is {last}. For each of its Fixes, say whether the build "
+                   f"now shows it done (DONE / NOT DONE / PARTLY, with the view and box), in a section "
+                   f"`## Fixes checked` before the verdicts.")
+    else:
+        earlier = "This is the first review round."
+    text = Template((TEMPLATES / "critic_brief.md").read_text(encoding="utf-8"))
+    return text.substitute(
+        repo=root, pack=pack, id=object_id, name=entry["name"], style=manifest["style"],
+        references=_references_text(root, pack, manifest, entry), views=_views_text(entry),
+        notes=notes_path(root, pack, object_id), evidence=evidence, compare=evidence / f"{object_id}_compare.png",
+        turnaround=evidence / f"{object_id}_turnaround.png", review=review_path(root, pack, object_id, number),
+        round=number, rounds=CRITIC_ROUNDS, build=entry["done"]["build"], previous=earlier,
+    ).strip()
+
+
+def reviewed(root: Path, pack: str, object_id: str, route: str) -> dict:
+    """Record the route of the critic's review just written (``ACCEPT``, ``REFINE`` or ``REQUEST-INPUT``)."""
+    if route not in CRITIC_ROUTES:
+        raise PackError(f"the route must be one of {', '.join(CRITIC_ROUTES)}")
+    manifest = load(root, pack)
+    entry = find_object(manifest, object_id)
+    if "done" not in entry:
+        raise PackError(f"{object_id} is not done: there is no build to review")
+    number = len(entry.get("reviews", [])) + 1
+    path = review_path(root, pack, object_id, number)
+    if not path.exists():
+        raise PackError(f"the critic's review {path} does not exist yet")
+    record = {"round": number, "build": entry["done"]["build"], "route": route, "review": str(path), "at": _now()}
+    entry.setdefault("reviews", []).append(record)
+    save(root, manifest)
+    return record
+
+
 def accept(root: Path, pack: str, object_id: str) -> dict:
     """Record that the user accepted the object as it is now."""
     manifest = load(root, pack)
@@ -904,7 +1051,8 @@ def accept(root: Path, pack: str, object_id: str) -> dict:
 
 
 def reopen(root: Path, pack: str, object_id: str) -> dict:
-    """The user wants changes: the object goes back to its builder (done and accepted are cleared)."""
+    """The object goes back to a builder (the critic's REFINE or the user's changes): done and
+    accepted are cleared; the reviews stay, the next builder reads them."""
     manifest = load(root, pack)
     entry = find_object(manifest, object_id)
     entry.pop("done", None)
@@ -935,6 +1083,14 @@ def next_step(manifest: dict, entry: dict, godot: bool) -> str:
         return "canva"
     if "done" not in entry:
         return "build"
+    rounds = entry.get("reviews", [])
+    reviewed_now = bool(rounds) and rounds[-1]["build"] == entry["done"]["build"]
+    if not reviewed_now and len(rounds) < CRITIC_ROUNDS:
+        return "critic"
+    if reviewed_now and rounds[-1]["route"] == "REFINE" and len(rounds) < CRITIC_ROUNDS:
+        return "refine"
+    if reviewed_now and rounds[-1]["route"] == "REQUEST-INPUT":
+        return "ask"
     if "accepted" not in entry:
         return "review"
     if not godot:
@@ -942,8 +1098,8 @@ def next_step(manifest: dict, entry: dict, godot: bool) -> str:
     return "ok"
 
 
-STATUS_COLUMNS = ("reference", "views", "skills", "budget", "builds", "cv", "triangles", "size_m", "done", "godot",
-                  "active", "next")
+STATUS_COLUMNS = ("reference", "views", "skills", "budget", "builds", "cv", "triangles", "size_m", "done", "critic",
+                  "accepted", "godot", "active", "next")
 
 
 def status(root: Path, pack: str) -> list[dict]:
@@ -964,6 +1120,8 @@ def status(root: Path, pack: str) -> list[dict]:
             "triangles": build.get("report", {}).get("triangles", "-"),
             "size_m": "x".join(f"{value:g}" for value in build.get("report", {}).get("dimensions_m", [])) or "-",
             "done": "done" in entry,
+            "critic": (f"{entry['reviews'][-1]['round']}:{entry['reviews'][-1]['route']}" if entry.get("reviews") else "-"),
+            "accepted": "accepted" in entry,
             "godot": godot, "active": "-" if minutes is None else f"{minutes:g}m",
             "next": next_step(manifest, entry, godot),
         })
@@ -1080,7 +1238,7 @@ def _parser() -> argparse.ArgumentParser:
     command.add_argument("--mount", default="floor", choices=sorted(MOUNTS))
     command.add_argument("--reference", type=Path, nargs="+", help="skip canva: the object's reference image(s)")
     command.add_argument("--budget", type=int, help="triangle budget, only when the user gave one")
-    for name in ("prompt", "brief", "done", "accept", "reopen"):
+    for name in ("prompt", "brief", "done", "accept", "reopen", "critic-brief"):
         command = commands.add_parser(name)
         command.add_argument("pack")
         command.add_argument("id")
@@ -1126,7 +1284,12 @@ def _parser() -> argparse.ArgumentParser:
     command.add_argument("triangles", type=int)
     command.add_argument("--why", required=True)
     commands.add_parser("kit-api", help="print the kit's public functions with signatures and docstrings")
-    command = commands.add_parser("material-search", help="find textures on Poly Haven and ambientCG")
+    command = commands.add_parser("reviewed", help="record the route of the critic's review just written")
+    command.add_argument("pack")
+    command.add_argument("id")
+    command.add_argument("route", choices=CRITIC_ROUTES)
+    command = commands.add_parser("material-search",
+                                  help="find texture sets and materials on Poly Haven, ambientCG, cgbookcase and Blendkit")
     command.add_argument("words", nargs="+")
     command.add_argument("--previews", type=Path, help="folder to save the results' thumbnails in")
     command.add_argument("--limit", type=int, default=SEARCH_LIMIT, help="results per library")
@@ -1140,7 +1303,8 @@ def _parser() -> argparse.ArgumentParser:
     command.add_argument("pack")
     command = commands.add_parser("run-start", help="start a run: the pipeline is locked until run-end")
     command.add_argument("pack")
-    commands.add_parser("run-end", help="check the pipeline is unchanged and end the run")
+    command = commands.add_parser("run-end", help="check the pipeline is unchanged and end the run")
+    command.add_argument("pack", nargs="?", help="the run's pack (optional; checked when given)")
     command = commands.add_parser("status", help="show where each object stands")
     command.add_argument("pack")
     command = commands.add_parser("sheets", help="export page and file name per Canva image")
@@ -1187,7 +1351,11 @@ def main(argv: list[str] | None = None, root: Path = REPO_ROOT) -> int:
         elif args.command == "kit-api":
             print(kit_api(root), end="")
         elif args.command == "material-search":
-            print(json.dumps(material_search(args.words, args.previews, args.limit), indent=2))
+            print(json.dumps(material_search(args.words, args.previews, args.limit, root), indent=2))
+        elif args.command == "critic-brief":
+            print(critic_brief(root, args.pack, args.id))
+        elif args.command == "reviewed":
+            print(json.dumps(reviewed(root, args.pack, args.id, args.route), indent=2))
         elif args.command == "brief":
             print(brief(root, args.pack, args.id))
         elif args.command == "done":
@@ -1196,7 +1364,7 @@ def main(argv: list[str] | None = None, root: Path = REPO_ROOT) -> int:
             print(json.dumps(accept(root, args.pack, args.id), indent=2))
         elif args.command == "reopen":
             reopen(root, args.pack, args.id)
-            print(f"{args.id} reopened: start its builder with the user's words")
+            print(f"{args.id} reopened: start its builder with the critic's review or the user's words")
         elif args.command == "status":
             print("id".ljust(20) + "".join(column.ljust(10) for column in STATUS_COLUMNS))
             for row in status(root, args.pack):
@@ -1205,6 +1373,10 @@ def main(argv: list[str] | None = None, root: Path = REPO_ROOT) -> int:
             state = run_start(root, args.pack)
             print(json.dumps({key: state[key] for key in ("pack", "started")} | {"snapshot_files": state["snapshot"]["files"]}, indent=2))
         elif args.command == "run-end":
+            if args.pack:
+                lock = read_json(root / RUN_LOCK) or {}
+                if lock and lock.get("pack") != args.pack:
+                    raise PackError(f"the run in progress is of pack {lock.get('pack')}, not {args.pack}")
             state = run_end(root)
             print(json.dumps({key: state[key] for key in ("pack", "started", "check")}, indent=2))
         elif args.command == "export":

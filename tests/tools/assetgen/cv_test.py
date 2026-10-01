@@ -155,6 +155,32 @@ class CVTestCase(unittest.TestCase):
         self.assertLessEqual(cv.read_image(evidence / "thing_compare.png").shape[1], cv.SHEET_MAX_WIDTH)
         closeup = cv.closeup_command(self.root, "demo", "thing", 1, [0.0, 0.0, 0.5, 0.5], 2)
         self.assertIn("reference left, render right", closeup[0])
+        observed = cv.observe_command(self.root, "demo", "thing", 1, grid=2)
+        self.assertTrue(observed[0].startswith("OBSERVE view 1"))
+        self.assertTrue(any(line.startswith("OBSERVE 1 r1c1") for line in observed))
+        self.assertTrue((evidence / "thing_cv_observe_1.png").exists())
+        sampled = cv.sample_command(self.root, "demo", "thing", 1, [[0.1, 0.1, 0.9, 0.9]])
+        self.assertEqual([line.split(":")[0].rsplit(" ", 1)[1] for line in sampled], ["reference", "render"])
+        self.assertIn("lightness spread", sampled[0])
+
+    def test_region_stats_see_variation_and_texture(self) -> None:
+        flat = np.full((60, 60, 3), (40, 80, 140), np.uint8)
+        mask = np.ones((60, 60), np.uint8)
+        busy = np.random.default_rng(3).integers(0, 255, (60, 60, 3), dtype=np.uint8)
+        flat_stats, busy_stats = cv.region_stats(flat, mask), cv.region_stats(busy, mask)
+        self.assertLess(flat_stats["lightness_spread"], 0.01)
+        self.assertGreater(busy_stats["lightness_spread"], 0.1)
+        self.assertGreater(busy_stats["texture"], flat_stats["texture"])
+
+    def test_contact_sheet_lays_out_labelled_thumbnails(self) -> None:
+        paths = []
+        for index in range(3):
+            path = self.root / f"thumb_{index}.png"
+            cv2.imwrite(str(path), np.full((40, 60, 3), 60 * index, np.uint8))
+            paths.append(path)
+        out = cv.contact_sheet(paths + [self.root / "missing.png"], ["a", "b", "c", "d"], self.root / "sheet.png", per_row=2)
+        sheet = cv.read_image(out)
+        self.assertEqual(sheet.shape[0], 2 * (cv.CONTACT_CELL + 22 + 4))
 
 
 if __name__ == "__main__":

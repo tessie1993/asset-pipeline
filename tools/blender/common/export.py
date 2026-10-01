@@ -1,4 +1,4 @@
-"""glTF export for Godot: +Y up, modifiers applied, custom properties as glTF extras."""
+"""glTF export for Godot: +Y up, modifiers applied, tangents, custom properties as glTF extras."""
 from pathlib import Path
 
 import bpy
@@ -8,7 +8,8 @@ def export_glb(filepath: Path, selection: list[bpy.types.Object] | None = None,
                animations: bool = False) -> Path:
     """Export the scene (or ``selection``) to ``filepath`` as a .glb and return the path.
 
-    +Y up, modifiers applied, custom properties as glTF extras, animations only when requested.
+    +Y up, modifiers applied, tangents (so normal maps shade as baked), custom properties as glTF
+    extras, animations only when requested. No Draco or meshopt compression: Godot cannot import it.
     """
     filepath = Path(filepath)
     filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -22,6 +23,7 @@ def export_glb(filepath: Path, selection: list[bpy.types.Object] | None = None,
         use_selection=selection is not None,
         export_yup=True,
         export_apply=True,
+        export_tangents=True,
         export_extras=True,
         export_animations=animations,
         export_animation_mode="ACTIONS",

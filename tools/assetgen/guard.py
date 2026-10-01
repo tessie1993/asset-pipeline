@@ -13,6 +13,8 @@
   build); then it hands off through its notes and a fresh builder continues.
 - **No bias added to Canva**: a Canva image is generated only from the exact text
   ``pack.py prompt`` prints, with the source image as the only reference.
+- **The critic only looks**: an ``asset-critic`` agent never starts Blender and writes nothing but
+  its review file (``production/qa/evidence/<pack>/<id>/<id>_review_<n>.md``).
 
 The hook scripts in ``.claude/hooks/`` run it; during a run they run the copy in the snapshot, so
 editing this file cannot switch the checks off::
@@ -45,6 +47,9 @@ OUTPUT_ROOTS = (pack.PACKS_DIR, pack.GENERATORS_DIR, pack.MODELS_DIR, pack.EVIDE
 LOCKED_SCRATCH = (SNAPSHOT_DIR, QUARANTINE_DIR, pack.AGENTS_DIR, pack.RUN_LOCK)
 WRITE_TOOLS = ("Write", "Edit", "MultiEdit", "NotebookEdit")
 CANVA_GENERATE = "mcp__Canva__generate-image"
+CRITIC = "asset-critic"
+REVIEW_FILE = re.compile(r"^production/qa/evidence/([a-z][a-z0-9_]*)/([a-z][a-z0-9_]*)/\2_review_[0-9]+\.md$")
+RUNS_BLENDER = re.compile(r"(^|[\s;&|(/])blender(\s|$)")
 
 GIT_CHANGE = re.compile(r"\bgit\b(\s+-C\s+\S+)?(\s+-c\s+\S+)*\s+(commit|push|add|rm|mv|merge|rebase|reset|checkout|"
                         r"switch|restore|stash|cherry-pick|revert|apply|am|tag|pull|clean|update-index|"
@@ -459,6 +464,29 @@ def check_canva(root: Path, state: dict, args: dict) -> str | None:
     return None
 
 
+def _review_file(rel: str | None, pack_name: str) -> bool:
+    match = REVIEW_FILE.match(rel or "")
+    return bool(match) and match.group(1) == pack_name
+
+
+def check_critic(root: Path, state: dict, tool: str, args: dict, cwd: Path) -> str | None:
+    """The critic only looks: no Blender, no file but its review."""
+    only = (f"Refused: the critic only looks. It never starts Blender and writes nothing but its review file "
+            f"(production/qa/evidence/{state['pack']}/<id>/<id>_review_<n>.md); the CV tools it runs write their own images.")
+    if tool in WRITE_TOOLS:
+        path = args.get("file_path") or args.get("notebook_path") or ""
+        return None if _review_file(_rel(root, path), state["pack"]) else only
+    if tool == "Bash":
+        command = args.get("command", "")
+        if RUNS_BLENDER.search(HEREDOC.sub("", command)):
+            return only
+        for _, path in changed_paths(command, cwd):
+            rel = _rel(root, path)
+            if rel is not None and not _review_file(rel, state["pack"]) and not _inside(rel, ".scratch"):
+                return only
+    return None
+
+
 def pre(root: Path, data: dict) -> str | None:
     """The reason to refuse this tool call, or None to allow it."""
     state = run_state(root)
@@ -466,6 +494,10 @@ def pre(root: Path, data: dict) -> str | None:
         return None
     tool = data.get("tool_name", "")
     args = data.get("tool_input") or {}
+    if data.get("agent_type") == CRITIC:
+        reason = check_critic(root, state, tool, args, Path(data.get("cwd") or root))
+        if reason:
+            return reason
     if tool in WRITE_TOOLS:
         path = args.get("file_path") or args.get("notebook_path") or ""
         return check_write(root, state, path) if path else None

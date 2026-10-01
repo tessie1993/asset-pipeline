@@ -39,13 +39,16 @@ view 1 is the front
 ### Size and proportions
 0.4 m tall
 
-### Parts inventory
-| # | part | count | size (m) | position and orientation | shape and how to model it | modelled or texture | nuances |
-|---|---|---|---|---|---|---|---|
-| 1 | body | 1 | 0.4 | centre | lathe | modelled | none |
+### Close observation
+tile r2c2: fine scratches, a darker band at the base
 
-### Textures
-T1 flat
+### Parts inventory
+| # | part | count | size (m) | position and orientation | shape and how to model it | geometry detail | nuances |
+|---|---|---|---|---|---|---|---|
+| 1 | body | 1 | 0.4 | centre | lathe | bevelled rim | none |
+
+### Materials and shaders
+S1 painted metal, #806040 to #a08060, roughness 0.4 to 0.6, scratches
 
 ### Details and nuances
 seam at the back
@@ -304,8 +307,8 @@ class PackTestCase(unittest.TestCase):
         self.assertEqual(len(problems), len(pack.ANALYSIS_SECTIONS))
         self.assertIn("'### Parts inventory' has no rows", problems)
         self.assertEqual(pack.analysis_problems(FILLED_ANALYSIS), [])
-        gap = FILLED_ANALYSIS.replace("| 1 | body | 1 | 0.4 | centre | lathe | modelled | none |",
-                                      "| 1 | body | 1 | 0.4 | centre | lathe | modelled | |\n| 2 | nose | 1 |")
+        gap = FILLED_ANALYSIS.replace("| 1 | body | 1 | 0.4 | centre | lathe | bevelled rim | none |",
+                                      "| 1 | body | 1 | 0.4 | centre | lathe | bevelled rim | |\n| 2 | nose | 1 |")
         self.assertEqual(pack.analysis_problems(gap),
                          ["'### Parts inventory' rows 1, 2 leave cells empty: fill every column, the nuances too"])
         self.assertFalse(pack.has_cycle(FILLED_ANALYSIS, 1))
@@ -337,7 +340,7 @@ class PackTestCase(unittest.TestCase):
         with self.assertRaises(pack.PackError):
             pack.brief(self.root, "demo", "object_a")
 
-    def _finished_build(self, triangles: int = 800, final: bool = True) -> None:
+    def _finished_build(self, triangles: int = 800, final: bool = True, baked: bool = True) -> None:
         pack.generator_path(self.root, "demo", "object_a").parent.mkdir(parents=True, exist_ok=True)
         pack.generator_path(self.root, "demo", "object_a").write_text("# generator")
         pack.glb_path(self.root, "demo", "object_a").parent.mkdir(parents=True, exist_ok=True)
@@ -345,7 +348,8 @@ class PackTestCase(unittest.TestCase):
         evidence = pack.evidence_dir(self.root, "demo", "object_a")
         evidence.mkdir(parents=True, exist_ok=True)
         pack.build_report_path(self.root, "demo", "object_a").write_text(json.dumps(
-            {"build": 3, "final": final, "views": [], "report": {"triangles": triangles, "dimensions_m": [1, 1, 1]}}))
+            {"build": 3, "final": final, "views": [], "report": {"triangles": triangles, "dimensions_m": [1, 1, 1]},
+             "bake": {"baked": baked} if final else None}))
         pack.cv_report_path(self.root, "demo", "object_a").write_text(json.dumps({"build": 3}))
 
     def test_done_needs_the_final_build_its_cv_compare_the_report_and_the_budget(self) -> None:
@@ -358,6 +362,8 @@ class PackTestCase(unittest.TestCase):
         problems = pack.report_problems(self.root, "demo", "object_a")
         self.assertEqual(len(problems), 1)
         self.assertIn("not a final build", problems[0])
+        self._finished_build(triangles=800, baked=False)
+        self.assertIn("did not bake", " ".join(pack.report_problems(self.root, "demo", "object_a")))
         self._finished_build(triangles=1200)
         self.assertIn("over the budget", " ".join(pack.report_problems(self.root, "demo", "object_a")))
         self._finished_build(triangles=800)
@@ -378,15 +384,76 @@ class PackTestCase(unittest.TestCase):
         manifest = pack.load(self.root, "demo")
         pack.find_object(manifest, "object_a")["done"] = {"build": 2}
         pack.save(self.root, manifest)
+        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "critic")
+        with self.assertRaises(pack.PackError):  # the critic has not written its review yet
+            pack.reviewed(self.root, "demo", "object_a", "REFINE")
+        review = pack.review_path(self.root, "demo", "object_a", 1)
+        review.parent.mkdir(parents=True, exist_ok=True)
+        review.write_text("REFINE demo object_a\n## Verdicts\n")
+        pack.reviewed(self.root, "demo", "object_a", "REFINE")
+        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "refine")
+        self.assertEqual(pack.status(self.root, "demo")[0]["critic"], "1:REFINE")
+        pack.reopen(self.root, "demo", "object_a")
+        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "build")
+        manifest = pack.load(self.root, "demo")
+        pack.find_object(manifest, "object_a")["done"] = {"build": 4}
+        pack.save(self.root, manifest)
+        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "critic")  # a new build: round 2
+        pack.review_path(self.root, "demo", "object_a", 2).write_text("ACCEPT demo object_a\n")
+        pack.reviewed(self.root, "demo", "object_a", "ACCEPT")
         self.assertEqual(pack.status(self.root, "demo")[0]["next"], "review")
         pack.accept(self.root, "demo", "object_a")
         self.assertEqual(pack.status(self.root, "demo")[0]["next"], "godot")
         shot = pack.evidence_dir(self.root, "demo", "object_a") / "object_a_godot_1.png"
-        shot.parent.mkdir(parents=True)
+        shot.parent.mkdir(parents=True, exist_ok=True)
         shot.write_bytes(b"png")
         self.assertEqual(pack.status(self.root, "demo")[0]["next"], "ok")
         pack.reopen(self.root, "demo", "object_a")
         self.assertEqual(pack.status(self.root, "demo")[0]["next"], "build")
+
+    def test_critic_rounds_end_with_the_user_after_the_last_refine(self) -> None:
+        self._skip_pack()
+        for number in range(1, pack.CRITIC_ROUNDS + 1):
+            manifest = pack.load(self.root, "demo")
+            pack.find_object(manifest, "object_a")["done"] = {"build": number}
+            pack.save(self.root, manifest)
+            self.assertEqual(pack.status(self.root, "demo")[0]["next"], "critic")
+            review = pack.review_path(self.root, "demo", "object_a", number)
+            review.parent.mkdir(parents=True, exist_ok=True)
+            review.write_text("REFINE demo object_a\n")
+            pack.reviewed(self.root, "demo", "object_a", "REFINE")
+        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "review")
+        with self.assertRaises(pack.PackError):
+            pack.critic_brief(self.root, "demo", "object_a")
+
+    def test_critic_brief_names_the_review_file_and_the_previous_review(self) -> None:
+        self._skip_pack()
+        manifest = pack.load(self.root, "demo")
+        pack.find_object(manifest, "object_a")["done"] = {"build": 5}
+        pack.save(self.root, manifest)
+        text = pack.critic_brief(self.root, "demo", "object_a")
+        self.assertNotIn("$", text)
+        self.assertIn("object_a_review_1.md", text)
+        self.assertIn("first review round", text)
+        pack.review_path(self.root, "demo", "object_a", 1).parent.mkdir(parents=True, exist_ok=True)
+        pack.review_path(self.root, "demo", "object_a", 1).write_text("REFINE demo object_a\n")
+        pack.reviewed(self.root, "demo", "object_a", "REFINE")
+        manifest = pack.load(self.root, "demo")
+        pack.find_object(manifest, "object_a")["done"] = {"build": 7}
+        pack.save(self.root, manifest)
+        text = pack.critic_brief(self.root, "demo", "object_a")
+        self.assertIn("object_a_review_2.md", text)
+        self.assertIn("object_a_review_1.md", text)
+
+    def test_search_words_match_whole_words(self) -> None:
+        self.assertEqual(pack._matched("furniture wood table", ["fur"]), 0)
+        self.assertEqual(pack._matched("faux fur geometric", ["fur"]), 1)
+        self.assertEqual(pack._matched("old wooden planks", ["plank", "wood"]), 1)
+        rows = pack.rank_cgbookcase([{"title": "Brown Leather 01", "files": list(pack.CGBOOKCASE_FILES),
+                                       "tags": ["leather"], "releasedate": "2024-01-02"},
+                                      {"title": "Grass 02", "files": ["Base_Color"], "tags": ["leather"]}],
+                                     ["leather"])
+        self.assertEqual([row["ref"] for row in rows], ["cgbookcase:BrownLeather01"])
 
     # ----------------------------------------------------------------------- run, export, discard
 

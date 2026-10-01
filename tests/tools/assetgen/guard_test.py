@@ -222,5 +222,37 @@ class GuardTestCase(unittest.TestCase):
         self.assertEqual(json.loads(output.getvalue())["hookSpecificOutput"]["hookEventName"], "PostToolUse")
 
 
+class CriticGuardTestCase(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        (self.root / pack.RUN_LOCK).parent.mkdir(parents=True)
+        (self.root / pack.RUN_LOCK).write_text(json.dumps({"pack": "demo"}))
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def _call(self, tool: str, tool_input: dict, agent_type: str = "asset-critic") -> str | None:
+        return guard.pre(self.root, {"tool_name": tool, "tool_input": tool_input, "cwd": str(self.root),
+                                     "agent_type": agent_type, "agent_id": "critic-1"})
+
+    def test_the_critic_writes_only_its_review(self) -> None:
+        review = self.root / "production/qa/evidence/demo/thing/thing_review_1.md"
+        self.assertIsNone(self._call("Write", {"file_path": str(review)}))
+        notes = self.root / "production/qa/evidence/demo/thing/thing_notes.md"
+        self.assertIn("critic only looks", self._call("Write", {"file_path": str(notes)}))
+        other = self.root / "production/qa/evidence/other/thing/thing_review_1.md"
+        self.assertIn("critic only looks", self._call("Write", {"file_path": str(other)}))
+        self.assertIn("critic only looks", self._call("Bash", {"command": f"echo x > {notes}"}))
+        self.assertIsNone(self._call("Bash", {"command": f"cat > {review} <<'EOF'\nACCEPT demo thing\nEOF"}))
+
+    def test_the_critic_never_starts_blender(self) -> None:
+        command = "blender -b --factory-startup --python tools/blender/assetgen/packs/demo/thing.py"
+        self.assertIn("critic only looks", self._call("Bash", {"command": command}))
+        self.assertIn("critic only looks", self._call("Bash", {"command": "cd /tmp && /usr/local/bin/blender --version"}))
+        self.assertIsNone(self._call("Bash", {"command": "python3 tools/assetgen/cv.py closeup demo thing --view 1 --box 0 0 1 1"}))
+        self.assertIsNone(self._call("Bash", {"command": "grep blender notes.md"}, agent_type="asset-builder"))
+
+
 if __name__ == "__main__":
     unittest.main()
