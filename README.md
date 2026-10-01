@@ -52,7 +52,7 @@ nokepom's later pull requests (the `blender-image-to-3d` skill, the fresh-contex
 |---|---|---|
 | `assetgen-guard.sh pre` | before Bash, Write, Edit and the Google Flow tools, during a run | Refuses changes outside the run pack's folders, git changes, a Blender build before the builder's set-up is complete or before the last build's CV compare is written up, a builder's build past its context budget (it hands off), a critic starting Blender or writing anything but its review, any Flow set-up that is not exactly `pack.py flow-call` (no bias added; your image the only reference), and Flow generating on its own (only your click spends credits) |
 | `assetgen-guard.sh post` | after Bash, Write, Edit, during a run | Restores any pipeline file that changed anyway from the run-start snapshot, moves stray files to `.scratch/assetgen/quarantine/`, and after a build points the builder at its CV compare |
-| `install-tools.sh` | session start (cloud) | Installs Blender 5.2.2 with its add-ons, Instant Meshes and xatlas, Godot 4.7.2, the CV libraries and ImageSorcery in the background |
+| `install-tools.sh` | session start (cloud) | Installs Blender 5.2.2 with its add-ons, Instant Meshes and xatlas, Godot 4.7.2, the CV libraries and ImageSorcery in the background, then the BlendKit add-on into Blender |
 
 The guard logic is `tools/assetgen/guard.py`; during a run the hooks run its snapshot copy, so
 editing the pipeline cannot switch them off. They do nothing outside a run.
@@ -79,6 +79,7 @@ editing the pipeline cannot switch them off. They do nothing outside a run.
 | `.claude/skills/blender-image-to-3d/`, `.claude/skills/scenario-blender-*/` | The Blender skills builders use (method, sculpting, hard surface, texturing, UVs and baking, retopology, geometry nodes, hair, expert notes) |
 | `.claude/skills/` (the other 16) | Skills from nokepom's pipeline (camera videos, product shots, Meshy AI image-to-3D, Blender GUI tools): `disable-model-invocation: true`, so they run only when you call them, and builders never see them |
 | `plugins/imagesorcery/` | ImageSorcery MCP, installed apart in its own `.venv` (git-ignored) and registered as `imagesorcery`: image tools (crop, resize, find, detect, ocr) builders may call on copies of the reference views |
+| `plugins/blendkit/` | The BlendKit add-on (`install.sh`, into the headless Blender's `user_default` extensions); `login.py`, which logs it in to your BlendKit account (you log in on blendkit.com in your own browser and paste back the address it ends on); `headless.py`, which a `blender -b` script uses to enable it with that login and search, download (as your account, through its BlendKit-Client) and append materials and models. Tokens, downloads and the client stay in `.data/` (git-ignored) |
 | `tools/assetgen/pack.py` | The pack manifest and every bookkeeping step (`pack.py --help`) |
 | `tools/assetgen/cv.py` | CV tools: `views`, `grid`, `measure`, `observe`, `sample`, `compare`, `closeup` |
 | `tools/assetgen/guard.py` | The hooks' logic |
@@ -103,6 +104,8 @@ bash tools/assetgen/install_cv.sh            # OpenCV and NumPy, pinned, into .s
 bash tools/blender/install_blender.sh        # Linux x64: Blender, add-ons, Instant Meshes, xatlas
 bash tools/godot/install_godot.sh
 bash plugins/imagesorcery/install.sh         # ImageSorcery MCP in plugins/imagesorcery/.venv, registered
+bash plugins/blendkit/install.sh             # BlendKit add-on in Blender (after install_blender.sh)
+python3 plugins/blendkit/login.py start      # optional: log BlendKit in to your account
 python3 -m unittest discover -s tests/tools/assetgen -p "*_test.py"
 ```
 
@@ -129,6 +132,9 @@ its `config/flow.config.json` and start a new Claude Code session.
   YOLOE models (AGPL-3.0) and MobileCLIP; telemetry is switched off. Its detectors were trained
   mostly on photographs: on drawn references they miss and misname things, so the pipeline never
   feeds their output into a build on its own.
+- The BlendKit add-on is BlenderKit/Blendkit 3.21.2 (GPL-2.0-or-later), the release
+  blendkit.com/get-blendkit serves, with its BlendKit-Client binary. `login.py` repeats the add-on's own
+  OAuth login (same client id, PKCE and token requests) because the headless Blender has no browser.
 - Textures and materials come from Poly Haven, ambientCG and cgbookcase (CC0) and Blendkit (free
   CC0 materials only), downloaded while building; Instant Meshes (BSD-3) and xatlas (MIT) are
   installed by `install_blender.sh`.

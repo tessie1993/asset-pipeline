@@ -239,6 +239,15 @@ class GuardTestCase(unittest.TestCase):
             self.assertEqual(guard.main(["post", "--root", str(self.root)]), 0)
         self.assertEqual(json.loads(output.getvalue())["hookSpecificOutput"]["hookEventName"], "PostToolUse")
 
+    def test_plugins_data_such_as_a_login_is_never_snapshotted(self):
+        plugin = self.root / "plugins" / "blendkit"
+        (plugin / ".data" / "config").mkdir(parents=True)
+        (plugin / ".data" / "config" / "preferences.json").write_text('{"api_key": "secret"}')
+        (plugin / "login.py").write_text("# plugin file\n")
+        files = list(guard._walk(self.root, self.root))
+        self.assertIn("plugins/blendkit/login.py", files)
+        self.assertFalse(any("/.data/" in rel for rel in files))
+
 
 class CriticGuardTestCase(unittest.TestCase):
     def setUp(self) -> None:
