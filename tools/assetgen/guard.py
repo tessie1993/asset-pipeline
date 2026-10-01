@@ -45,8 +45,8 @@ import pack  # noqa: E402
 SNAPSHOT_DIR = Path(".scratch/assetgen/snapshot")
 QUARANTINE_DIR = Path(".scratch/assetgen/quarantine")
 # Never part of the pipeline snapshot, never strays: version control, run scratch, Godot's cache,
-# plugins' own environments (plugins/<name>/.venv).
-EXCLUDED_DIRS = {".git", ".scratch", ".godot", "__pycache__", ".venv"}
+# plugins' own environments and data, such as the BlendKit login (plugins/<name>/.venv, .data).
+EXCLUDED_DIRS = {".git", ".scratch", ".godot", "__pycache__", ".venv", ".data"}
 OUTPUT_ROOTS = (pack.PACKS_DIR, pack.GENERATORS_DIR, pack.MODELS_DIR, pack.EVIDENCE_DIR)
 # Run state in .scratch that only pack.py and this module write.
 LOCKED_SCRATCH = (SNAPSHOT_DIR, QUARANTINE_DIR, pack.AGENTS_DIR, pack.RUN_LOCK)
