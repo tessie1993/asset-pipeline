@@ -108,22 +108,22 @@ class LoginTestCase(unittest.TestCase):
 
     def test_finish_refuses_another_login_s_address_or_one_without_a_code(self):
         login.start()
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(login.LoginError):
             login.finish(f"{REDIRECT}?code=the-code&state=someone-elses")
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(login.LoginError):
             login.finish("http://localhost:62485/consumer/exchange/")
         self.assertEqual(self.requests, [])
         self.assertFalse(login.PREFERENCES.exists())
 
     def test_finish_without_a_login_in_progress_refuses(self):
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(login.LoginError):
             login.finish(f"{REDIRECT}?code=the-code&state=any")
 
     def test_a_failed_token_request_stores_nothing(self):
         login.start()
         state = json.loads(login.PENDING.read_text())["state"]
         self.answers["/o/token/"] = (400, {"error": "invalid_grant"})
-        with self.assertRaises(SystemExit):
+        with self.assertRaises(login.LoginError):
             login.finish(f"{REDIRECT}?code=expired&state={state}")
         self.assertFalse(login.PREFERENCES.exists())
         self.assertTrue(login.PENDING.exists())  # the same link can be opened again
@@ -143,7 +143,7 @@ class LoginTestCase(unittest.TestCase):
         self.assertEqual(json.loads(login.PREFERENCES.read_text())["api_key_refresh"], "refresh-2")
 
     def test_api_key_without_a_login_says_how_to_log_in(self):
-        with self.assertRaisesRegex(RuntimeError, "login.py start"):
+        with self.assertRaisesRegex(login.LoginError, "login.py start"):
             login.api_key()
 
     def test_status_names_the_account_by_id_when_it_has_no_username(self):

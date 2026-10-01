@@ -92,8 +92,9 @@ on the reference).
 python3 tools/assetgen/pack.py material-search <words describing the surface> --previews <folder>
 ```
 
-It searches Poly Haven, ambientCG, cgbookcase and Blendkit (free CC0 materials only: full Blender
-node materials, often procedural) and lays the thumbnails out in one `sheet.png`. In a generator:
+It searches Poly Haven, ambientCG, cgbookcase and Blendkit (full Blender node materials, often
+procedural: free CC0 ones, and free royalty-free ones too when the BlendKit login is in use,
+`plugins/blendkit/login.py`; each row gives its licence) and lays the thumbnails out in one `sheet.png`. In a generator:
 
 - `kit.material("<ref>", tile=<repeats per metre>, tint="#rrggbb", roughness=..., normal_strength=...,
   mapping="uv" | "triplanar", relief=<m>)`: a texture set on the part's UVs (world-space box UVs in

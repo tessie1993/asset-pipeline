@@ -20,12 +20,14 @@ verifier ``start`` kept here.
 The tokens go where the add-on keeps them, ``.data/config/preferences.json`` (``api_key``,
 ``api_key_refresh``, ``api_key_timeout``), git-ignored and readable only by this user. Headless
 scripts get a current access token from :func:`api_key`, which refreshes it when it is about to
-expire, as the add-on does.
+expire, as the add-on does (one process at a time: builders may run in parallel). Failures raise
+:class:`LoginError`.
 """
 
 from __future__ import annotations
 
 import base64
+import fcntl
 import glob
 import hashlib
 import json
@@ -43,6 +45,7 @@ HERE = Path(__file__).resolve().parent
 DATA_DIR = HERE / ".data"
 PREFERENCES = DATA_DIR / "config" / "preferences.json"
 PENDING = DATA_DIR / "login-pending.json"
+REFRESH_LOCK = DATA_DIR / ".refresh.lock"
 SERVER = os.environ.get("BLENDERKIT_SERVER", "https://www.blendkit.com")
 # blendkit.com's Cloudflare refuses Python's default User-Agent (error 1010).
 USER_AGENT = "asset-pipeline BlendKit login"
@@ -50,19 +53,23 @@ REFRESH_RESERVE = 3600  # seconds before expiry the token is refreshed (as the a
 PENDING_MAX_AGE = 3600
 
 
+class LoginError(RuntimeError):
+    """Logging in or refreshing failed; the message says what to do."""
+
+
 def _addon_dir() -> Path:
     """The installed add-on (plugins/blendkit/install.sh puts it in Blender's user_default repository)."""
     config = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
     found = sorted(glob.glob(f"{config}/blender/*/extensions/user_default/blenderkit/bkit_oauth.py"))
     if not found:
-        sys.exit("BlendKit is not installed: run bash plugins/blendkit/install.sh")
+        raise LoginError("BlendKit is not installed: run bash plugins/blendkit/install.sh")
     return Path(found[-1]).parent
 
 
 def _addon_value(file_name: str, pattern: str) -> str:
     match = re.search(pattern, (_addon_dir() / file_name).read_text(encoding="utf-8"))
     if not match:
-        sys.exit(f"Cannot read {pattern!r} from the add-on's {file_name}: the add-on changed")
+        raise LoginError(f"Cannot read {pattern!r} from the add-on's {file_name}: the add-on changed")
     return match.group(1)
 
 
@@ -139,15 +146,15 @@ def finish(redirected_to: str) -> str:
     """Exchange the code in the address the browser ended on for tokens and store them."""
     pending = _read(PENDING)
     if not pending or time.time() - pending.get("created", 0) > PENDING_MAX_AGE:
-        sys.exit("No login in progress (or it is over an hour old): run login.py start again")
+        raise LoginError("No login in progress (or it is over an hour old): run login.py start again")
     query = urllib.parse.parse_qs(urllib.parse.urlparse(redirected_to.strip()).query)
     code, state = query.get("code", [""])[0], query.get("state", [""])[0]
     if query.get("error"):
-        sys.exit(f"blendkit.com refused the login: {query['error'][0]}")
+        raise LoginError(f"blendkit.com refused the login: {query['error'][0]}")
     if not code or not state:
-        sys.exit("That address has no code and state: copy the whole address the browser ended on")
+        raise LoginError("That address has no code and state: copy the whole address the browser ended on")
     if not secrets.compare_digest(state, pending["state"]):
-        sys.exit("That address belongs to another login attempt: open the newest link")
+        raise LoginError("That address belongs to another login attempt: open the newest link")
     status, tokens = _request(
         "/o/token/",
         {
@@ -160,7 +167,7 @@ def finish(redirected_to: str) -> str:
         },
     )
     if status != 200 or "access_token" not in tokens:
-        sys.exit(
+        raise LoginError(
             f"Token request failed ({status}: {tokens.get('error', tokens)}). The code lasts about a "
             "minute: open the same link again, log in and send the new address straight away"
         )
@@ -170,33 +177,38 @@ def finish(redirected_to: str) -> str:
 
 
 def refresh(force: bool = False) -> None:
-    """Refresh the access token with the refresh token when it is about to expire (or ``force``)."""
-    preferences = _read(PREFERENCES)
-    if not preferences.get("api_key_refresh"):
+    """Refresh the access token with the refresh token when it is about to expire (or ``force``).
+    The server replaces the refresh token on every refresh, so one process refreshes at a time and
+    the others then read its new tokens."""
+    if not _read(PREFERENCES).get("api_key_refresh"):
         return
-    if not force and time.time() + REFRESH_RESERVE < preferences.get("api_key_timeout", 0):
-        return
-    status, tokens = _request(
-        "/o/token/",
-        {
-            "grant_type": "refresh_token",
-            "refresh_token": preferences["api_key_refresh"],
-            "client_id": _client_id(),
-            "scopes": "read write",
-            "redirect_uri": _redirect_uri(),
-        },
-    )
-    if status != 200 or "access_token" not in tokens:
-        raise RuntimeError(
-            f"BlendKit token refresh failed ({status}): log in again with python3 plugins/blendkit/login.py start"
+    REFRESH_LOCK.parent.mkdir(parents=True, exist_ok=True)
+    with open(REFRESH_LOCK, "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        preferences = _read(PREFERENCES)
+        if not force and time.time() + REFRESH_RESERVE < preferences.get("api_key_timeout", 0):
+            return
+        status, tokens = _request(
+            "/o/token/",
+            {
+                "grant_type": "refresh_token",
+                "refresh_token": preferences["api_key_refresh"],
+                "client_id": _client_id(),
+                "scopes": "read write",
+                "redirect_uri": _redirect_uri(),
+            },
         )
-    _save_tokens(tokens)
+        if status != 200 or "access_token" not in tokens:
+            raise LoginError(
+                f"BlendKit token refresh failed ({status}): log in again with python3 plugins/blendkit/login.py start"
+            )
+        _save_tokens(tokens)
 
 
 def api_key() -> str:
     """A current access token for the add-on's ``api_key`` preference; refreshed when needed."""
     if not _read(PREFERENCES).get("api_key"):
-        raise RuntimeError("BlendKit is not logged in: python3 plugins/blendkit/login.py start")
+        raise LoginError("BlendKit is not logged in: python3 plugins/blendkit/login.py start")
     refresh()
     return _read(PREFERENCES)["api_key"]
 
@@ -235,16 +247,19 @@ def logout() -> str:
 
 def main(argv: list[str]) -> None:
     command = argv[1] if len(argv) > 1 else ""
-    if command == "start":
-        print(start())
-    elif command == "finish" and len(argv) == 3:
-        print(finish(argv[2]))
-    elif command == "status":
-        print(status_line())
-    elif command == "logout":
-        print(logout())
-    else:
-        sys.exit(__doc__)
+    try:
+        if command == "start":
+            print(start())
+        elif command == "finish" and len(argv) == 3:
+            print(finish(argv[2]))
+        elif command == "status":
+            print(status_line())
+        elif command == "logout":
+            print(logout())
+        else:
+            sys.exit(__doc__)
+    except LoginError as error:
+        sys.exit(str(error))
 
 
 if __name__ == "__main__":
