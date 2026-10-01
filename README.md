@@ -79,13 +79,13 @@ editing the pipeline cannot switch them off. They do nothing outside a run.
 | `.claude/skills/blender-image-to-3d/`, `.claude/skills/scenario-blender-*/` | The Blender skills builders use (method, sculpting, hard surface, texturing, UVs and baking, retopology, geometry nodes, hair, expert notes) |
 | `.claude/skills/` (the other 16) | Skills from nokepom's pipeline (camera videos, product shots, Meshy AI image-to-3D, Blender GUI tools): `disable-model-invocation: true`, so they run only when you call them, and builders never see them |
 | `plugins/imagesorcery/` | ImageSorcery MCP, installed apart in its own `.venv` (git-ignored) and registered as `imagesorcery`: image tools (crop, resize, find, detect, ocr) builders may call on copies of the reference views |
-| `plugins/blendkit/` | The BlendKit add-on (`install.sh`, into the headless Blender's `user_default` extensions); `login.py`, which logs it in to your BlendKit account (you log in on blendkit.com in your own browser and paste back the address it ends on); `headless.py`, which a `blender -b` script uses to enable it with that login and search, download (as your account, through its BlendKit-Client) and append materials and models. Tokens, downloads and the client stay in `.data/` (git-ignored) |
+| `plugins/blendkit/` | The BlendKit add-on (`install.sh`, into the headless Blender's `user_default` extensions); `login.py`, which logs it in to your BlendKit account (you log in on blendkit.com in your own browser and paste back the address it ends on); `headless.py`, which a `blender -b` script uses to enable it with that login and search, download (as your account, through its BlendKit-Client) and append materials and models. Once logged in, `material-search` and `kit.material` search and download Blendkit materials as your account. Tokens, downloads and the client stay in `.data/` (git-ignored) |
 | `tools/assetgen/pack.py` | The pack manifest and every bookkeeping step (`pack.py --help`) |
 | `tools/assetgen/cv.py` | CV tools: `views`, `grid`, `measure`, `observe`, `sample`, `compare`, `closeup` |
 | `tools/assetgen/guard.py` | The hooks' logic |
 | `tools/assetgen/templates/` | Flow theme and shot prompts, builder brief, builder notes, critic brief |
 | `tools/flow/install_flow_mcp.sh` | Installs the Google Flow MCP server (pinned) and registers it as `google-flow` |
-| `tools/assetgen/downloads.py` | Cached, size-checked downloads (textures, HDRIs, thumbnails, Blendkit) |
+| `tools/assetgen/downloads.py` | Cached, size-checked downloads (textures, HDRIs, thumbnails, Blendkit, as your BlendKit account when logged in) |
 | `tools/blender/assetgen/kit.py`, `README.md` | The builders' Blender kit and its contract |
 | `tools/blender/assetgen/bake.py`, `checks.py` | The bake into glTF textures; the structure checks |
 | `tools/blender/assetgen/blender-5.2-notes.md` | The Blender 5.2 names memory gets wrong, and what reaches Godot |
@@ -135,8 +135,10 @@ its `config/flow.config.json` and start a new Claude Code session.
 - The BlendKit add-on is BlenderKit/Blendkit 3.21.2 (GPL-2.0-or-later), the release
   blendkit.com/get-blendkit serves, with its BlendKit-Client binary. `login.py` repeats the add-on's own
   OAuth login (same client id, PKCE and token requests) because the headless Blender has no browser.
-- Textures and materials come from Poly Haven, ambientCG and cgbookcase (CC0) and Blendkit (free
-  CC0 materials only), downloaded while building; Instant Meshes (BSD-3) and xatlas (MIT) are
-  installed by `install_blender.sh`.
+- Textures and materials come from Poly Haven, ambientCG and cgbookcase (CC0) and Blendkit,
+  downloaded while building. Blendkit gives free CC0 materials, and with the BlendKit login free
+  royalty-free ones too: those may be used in your own products but not resold or shared as assets
+  (in an asset pack, say), so check the licence `material-search` shows before a model with one
+  leaves your project. Instant Meshes (BSD-3) and xatlas (MIT) are installed by `install_blender.sh`.
 - This repository has no `LICENSE` of its own yet; nokepom's is MIT, © 2026 Donchitos, which may
   not be the holder you want here, so pick one deliberately.

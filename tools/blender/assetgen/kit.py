@@ -340,7 +340,8 @@ def material(ref: str, *, tile: float, tint: str | None = None, roughness: float
              normal_strength: float = 1.0, mapping: str = "uv", relief: float = 0.01,
              name: str | None = None) -> bpy.types.Material:
     """PBR material from the texture set ``ref``: ``"polyhaven:<id>"``, ``"ambientcg:<id>"``,
-    ``"cgbookcase:<name>"`` or ``"blendkit:<asset base id>"`` (free CC0 only), found with
+    ``"cgbookcase:<name>"`` or ``"blendkit:<asset base id>"`` (free; CC0, or royalty-free with the
+    BlendKit login), found with
     ``tools/assetgen/pack.py material-search``.
 
     ``tile`` is repeats per metre (1 / the texture's real-world size keeps it at its true scale).
@@ -487,7 +488,7 @@ def _ambientcg_material(mat_name: str, asset_id: str) -> bpy.types.Material:
 
 
 def _blendkit_material(mat_name: str, asset_base_id: str) -> bpy.types.Material:
-    """A free CC0 Blendkit material, appended from its .blend (a full Blender node material,
+    """A free Blendkit material (CC0, or royalty-free with the BlendKit login), appended from its .blend (a full Blender node material,
     often procedural; its images are packed in the file) and renamed ``mat_name``."""
     with _download_lock("blendkit", asset_base_id):
         asset = fetch.blendkit_asset(asset_base_id)

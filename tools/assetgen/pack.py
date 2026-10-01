@@ -645,12 +645,14 @@ def rank_cgbookcase(catalog: list, words: list[str]) -> list[dict]:
 
 
 def blendkit_rows(results: list[dict]) -> list[dict]:
-    """Rows for Blendkit's free CC0 materials (Blender node materials, often procedural)."""
+    """Rows for Blendkit's free materials (Blender node materials, often procedural), with their
+    licence: CC0, or royalty-free when the BlendKit login is in use."""
     rows = []
     for asset in results:
         parameters = asset.get("dictParameters") or {}
         rows.append({"ref": f"blendkit:{asset['assetBaseId']}", "name": asset.get("name", ""),
-                     "size_m": parameters.get("textureSizeMeters"), "procedural": parameters.get("procedural"),
+                     "licence": asset.get("license"), "size_m": parameters.get("textureSizeMeters"),
+                     "procedural": parameters.get("procedural"),
                      "thumbnail": asset.get("thumbnailMiddleUrl") or asset.get("thumbnailSmallUrl")})
     return rows
 
@@ -669,7 +671,7 @@ def _catalog(root: Path, name: str, url: str):
 def material_search(words: list[str], previews: Path | None = None, limit: int = SEARCH_LIMIT,
                     root: Path = REPO_ROOT) -> dict[str, list[dict]]:
     """Texture sets and materials for ``words`` from Poly Haven, ambientCG, cgbookcase and Blendkit
-    (free CC0 only). With ``previews``, their thumbnails are saved there and, when the CV
+    (free CC0, plus royalty-free ones when the BlendKit login is in use: see each row's licence). With ``previews``, their thumbnails are saved there and, when the CV
     libraries are installed, laid out in one labelled ``sheet.png`` to look at before choosing."""
     found = {}
     errors = {}

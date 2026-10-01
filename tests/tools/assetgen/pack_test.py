@@ -544,6 +544,16 @@ class PackTestCase(unittest.TestCase):
         self.assertEqual([row["ref"] for row in rows], ["ambientcg:IdB", "ambientcg:IdA"])
         self.assertEqual((rows[0]["thumbnail"], rows[1]["thumbnail"]), ("ub", None))
 
+    def test_blendkit_rows_show_each_material_s_licence(self) -> None:
+        rows = pack.blendkit_rows([
+            {"assetBaseId": "b1", "name": "One", "license": "royalty_free", "thumbnailMiddleUrl": "t1",
+             "dictParameters": {"textureSizeMeters": 2.0, "procedural": True}},
+            {"assetBaseId": "b2", "name": "Two", "license": "cc_zero"},
+        ])
+        self.assertEqual([(row["ref"], row["licence"]) for row in rows],
+                         [("blendkit:b1", "royalty_free"), ("blendkit:b2", "cc_zero")])
+        self.assertEqual((rows[0]["size_m"], rows[0]["thumbnail"]), (2.0, "t1"))
+
 
 if __name__ == "__main__":
     unittest.main()

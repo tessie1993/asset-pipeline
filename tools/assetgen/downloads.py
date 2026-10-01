@@ -1,5 +1,5 @@
 """HTTP helpers for the asset pipeline: JSON lookups, size-checked downloads with retries, and
-the Blendkit material library.
+the Blendkit material library (through the BlendKit login, plugins/blendkit/login.py, when there is one).
 
 Downloads (texture sets, HDRIs, thumbnails) go to a cache **outside the repository**, so a pack's
 working files never carry library downloads. ``ASSETGEN_CACHE`` overrides the cache folder
@@ -8,6 +8,7 @@ working files never carry library downloads. ``ASSETGEN_CACHE`` overrides the ca
 from __future__ import annotations
 
 import http.client
+import importlib.util
 import json
 import os
 import time
@@ -33,14 +34,17 @@ class FetchError(RuntimeError):
     """A lookup or download failed; the message says which and why."""
 
 
-def _request(url: str) -> urllib.request.Request:
-    return urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+def _request(url: str, token: str = "") -> urllib.request.Request:
+    headers = {"User-Agent": USER_AGENT}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return urllib.request.Request(url, headers=headers)
 
 
-def get_json(url: str) -> Any:
-    """The parsed JSON document served at ``url``."""
+def get_json(url: str, token: str = "") -> Any:
+    """The parsed JSON document served at ``url`` (sent with the bearer ``token`` when given)."""
     try:
-        with urllib.request.urlopen(_request(url), timeout=REQUEST_TIMEOUT_S) as response:
+        with urllib.request.urlopen(_request(url, token), timeout=REQUEST_TIMEOUT_S) as response:
             return json.load(response)
     except (OSError, http.client.HTTPException, json.JSONDecodeError) as error:
         raise FetchError(f"GET {url} failed: {error}") from error
@@ -96,30 +100,65 @@ def asset_cache_dir(cache: Path, source: str, asset_id: str) -> Path:
 
 
 # --------------------------------------------------------------------------------- #
-# Blendkit (formerly BlenderKit): free CC0 Blender materials, no login needed
+# Blendkit (formerly BlenderKit): Blender node materials, searched and downloaded as the BlendKit
+# account when plugins/blendkit/login.py has logged in (free materials that account may download,
+# CC0 or royalty-free), anonymously otherwise (free CC0 only).
 # --------------------------------------------------------------------------------- #
 
-BLENDKIT_API = "https://www.blenderkit.com/api/v1"
-BLENDKIT_LICENCE = "cc_zero"  # only CC0: the royalty-free licence forbids reselling assets in a pack
+BLENDKIT_API = "https://www.blendkit.com/api/v1"
+BLENDKIT_CC0 = "cc_zero"
+# Royalty-free: use in your own products, but not resold or shared as assets (in an asset pack, say).
+BLENDKIT_ROYALTY_FREE = "royalty_free"
 BLENDKIT_RESOLUTIONS = ("resolution_2K", "resolution_1K", "blend")  # preferred file, best first
+BLENDKIT_LOGIN = Path(__file__).resolve().parents[2] / "plugins" / "blendkit" / "login.py"
+
+
+def blendkit_token(login_path: Path = BLENDKIT_LOGIN) -> str:
+    """The BlendKit login's access token (refreshed when near expiry), "" when nobody logged in."""
+    if not login_path.exists():
+        return ""
+    spec = importlib.util.spec_from_file_location("blendkit_login", login_path)
+    login = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(login)
+    if not login._read(login.PREFERENCES).get("api_key"):
+        return ""
+    try:
+        return login.api_key()
+    except (login.LoginError, OSError) as error:
+        raise FetchError(f"Blendkit login: {error}") from error
+
+
+def blendkit_licences(token: str) -> tuple[str, ...]:
+    """The licences a material may have to be used: royalty-free too when logged in."""
+    return (BLENDKIT_CC0, BLENDKIT_ROYALTY_FREE) if token else (BLENDKIT_CC0,)
 
 
 def blendkit_search(words: list[str], limit: int) -> list[dict]:
-    """Free CC0 Blendkit materials matching ``words``, best match first."""
+    """Free Blendkit materials matching ``words`` that may be used (:func:`blendkit_licences`) and
+    downloaded, best match first."""
+    token = blendkit_token()
     query = "+".join(urllib.parse.quote(word) for word in words)
-    url = (f"{BLENDKIT_API}/search/?query={query}+asset_type:material+is_free:true+license:{BLENDKIT_LICENCE}"
+    only_cc0 = "" if token else f"+license:{BLENDKIT_CC0}"
+    url = (f"{BLENDKIT_API}/search/?query={query}+asset_type:material+is_free:true{only_cc0}"
            f"&page_size={limit}&dict_parameters=1")
-    return get_json(url).get("results", [])
+    licences = blendkit_licences(token)
+    return [asset for asset in get_json(url, token).get("results", [])
+            if asset.get("license") in licences and asset.get("canDownload", True)]
 
 
 def blendkit_asset(asset_base_id: str) -> dict:
     """The Blendkit search record of one material (by its asset base id)."""
-    results = get_json(f"{BLENDKIT_API}/search/?query=asset_base_id:{asset_base_id}&dict_parameters=1").get("results", [])
+    token = blendkit_token()
+    results = get_json(f"{BLENDKIT_API}/search/?query=asset_base_id:{asset_base_id}&dict_parameters=1",
+                       token).get("results", [])
     if not results:
         raise FetchError(f"Blendkit has no material {asset_base_id}")
     asset = results[0]
-    if asset.get("license") != BLENDKIT_LICENCE or not asset.get("isFree"):
-        raise FetchError(f"Blendkit material {asset_base_id} is not free CC0 ({asset.get('license')})")
+    licences = blendkit_licences(token)
+    if asset.get("license") not in licences or not asset.get("isFree"):
+        login = "" if token else " (log in with python3 plugins/blendkit/login.py start for royalty-free ones)"
+        raise FetchError(f"Blendkit material {asset_base_id} is not free {' or '.join(licences)} "
+                         f"({asset.get('license')}){login}")
     return asset
 
 
@@ -133,5 +172,5 @@ def blendkit_download(asset: dict, cache: Path = DEFAULT_CACHE) -> Path:
     if target.exists():
         return target
     # The download endpoint answers with a signed URL for this "scene"; any uuid will do.
-    signed = get_json(f"{files[kind]['downloadUrl']}?scene_uuid={uuid.uuid4()}")["filePath"]
+    signed = get_json(f"{files[kind]['downloadUrl']}?scene_uuid={uuid.uuid4()}", blendkit_token())["filePath"]
     return download(signed, target, files[kind].get("fileUploadSize") if kind == "blend" else None)
