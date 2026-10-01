@@ -4,7 +4,7 @@
 # A hook cannot call Canva itself (Canva is reached only through Claude's MCP tools), so when a
 # Canva image-generation result names a new media id, this tells Claude to run Canva's
 # remove-background on it next. In an image-to-assets run, `pack.py sheets` also refuses to
-# download a sheet until its cutout (or the reason removal failed) is recorded.
+# download an image until its cutout (or the reason removal failed) is recorded.
 # Always exits 0; the instruction goes back to Claude as additional context.
 
 if ! command -v python3 >/dev/null 2>&1; then
@@ -18,7 +18,7 @@ import os
 import re
 
 data = json.loads(os.environ.get("HOOK_INPUT") or "{}")
-text = json.dumps(data.get("tool_response"))
+text = json.dumps([data.get("tool_response"), data.get("tool_output")])
 media_ids = sorted(set(re.findall(r"reusable Canva media id is (M[A-Za-z0-9_-]+)", text)))
 if media_ids:
     listed = ", ".join(media_ids)

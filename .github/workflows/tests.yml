@@ -23,5 +23,8 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install the CV libraries (pinned)
+        run: bash tools/assetgen/install_cv.sh
+
       - name: Run asset pipeline tests
         run: python -W error::ResourceWarning -m unittest discover -s tests/tools/assetgen -p "*_test.py"

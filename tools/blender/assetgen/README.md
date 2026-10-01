@@ -1,29 +1,57 @@
-# Asset generators (image-to-Godot pipeline)
+# Asset generators (image-to-assets pipeline)
 
-The whole pipeline, step by step, is the skill `.claude/skills/image-to-assets/SKILL.md`.
-This page is the contract for the Blender part: how one generator turns one Canva 360 sheet
-into a Godot-ready model. Nothing in the pipeline assumes what an object is, what it is made
-of or what style it has: all of that comes from the image, the user's answers and the sheets.
+The whole pipeline, step by step, is the skill `.claude/skills/image-to-assets/SKILL.md`; a builder
+gets its task from `python3 tools/assetgen/pack.py brief <pack> <id>`. This page is the contract
+for the Blender part: how one generator turns one object's reference into a Godot-ready model.
+Nothing in the pipeline assumes what an object is, what it is made of, how big it is, what style it
+has or from which angles it is seen: all of that comes from the image, the user's answers and the
+builder's own analysis of the reference.
 
 | What | Where |
 |---|---|
-| Pack manifest: objects, art style, Canva ids, view angle and judged views per object | `design/asset-packs/<pack>/pack.json` |
-| Source image | `design/asset-packs/<pack>/source.<ext>` |
-| Canva 360 sheets (8 views, two rows of four) | `design/asset-packs/<pack>/canva/NN_<id>_360.png` |
-| Object descriptions (reference images embedded) | `design/asset-packs/<pack>/objects/<id>.md` |
+| Pack manifest: objects, art style, reference images, recorded views and camera, budget, skills | `design/asset-packs/<pack>/pack.json` |
+| Source image; Canva images (`canva/NN_<id>.png`) or the user's references (`references/`) | `design/asset-packs/<pack>/` |
 | Generators, one per object | `tools/blender/assetgen/packs/<pack>/<id>.py` |
 | Models for Godot | `assets/models/<pack>/<id>.glb` |
-| Renders, sheet, comparison, Godot shots | `production/qa/evidence/<pack>/<id>/` |
+| Notes, renders, CV reports, compare sheets, Godot shots | `production/qa/evidence/<pack>/<id>/` |
 | The user's download (outside the repository) | `<export folder>/<pack>/` and `<pack>.zip` |
+
+## Views: recorded from the reference, never fixed
+
+The builder records the views its reference shows (`pack.py views`): per view the reference image,
+the box around the object in it, the azimuth (0 front, 90 seen from the right, 180 back, 270 from
+the left) and the elevation (degrees above the horizon), plus one camera for the object: `--lens MM`
+for references with perspective (85 by default) or `--ortho` for drawings without it.
+`tools/assetgen/cv.py views` proposes the boxes; `cv.py grid` helps read them by eye. The kit
+renders exactly those views, each with its box's aspect; the Godot check uses the same angles.
 
 ## Build one object
 
 ```bash
 blender -b --factory-startup --python tools/blender/assetgen/packs/<pack>/<id>.py -- \
-    [--no-render] [--samples 32] [--threads 2]
+    [--views N ...] [--final] [--no-render] [--samples S] [--resolution PX] [--threads T]
 ```
 
-A build can take several minutes: run it with the Bash tool's `timeout` at 600000.
+- A **cycle build** (no flags) exports the `.glb`, renders every recorded view at 12 samples and
+  512 px (about 2 s a view on two threads, measured here) and runs the CV compare.
+- `--views N` renders one or a few views: the quickest check while shaping one part.
+- `--final` renders the views at 32 samples and 768 px and adds an 8-view turnaround for review.
+- Each rendering build is numbered (`<id>_build.json`); `cv.py compare` reports on it and the build
+  gate hook waits for `## Cycle <n>` in the builder's notes before the next build.
+
+Renders have a transparent background (the outline is the alpha), the studio lighting below and an
+exposure of -1.5, at which a lit surface's median brightness matches its material colour (measured
+on spheres and boxes, colours L 0.34 to 0.79, mostly within about 0.04): give a part the reference's
+colour and the render shows that colour, and so does Godot.
+
+## The CV compare after every build
+
+`tools/assetgen/cv.py compare` (run by the kit) normalises both outlines to the same height and
+prints one line per view: outline overlap, the width/height change, the regions (of a 3 x 3 grid)
+missing or extra in the render, mean and main colours with brightness, the regions rendered lighter
+or darker, and edge density (detail). It writes `<id>_compare.png` (rows: render, reference,
+overlay with magenta missing and yellow extra) and per view `<id>_cv_survey_<n>.png` (3 x 3 close-up
+tiles, reference beside render). `cv.py closeup` zooms on one region. All observations, no verdicts.
 
 ## How the blender-skills are used
 
@@ -35,152 +63,54 @@ Blender over the blender-mcp socket. Here the same Blender code runs headless in
 | `polyhaven-texture-apply` | `kit.material()`: Poly Haven PBR set via the Poly Haven API, Mapping-node tiling |
 | `polyhaven-studio-setup` | render world lit by a neutral Poly Haven studio HDRI |
 | `product-polish` | the four "studio" area lights (key, fill, rim, bounce) |
-| `turntable` | eight views 45° apart, Cycles, PNG |
+| `turntable` | the final build's turnaround |
 
-`image-to-3d` and `multi-image-to-3d` (Meshy) are not used. `threejs-export` targets the web;
-the Godot export is `tools/blender/common/export.py`.
+Builders read the other skills (`pack.py skills-list`) and run their Blender code inside their own
+generator when it helps; skills that need an external service or a GUI give their method only.
 
 ## Materials: searched while building, never preset
-
-There is no material table. Each sub-agent finds the textures for its own object:
 
 ```bash
 python3 tools/assetgen/pack.py material-search <words describing the surface> --previews <folder>
 ```
 
-It lists matching textures from Poly Haven (863 texture sets) and ambientCG (about 2,000
-materials, loaded through the installed *AmbientCG Material Importer* add-on), each with its
-`ref` and a thumbnail saved in `<folder>` to look at before choosing. Order of preference:
+It lists matching textures from Poly Haven and ambientCG (loaded through the installed *AmbientCG
+Material Importer* add-on), each with its `ref` and a thumbnail to look at before choosing. In a
+generator: `kit.material("<ref>", tile=<repeats per metre>, tint="#rrggbb", roughness=...,
+normal_strength=...)`; `kit.flat("<name>", "#rrggbb", ...)` for flat colours, see-through and glow.
+`tint` multiplies the texture and can only darken it. Only image → (tint) → Principled set-ups,
+roughness/metal maps, normal maps, constant colours and emission reach Godot: no procedural
+shader nodes for the look. Keep emission at 1.5 or below.
 
-1. a **Poly Haven** texture;
-2. an **ambientCG** texture, when Poly Haven has nothing close;
-3. a **plain Blender material**, `kit.flat("<name>", "#rrggbb", roughness=..., metallic=...,
-   emission=..., alpha=...)`, for flat colours, see-through and glowing surfaces.
+Downloads are cached outside the repository (`~/.cache/asset-pipeline`, or `ASSETGEN_CACHE`) and
+locked per texture, so parallel builds can share them.
 
-In a generator: `kit.material("<ref>", tile=<repeats per metre>, tint="#rrggbb", roughness=...,
-normal_strength=...)`.
-- `tile`: 1 / the texture's real-world size in metres (`size_m` in the search) keeps its true
-  scale.
-- `tint` multiplies the texture, and glTF carries it as the base colour factor, so Godot shows
-  the same colour. It can only darken: choose a texture at least as light as the colour wanted.
-- Every distinct combination of settings is its own material.
-
-Only these node set-ups survive the glTF export: image → (tint) → Principled, the
-roughness/metal maps, the normal map, a constant colour, emission. Procedural shader nodes do
-not reach Godot; never use them for the look.
-
-Glow (`emission`): keep it at 1.5 or below. Godot's default (linear) tone mapping clips stronger
-emission to white.
-
-Downloads are cached (`~/.cache/nokepom/`) and locked per texture, so parallel builds can use
-the same texture safely.
-
-Installed add-ons (enable with `kit.enable_addon("<id>")`): `sapling_tree_gen`, `modular_tree`,
-`easy_tree`, `space_colonization_tree_generator`, `scatter_objects`, `antlandscape`,
+Installed add-ons (`kit.enable_addon("<id>")`): `sapling_tree_gen`, `modular_tree`, `easy_tree`,
+`space_colonization_tree_generator`, `scatter_objects`, `antlandscape`,
 `erosion_terrain_extension`, `terrainmixer`, `ambientcg_material_importer`.
-
-## Close-ups: `zoom.py`
-
-```bash
-blender -b --factory-startup --python tools/blender/assetgen/zoom.py -- <pack> <id> \
-    --view <azimuth> [--box X0 Y0 X1 Y1] [--scale 2]
-```
-
-Writes `production/qa/evidence/<pack>/<id>/<id>_zoom_<azimuth>.png`: that view of the Canva
-sheet on the left, enlarged, and (once built) the same rendered view on the right. `--box`
-crops both to one part (fractions of the view from its top-left). Use it to read textures on
-the sheet before building and to compare them after each build.
 
 ## Rules for a generator
 
-- One file `tools/blender/assetgen/packs/<pack>/<id>.py`: a module docstring naming the sheet,
-  a `build()` that returns the mesh objects, and `kit.run(build)`, or
-  `kit.run(build, origin="back")` for wall-mounted objects. The folder names the pack and the
-  file name the object. Build with `kit.box`, `kit.cylinder`, `kit.sphere`, `kit.lathe`,
-  `kit.add_bevel`, `kit.roughen`, `kit.smooth`, or plain `bmesh`/`bpy`.
-- Metres; Blender +Z up; the object's front faces **-Y** (Godot +Z). The kit applies all
-  modifiers and transforms, adds world-space UVs (1 UV unit = 1 m; set `obj["keep_uv"] = True`
-  to keep your own), gives every part one UV layer with the same name, joins everything into
-  one mesh named `<id>` and puts the origin at the bottom centre (or the back centre for
-  `origin="back"`).
-- Copy the sheet: its proportions, part count, silhouette, colours and level of detail. Bevel
-  edges the sheet shows as soft; keep the irregularity the sheet shows; add no parts or styling
-  the sheet does not have.
-- Surface detail as rich as the sheet's; a model that reads flat next to its sheet fails:
-  - texture visible at the object's size: set `tile` so the texture's pattern is readable at
-    the sheet's scale, and raise `normal_strength` where the sheet shows relief;
-  - no large area in one flat colour unless the sheet shows one: give each separate part its
-    own variant with `kit.material_variants(ref, tint, count, tile=...)`, and make recessed or
-    back parts a little darker where the sheet does;
-  - real depth: parts that are separate on the sheet are separate in the model, with the same
-    gaps, overlaps and layers; bevels big enough to catch a highlight;
-  - see-through parts must be see-through (`kit.flat(..., alpha=...)` or open).
-- Mid-poly budgets (triangles), set per object in `pack.json` (`size`): large ≤ 40 000,
-  medium ≤ 20 000, small ≤ 10 000.
+- One file `tools/blender/assetgen/packs/<pack>/<id>.py`: a docstring naming the object, a
+  `build()` that returns the mesh objects, and `kit.run(build)` (`kit.run(build, origin="back")`
+  for things that hang on a wall). `python3 tools/assetgen/pack.py kit-api` lists the kit's
+  functions (`box`, `cylinder`, `sphere`, `lathe`, `add_bevel`, `roughen`, `smooth`, materials) with
+  their docstrings; plain `bmesh`/`bpy` and add-ons are fine too.
+- Metres; +Z up; the front faces **-Y** (Godot +Z). The kit applies modifiers and transforms, adds
+  world-space UVs (1 UV unit = 1 m; set `obj["keep_uv"] = True` to keep your own), joins
+  everything into one mesh named `<id>` and puts the origin at the bottom centre (or the back).
+- Copy the reference: its proportions, every part, the details and nuances, the colours and the
+  level of detail; model what changes the outline or catches light, texture what is flat; copies
+  differ as they do in the reference; add nothing the reference does not show.
+- The triangle budget is the object's `budget` in `pack.json` (the user's, or the builder's own
+  with its reason); `pack.py done` refuses a model over it.
 - Deterministic: seed any randomness (`random.Random(<fixed int>)`).
-- The camera angle comes from the object's `view_elevation_deg` in `pack.json` (the angle its
-  sheet was drawn from) and the framing fits the object; a generator never changes them.
 
-## The pipeline is locked during a run
+## Locked during a run
 
-While a run is in progress (`pack.py run-start` until `pack.py run-end`), the hook
-`.claude/hooks/assetgen-run-guard.sh` refuses edits to the pipeline (`kit.py`, this README,
-`tools/assetgen/`, `tools/blender/common/`, `tools/assets/`, the installers, the Godot capture
-script, `pack.json` files, `.claude/`, the pipeline's tests) and every git command that
-changes the repository. A sub-agent changes only its own generator. If the kit cannot do
-something, the sub-agent writes the helper inside its own generator and says so in its report;
-if the pipeline itself is wrong, the orchestrator reports it to the user.
-
-## Use Blender's materials, textures and lighting
-
-- **Materials**: textures found with `material-search` through `kit.material()` and
-  `kit.material_variants()`, and `kit.flat()` for flat colours, see-through and glow.
-- **Textures**: make them read like the sheet with `tile` (pattern scale), `normal_strength`
-  (relief), `tint` (colour) and `roughness` (gloss).
-- **Lighting**: every render is lit by the kit's studio set-up from the blender-skills (a
-  Poly Haven studio HDRI plus the four `product-polish` studio lights). Judge the model under
-  it; do not remove or replace it in a generator.
-
-## Quality loop (every object): understand, then 5 cycles of build → render → compare
-
-1. **Understand** before building: study the Canva sheet view by view and write, at the top of
-   `production/qa/evidence/<pack>/<id>/<id>_notes.md`, what the object is and, per element,
-   its count and position, **volume**, **shading** and **detail level**, and a **texture list**
-   (T1, T2, …; an object usually has more than one): per texture the elements that carry it,
-   the kind of material, the pattern, colour, repeat size, direction, relief and wear read up
-   close on the sheet with `zoom.py`, and how the user's art style shows in it. Each texture is
-   then searched with its own words and chosen by comparing the thumbnails against that
-   description. Every decision in the generator follows from these notes. Read the relevant skills the
-   orchestrator listed (and any other installed skill that fits) and use their methods.
-2. **Cycle** (the standard is 5):
-   - **Build** with `--samples 16`; the build renders the eight views and
-     `production/qa/evidence/<pack>/<id>/<id>_compare.png` (the Blender views on top, the Canva
-     sheet below, same layout, same angles).
-   - **Compare** view by view, element by element, through material, shading, detail level,
-     elements and volume, with a `zoom.py` close-up of every texture, and write under `## Cycle <n>` in the notes: what **looks right and
-     why**, what **looks wrong and why** (its cause in the model), and the **fix** for each
-     wrong item. Fix causes, not symptoms; never undo what looks right.
-   - Apply the fixes; the next build shows whether they worked.
-   Never write image-measuring scripts: the compare sheet is the measuring tool.
-3. **Final render** with the default `--samples 32`.
-
-### Definition of good
-
-Judged on the views in `judge_views` (all eight, unless some views of the Canva sheet
-contradict the others and were left out):
-
-| Check | Passes when |
-|---|---|
-| Elements | same elements as the sheet (count, positions); silhouette matches; proportions within about 10 % |
-| Volume | elements stand out, sit back, bulge and have gaps as on the sheet; nothing flat that is 3D on the sheet |
-| Material | every surface the same kind of material; metal where metal; similar gloss; see-through where see-through; same hue and brightness |
-| Shading | soft edges bevelled and catching light as on the sheet; recesses as dark as on the sheet |
-| Textures | in the zoom close-ups every texture matches the sheet: pattern, repeat size within about 20 %, direction, relief, colour variation, in the user's art style |
-| Detail level | relief and variation between parts as on the sheet, no more and no less |
-| Budget | the `BUILT` triangle count is within the object's budget |
-| Clean | the build prints `BUILT` and `RENDERED`, no error or traceback |
-
-Stopping: the standard is all 5 cycles, then the final render, then the report
-(`CYCLES DONE`). A builder may stop sooner only when every check passes; it still does the
-final render and reports `READY FOR REVIEW`, and the orchestrator shows the work to the user,
-who decides. When the user wants changes, the builder continues with the next cycle.
+From `pack.py run-start` to `pack.py run-end` the hooks (`.claude/hooks/assetgen-guard.sh`, logic
+in `tools/assetgen/guard.py`) allow changes only in the run pack's own folders and `.scratch/`;
+any pipeline file changed anyway is restored from the run-start snapshot, stray files are moved to
+`.scratch/assetgen/quarantine/`, git is locked, and Canva gets only the exact `pack.py prompt`.
+If the kit cannot do something, the builder writes the helper inside its own generator; if the
+pipeline itself is wrong, the builder reports it and the orchestrator tells the user.

@@ -1,6 +1,7 @@
-## Loads every imported model of an asset pack (res://assets/models/<pack>/*.glb), prints what Godot
-## made of it and saves two screenshots per model: a front three-quarter and a back three-quarter view.
-## Part of the image-to-Godot asset pipeline (.claude/skills/image-to-assets/SKILL.md).
+## Loads the imported models of an asset pack (res://assets/models/<pack>/*.glb), prints what Godot
+## made of each and screenshots it from every view its builder recorded in the pack's pack.json
+## (the same azimuth and elevation as the reference and the Blender renders).
+## Part of the image-to-assets pipeline (.claude/skills/image-to-assets/SKILL.md).
 ##
 ## Each model prints one line, `GODOT_MODEL {json}`: the bounding-box size in metres, triangles,
 ## mesh surfaces, and per surface the material type and which textures it carries. These are
@@ -13,16 +14,17 @@
 ##       --resolution 1280x720 --script res://tools/godot/qa/capture_pack_models.gd -- \
 ##       --pack <pack> [--models <id>,<id>] [--out production/qa/evidence/<pack>]
 ##
-## Screenshots land in <out>/<model>/<model>_godot_front.png and _godot_back.png.
+## Screenshots land in <out>/<model>/<model>_godot_<view>.png, one per recorded view.
 extends SceneTree
 
 const MODELS_ROOT := "res://assets/models"
+const PACKS_ROOT := "res://design/asset-packs"
 const EVIDENCE_ROOT := "production/qa/evidence"
 const BACKGROUND := Color("#d3d3d3")
-## Camera azimuths in degrees around +Y; 0 looks at the model's front (glTF +Z) from in front of it.
-const VIEWS := {"front": -30.0, "back": 150.0}
-const ELEVATION_DEG := 15.0
-const FOV_DEG := 40.0
+## Blender's default sensor width, to turn a recorded lens (mm) into Godot's field of view.
+const SENSOR_MM := 36.0
+const DEFAULT_LENS_MM := 85.0
+const FRAME_MARGIN := 1.15
 ## Frames to wait after each change so shaders compile and the image settles.
 const SETTLE_FRAMES := 8
 
@@ -41,6 +43,7 @@ func _capture() -> void:
 	var models_dir := MODELS_ROOT.path_join(pack_name)
 	var out_dir: String = options.get("out", EVIDENCE_ROOT.path_join(pack_name))
 	var wanted: PackedStringArray = String(options.get("models", "")).split(",", false)
+	var objects := _objects(pack_name)
 
 	var stage := _build_stage()
 	root.add_child(stage)
@@ -63,17 +66,38 @@ func _capture() -> void:
 		var bounds := _bounds(model)
 		print("GODOT_MODEL %s" % JSON.stringify(_describe(model_name, model, bounds)))
 
+		var entry: Dictionary = objects.get(model_name, {})
+		var views: Array = entry.get("views", [])
+		if views.is_empty():
+			print("GODOT_VIEWS %s: no recorded views in pack.json, no screenshots" % model_name)
 		var model_dir := out_dir.path_join(model_name)
 		DirAccess.make_dir_recursive_absolute(model_dir)
-		for view: String in VIEWS:
-			_frame(camera, bounds, VIEWS[view])
+		for index in views.size():
+			var view: Dictionary = views[index]
+			_frame(camera, bounds, float(view.get("azimuth", 0.0)), float(view.get("elevation", 0.0)),
+					entry.get("camera", {}))
 			await _settle()
-			var path := model_dir.path_join("%s_godot_%s.png" % [model_name, view])
+			var path := model_dir.path_join("%s_godot_%d.png" % [model_name, index + 1])
 			root.get_texture().get_image().save_png(path)
 			print("captured %s" % path)
 		model.queue_free()
 		await _settle()
 	quit()
+
+
+## The pack's objects by id, read from its pack.json.
+func _objects(pack_name: String) -> Dictionary:
+	var objects := {}
+	var path := PACKS_ROOT.path_join(pack_name).path_join("pack.json")
+	var text := FileAccess.get_file_as_string(path)
+	if text.is_empty():
+		push_error("capture_pack_models: cannot read %s" % path)
+		return objects
+	var manifest = JSON.parse_string(text)
+	if manifest is Dictionary:
+		for entry in manifest.get("objects", []):
+			objects[entry.get("id", "")] = entry
+	return objects
 
 
 ## Grey backdrop, soft ambient light, a warm key light, a cool fill light and a camera.
@@ -103,7 +127,6 @@ func _build_stage() -> Node3D:
 
 	var camera := Camera3D.new()
 	camera.name = "Camera"
-	camera.fov = FOV_DEG
 	stage.add_child(camera)
 	camera.current = true
 	return stage
@@ -163,14 +186,27 @@ func _mesh_instances(node: Node) -> Array[MeshInstance3D]:
 	return found
 
 
-## Places the camera on a sphere around `bounds`, far enough that the whole model fits.
-func _frame(camera: Camera3D, bounds: AABB, azimuth_deg: float) -> void:
+## Places the camera at the recorded azimuth (0 = the model's front, glTF +Z; 90 = seen from its
+## right, +X) and elevation, with the recorded lens or an orthographic projection, framing the model.
+func _frame(camera: Camera3D, bounds: AABB, azimuth_deg: float, elevation_deg: float, setting: Dictionary) -> void:
 	var center := bounds.get_center()
 	var radius := bounds.size.length() / 2.0
-	var distance := radius / sin(deg_to_rad(FOV_DEG) / 2.0) * 1.1
 	var azimuth := deg_to_rad(azimuth_deg)
-	var elevation := deg_to_rad(ELEVATION_DEG)
+	var elevation := deg_to_rad(elevation_deg)
 	var offset := Vector3(sin(azimuth) * cos(elevation), sin(elevation), cos(azimuth) * cos(elevation))
+	var aspect := float(root.size.x) / float(root.size.y)
+	if setting.get("ortho", false):
+		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+		camera.keep_aspect = Camera3D.KEEP_HEIGHT
+		camera.size = 2.0 * radius * FRAME_MARGIN * maxf(1.0, 1.0 / aspect)
+		camera.look_at_from_position(center + offset * radius * 4.0, center)
+		return
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+	camera.keep_aspect = Camera3D.KEEP_WIDTH
+	var lens := float(setting.get("lens", DEFAULT_LENS_MM))
+	camera.fov = rad_to_deg(2.0 * atan(SENSOR_MM / 2.0 / lens))
+	var half_fov := minf(deg_to_rad(camera.fov), 2.0 * atan(tan(deg_to_rad(camera.fov) / 2.0) / aspect)) / 2.0
+	var distance := radius / sin(half_fov) * FRAME_MARGIN
 	camera.look_at_from_position(center + offset * distance, center)
 
 

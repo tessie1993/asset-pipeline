@@ -1,120 +1,101 @@
 # asset-pipeline
 
-The `/image-to-assets` pipeline from [tessie1993/nokepom](https://github.com/tessie1993/nokepom),
-complete and exactly as it was just before prep agents were added: commit
-`4e138ba11c35d2d43e1b1a05877b514949ff95e4` (30 Sep 2026, 19:30), "builders read every texture
-from the sheet, not only colour". That is the first of the two commits in
-[nokepom PR 36](https://github.com/tessie1993/nokepom/pull/36). Nothing later is in it: no prep
-agents (PR 36's second commit) and none of PRs 37–46 (critic, skip canva, outline overlays and
-survey, asset agents, OpenCV measuring and the rest).
+Image in, assets out. Give Claude Code an image and run `/image-to-assets <image> [<pack name>]
+[skip canva]`: you pick which objects in it become 3D models and in which art style, and you get
+one Godot-ready `.glb` per object, reviewed by you, checked in Godot and delivered as one zip.
 
-One image goes in; one Godot-ready `.glb` per chosen object comes out. The whole flow is
-`.claude/skills/image-to-assets/SKILL.md`:
+It began as the pipeline of [tessie1993/nokepom](https://github.com/tessie1993/nokepom) as it was
+before prep agents were added (commit `4e138ba`, the first commit of nokepom PR 36) and was then
+made fully generic: no example pack, no style written into the Canva prompt, no fixed sizes or
+view angles, and the builder reads its reference directly.
 
-1. You pick which objects in the image to model and the art style.
-2. Canva draws a 360° sheet per object; the backgrounds are removed and the sheets downloaded at full size.
-3. The session itself looks at each sheet and writes the object's description (`pack.py describe`),
-   then records the installed skills that help each object (`pack.py skills`).
-4. One general-purpose builder sub-agent per object studies its sheet (close-ups with `zoom.py`,
-   every texture listed), then runs 5 build → render → compare cycles in headless Blender.
-5. You review every build; Godot imports and screenshots each model; you get one download folder.
+## How it works
+
+1. **You choose.** Claude lists the objects in the image; you say which to make, the art style,
+   and optionally triangle budgets (otherwise each builder decides from the object's detail).
+2. **Reference per object.** Canva draws each object from every side in your style, from your
+   image (background removed, downloaded at full size). With `skip canva`, your own image(s) are
+   the reference as they are.
+3. **One builder agent per object, in parallel** (`asset-builder`). It reads the reference itself
+   and sets up before it may build: CV tools find the object's views in the image (any layout, any
+   size, a photo or a screenshot), it records each view's angle and the camera, measures the
+   reference (proportions, colours, detail, symmetry, width : height : depth), picks the installed
+   skills that fit, decides the budget, and writes an analysis with an inventory of every part
+   down to the details and nuances.
+4. **Build → CV compare → write-up, every cycle.** Each build exports the `.glb`, renders the
+   recorded views in seconds and compares them with the reference automatically: outline overlap,
+   proportions, the regions missing or extra, colours and brightness, detail density, with one
+   compare image and close-up surveys. The next build waits until the builder has written down
+   what the compare showed and what it fixes. A final build adds a turnaround.
+5. **You review**, Godot imports each accepted model and screenshots it from the same views, and
+   you get the zip. The pack's working files are removed from the repository unless you want them
+   committed.
+
+## Hooks: how the run is held together
+
+| Hook | When | What it does |
+|---|---|---|
+| `assetgen-guard.sh pre` | before Bash, Write, Edit, Canva generate-image, during a run | Refuses changes outside the run pack's folders, git changes, a Blender build before the builder's set-up is complete or before the last build's CV compare is written up, a builder's build past its context budget (it hands off), and any Canva prompt that is not exactly `pack.py prompt` with the source image (no bias added) |
+| `assetgen-guard.sh post` | after Bash, Write, Edit, during a run | Restores any pipeline file that changed anyway from the run-start snapshot, moves stray files to `.scratch/assetgen/quarantine/`, and after a build points the builder at its CV compare |
+| `canva-remove-background.sh` | after Canva image generation | Asks for every generated image's background to be removed |
+| `install-tools.sh` | session start (cloud) | Installs Blender 5.2.2, Godot 4.7.2 and the CV libraries in the background |
+
+The guard logic is `tools/assetgen/guard.py`; during a run the hooks run its snapshot copy, so
+editing the pipeline cannot switch them off. They do nothing outside a run.
+
+## Tokens, context and speed
+
+- **Builders keep their context small**: `pack.py kit-api` instead of reading the kit, compact CV
+  lines, one compare image per build (sized to stay cheap to read), surveys only for views that
+  differ, short reports.
+- **Context budget per builder**: after 3 builds (`BUILDS_PER_BUILDER`, plus one final build) a
+  builder writes a handoff in its notes and a fresh builder continues from the notes, so no context
+  fills up with every earlier cycle's images and code.
+- **The orchestrator stays lean**: builders fetch their own brief (a one-line spawn prompt), and
+  `pack.py status` has a `next` column per object, so a run can resume after a compaction or in a
+  new session from the files alone.
+- **Fast builds**: cycle builds render only the recorded views at low samples (about 2 s a view),
+  `--views N` renders one view, the turnaround only in the final build; builders run in parallel
+  (one per two CPU cores); the CV compare runs inside the build.
 
 ## Layout
 
-Paths are the same as in nokepom, because the skill, hooks, briefs and READMEs refer to each other by path.
-
 | Path | What it is |
 |---|---|
-| `.claude/skills/image-to-assets/` | The skill: the steps the session follows |
-| `.claude/hooks/assetgen-run-guard.sh` | Locks the pipeline and git while a run is in progress |
-| `.claude/hooks/canva-remove-background.sh` | Reminds Claude to remove the background of every generated Canva image |
-| `.claude/hooks/install-tools.sh` | SessionStart: installs Blender and Godot in the background (Linux cloud sessions) |
-| `.claude/settings.json` | Wires those three hooks |
-| `.claude/skills/` (the other 16) | The blender-skills: `turntable`, `polyhaven-texture-apply`, `polyhaven-studio-setup` and `product-polish` run inside the kit; step 6 picks among the rest |
-| `tools/assetgen/` | `pack.py` (manifest, prompts, Canva calls, briefs, status, export) and `templates/` |
-| `tools/blender/assetgen/` | `kit.py` (the builders' API), `zoom.py` (sheet and render close-ups), the README, `packs/` (per-object generators) |
-| `tools/blender/common/` | Shared Blender helpers; `kit.py` uses `cli`, `export`, `scene`, `palette`, `paths` |
-| `tools/assets/` | `fetch_cc0_assets.py` (Poly Haven / ambientCG download and cache, used by `kit.py`) and nokepom's other asset scripts |
-| `tools/{blender,godot}/install_*.sh` | Pinned Blender 5.2.2 and Godot 4.7.2 installers |
-| `tools/godot/qa/capture_pack_models.gd` | Loads each model in Godot and screenshots it |
-| `tests/tools/assetgen/` | Unit tests for `pack.py`; `.github/workflows/tests.yml` runs them |
+| `.claude/skills/image-to-assets/SKILL.md` | The orchestrator's steps |
+| `.claude/agents/asset-builder.md` | The builder agent |
+| `.claude/hooks/`, `.claude/settings.json` | The hooks above |
+| `.claude/skills/` (the other 16) | The blender-skills; builders pick the ones that fit |
+| `tools/assetgen/pack.py` | The pack manifest and every bookkeeping step (`pack.py --help`) |
+| `tools/assetgen/cv.py` | CV tools: `views`, `grid`, `measure`, `compare`, `closeup` |
+| `tools/assetgen/guard.py` | The hooks' logic |
+| `tools/assetgen/templates/` | Canva prompt, builder brief, builder notes |
+| `tools/assetgen/downloads.py` | Cached, size-checked downloads (textures, HDRIs, thumbnails) |
+| `tools/blender/assetgen/kit.py`, `README.md` | The builders' Blender kit and its contract |
+| `tools/blender/common/` | glTF export, scene and colour helpers |
+| `tools/{blender,godot}/install_*.sh`, `tools/assetgen/install_cv.sh` | Pinned installers |
+| `tools/godot/qa/capture_pack_models.gd` | The Godot check |
+| `tests/tools/assetgen/` | Unit tests (run in CI) |
 
-### The example pack: `cottage_interior`
+A run writes only to `design/asset-packs/<pack>/`, `tools/blender/assetgen/packs/<pack>/`,
+`assets/models/<pack>/`, `production/qa/evidence/<pack>/` and `.scratch/`.
 
-The pack as it stood at that commit: 17 objects with Canva sheets and descriptions, of which
-`rug`, `crate`, `basket` and `bucket` are built.
-
-| Path | What it is |
-|---|---|
-| `design/asset-packs/cottage_interior/` | `pack.json`, `source.jpg`, the 17 Canva sheets, the object descriptions |
-| `tools/blender/assetgen/packs/cottage_interior/` | The four generators |
-| `assets/models/cottage_interior/` | The four `.glb` models, their textures and Godot `.import` files |
-| `production/qa/evidence/cottage_interior/` | Renders, render sheets, compare sheets, Godot screenshots |
-
-`python3 tools/assetgen/pack.py status cottage_interior` shows where it stands.
-
-## Use
+## Set up and test
 
 ```bash
-bash tools/blender/install_blender.sh        # Linux x64; the SessionStart hook does both in cloud sessions
+bash tools/assetgen/install_cv.sh            # OpenCV and NumPy, pinned, into .scratch/pydeps
+bash tools/blender/install_blender.sh        # Linux x64
 bash tools/godot/install_godot.sh
 python3 -m unittest discover -s tests/tools/assetgen -p "*_test.py"
 ```
 
-Then, in Claude Code with the Canva connector, `/image-to-assets <image> [<pack name>]`.
-Packs land in `design/asset-packs/<pack>/`, models in `assets/models/<pack>/`, evidence in
-`production/qa/evidence/<pack>/`.
-
-## Hooks and skill
-
-These rows are copied from nokepom's `.claude/docs/hooks-reference.md` and `skills-reference.md` at that commit.
-
-| Hook | Event | Trigger | Action |
-| ---- | ----- | ------- | ------ |
-| `install-tools.sh` | SessionStart | Session begins (Linux cloud sessions only) | Starts the Blender and Godot installers in the background, logging to `.scratch/tool-install/`; returns at once. Each installer writes its exit code to `.scratch/tool-install/<tool>.status` when it finishes |
-| `assetgen-run-guard.sh` | PreToolUse (Bash/Write/Edit) | An `/image-to-assets` run is in progress (`.scratch/assetgen/run.json` exists) | Blocks edits to pipeline files and git commands that change the repository until `pack.py run-end`; the run's outputs and per-object generators stay writable |
-| `canva-remove-background.sh` | PostToolUse (Canva image generation) | A Canva image-generation result names a new media id | Tells Claude to run Canva's `remove-background` on it and use the cutout; `pack.py sheets` refuses sheets without a recorded cutout |
-
-| Command | Purpose |
-|---------|---------|
-| `/image-to-assets` | Turn one image into Godot-ready 3D models — asks which parts matter and which art style, a Canva 360 sheet per object, one headless-Blender sub-agent per object with materials searched per surface, Godot check, screenshot review, one download folder |
-
-## What differs from nokepom at that commit
-
-Every file that came from nokepom is byte-identical to commit `4e138ba`. Written for this repo:
-
-- `.claude/settings.json`: nokepom's hook wiring cut down to the pipeline's three entries (same
-  matchers and timeouts). nokepom's other hooks, permissions and status line are the game project's.
-- `.github/workflows/tests.yml`: nokepom's workflow with only its `asset-pipeline` job (verbatim)
-  and read-only permissions; the other jobs test the game and the creature pipeline.
-- `project.godot`: a minimal project so `godot --path . --import` and the capture script work.
-  nokepom's own is the game's; this keeps its engine version and renderer settings.
-- `.gitignore` and this README.
-
-Left out, because they are the game, not the pipeline:
-
-- The game itself: `src/`, `addons/`, the other `assets/`, `design/levels/` (including the older
-  `design/levels/cottage_interior`), the other Blender generators (`tools/blender/{cottage,forest,…}`),
-  the rest of `tools/godot/` and `tests/`.
-- The rest of nokepom's `.claude/` (its other agents, skills, hooks, docs and rules) and `CLAUDE.md`.
-  Step 6 of the skill picks from every installed skill; in nokepom that also included the game
-  studio's own skills, here it is the blender-skills.
-
-Some included files were written for the game's levels: `tools/assets/forest_*` and
-`stage_meadow_textures.py` read forest and meadow data, and `tools/blender/common/layout.py`,
-`validate.py` and `palette.material()` read Sky Village data, none of which is here;
-`measure_palette.py` is a general palette tool that was used for the forest. They are kept because
-the pipeline's run guard counts all of `tools/assets/` and `tools/blender/common/` as pipeline
-files. The pipeline itself does not use them.
-
-## Not verified here
-
-- `kit.py` and `zoom.py` have not been run under Blender in this repo. Their imports resolve to files here and they compile.
-- The hooks were pipe-tested and the 26 unit tests pass here.
+Then `/image-to-assets <image> [<pack name>] [skip canva]` in Claude Code (with the Canva connector
+unless you skip Canva).
 
 ## Provenance and licences
 
-- The 16 blender-skills in `.claude/skills/` are from kevinbadi/blender-skills, installed in nokepom by its PR 16.
-  nokepom carries no licence notice for them, so none is added here.
-- The example pack's textures come from Poly Haven and ambientCG (CC0).
-- This repo has no `LICENSE` of its own yet. nokepom's is MIT, © 2026 Donchitos, which may not be the holder you want here, so pick one deliberately.
+- The 16 blender-skills in `.claude/skills/` are from kevinbadi/blender-skills, as installed in
+  nokepom by its PR 16. nokepom carries no licence notice for them, so none is added here.
+- Textures come from Poly Haven and ambientCG (CC0), downloaded while building.
+- This repository has no `LICENSE` of its own yet; nokepom's is MIT, © 2026 Donchitos, which may
+  not be the holder you want here, so pick one deliberately.

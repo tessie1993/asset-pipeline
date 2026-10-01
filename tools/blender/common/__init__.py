@@ -1,1 +1,1 @@
-"""Shared helpers for the Sky Village Blender generators (see tools/blender/README.md)."""
+"""Shared Blender helpers for the asset pipeline's kit (tools/blender/assetgen/kit.py)."""

@@ -1,4 +1,4 @@
-"""glTF export with the contract's settings (section 6.1)."""
+"""glTF export for Godot: +Y up, modifiers applied, custom properties as glTF extras."""
 from pathlib import Path
 
 import bpy

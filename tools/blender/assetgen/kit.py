@@ -1,7 +1,9 @@
-"""Kit for the image-to-Godot asset pipeline: one generator per Canva 360-degree sheet.
+"""Kit for the image-to-assets pipeline: one generator per object, built from its reference.
 
-The pipeline is described in ``.claude/skills/image-to-assets/SKILL.md``; a pack is one source
-image and its objects, recorded in ``design/asset-packs/<pack>/pack.json``.
+The pipeline is described in ``.claude/skills/image-to-assets/SKILL.md``; a pack is the user's image
+and the objects chosen from it, recorded in ``design/asset-packs/<pack>/pack.json``. Each object has
+reference images (Canva's drawing of it, or the user's own images) and the views its builder
+recorded in them: per view the image, the box around the object, its azimuth and its elevation.
 
 The blender-skills (https://github.com/kevinbadi/blender-skills) drive Blender over the blender-mcp
 socket; this kit runs the same Blender code headless (``blender -b``) instead:
@@ -14,7 +16,7 @@ socket; this kit runs the same Blender code headless (``blender -b``) instead:
   ``tools/assetgen/pack.py material-search``.
 - ``polyhaven-studio-setup``: a neutral Poly Haven studio HDRI lights the renders (:data:`HDRI`).
 - ``product-polish``: the four-light "studio" preset (key, fill, rim, bounce area lights).
-- ``turntable``: a 360-degree orbit, rendered as eight stills 45 degrees apart (Cycles, PNG).
+- ``turntable``: the final build also renders a turnaround for review.
 
 A generator lives at ``tools/blender/assetgen/packs/<pack>/<id>.py``; its folder names the pack
 and its file name the object. It puts ``tools/blender`` on ``sys.path``, imports
@@ -24,44 +26,47 @@ and its file name the object. It puts ``tools/blender`` on ``sys.path``, imports
 Command line::
 
     blender -b --factory-startup --python tools/blender/assetgen/packs/<pack>/<id>.py -- \
-        [--no-render] [--samples 32] [--threads 2]
+        [--views N ...] [--final] [--no-render] [--samples S] [--resolution PX] [--threads T]
 
-Outputs of a generator:
+A cycle build renders every recorded view (or only ``--views``) quickly; ``--final`` renders them
+larger with more samples, plus the turnaround. Outputs:
 
 - ``assets/models/<pack>/<id>.glb``: one mesh named ``<id>``, metres, +Y up, front facing Godot +Z.
-- ``production/qa/evidence/<pack>/<id>/``: eight views, ``<id>_sheet.png`` (the views in the Canva
-  sheet's two-rows-of-four layout) and ``<id>_compare.png`` (render above, Canva sheet below).
+- ``production/qa/evidence/<pack>/<id>/``: ``<id>_view_<n>.png`` per recorded view (transparent
+  background, the view's own angle and aspect), ``<id>_turn_<k>.png`` (final), ``<id>_build.json``,
+  and the CV compare the kit runs after every build (``tools/assetgen/cv.py compare``):
+  ``<id>_compare.png``, ``<id>_cv_survey_<n>.png``, ``<id>_cv.json``, ``<id>_turnaround.png``.
 """
 from __future__ import annotations
 
 import argparse
 import contextlib
+import datetime
 import fcntl
 import inspect
 import json
 import math
 import random
+import subprocess
 import sys
 from pathlib import Path
 from typing import Callable, Iterable, Iterator
 
 import bmesh
 import bpy
-import numpy as np
 from mathutils import Matrix, Vector
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "assets"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "assetgen"))
 from common import cli, export, scene  # noqa: E402
-from common.palette import srgb_hex_to_linear  # noqa: E402
+from common.colour import srgb_hex_to_linear  # noqa: E402
 from common.paths import MODELS_DIR, REPO_ROOT  # noqa: E402
-import fetch_cc0_assets as fetch  # noqa: E402
-import pack as manifest_tool  # noqa: E402  (tools/assetgen/pack.py: layouts and view angles)
+import downloads as fetch  # noqa: E402  (tools/assetgen/downloads.py: cached, size-checked downloads)
 
 PACKS_DATA = REPO_ROOT / "design" / "asset-packs"
 EVIDENCE_ROOT = REPO_ROOT / "production" / "qa" / "evidence"
 GENERATORS_ROOT = Path(__file__).resolve().parent / "packs"
+CV_TOOL = REPO_ROOT / "tools" / "assetgen" / "cv.py"
 
 TEXTURE_RESOLUTION = "1k"
 MAP_API_KEYS = {"color": "Diffuse", "normal": "nor_gl", "arm": "arm"}
@@ -72,14 +77,20 @@ AMBIENTCG_FORMAT = "JPG"
 HDRI = "studio_small_09"
 HDRI_RESOLUTION = "1k"
 
-# Render layout: two rows of four views, each view a quarter of the Canva sheet's width by half
-# its height (DEFAULT_CELL_SIZE when an object has no sheet). The camera's elevation is the
-# object's ``view_elevation_deg`` in pack.json (the angle its Canva sheet was drawn from).
-DEFAULT_CELL_SIZE = (420, 472)
+# Renders. Cycle builds are quick (measured here: a 512 px view at 12 samples takes about 2 s on two
+# threads); the final build is larger and cleaner and adds the turnaround. Every view gets the aspect
+# of its box in the reference, so render and reference line up.
+CYCLE_SAMPLES, CYCLE_RESOLUTION = 12, 512
+FINAL_SAMPLES, FINAL_RESOLUTION = 32, 768
+TURNAROUND_VIEWS = 8  # evenly spaced from the front, final build only: a review aid, never judged
 FRAME_MARGIN = 1.1
 FRAME_SAMPLES = 64
-VIEW_AZIMUTHS = (0, 45, 90, 135, 180, 225, 270, 315)
-SHEET_BACKGROUND = "#d3d3d3"
+DEFAULT_LENS_MM = 85.0  # unless the builder recorded another lens or an orthographic camera (pack.py views)
+# Measured under the studio set-up below: at this exposure a lit surface's median brightness matches its
+# material colour (spheres and boxes, colours from L 0.34 to 0.79, mostly within about 0.04), so a builder that gives a
+# part the reference's colour sees that colour in the render and Godot gets the true colour.
+RENDER_EXPOSURE = -1.5
+BACKDROP = "#d3d3d3"
 UV_LAYER = "UVMap"
 HDRI_STRENGTH = 0.6
 
@@ -111,17 +122,19 @@ class Pack:
         self.models_dir = MODELS_DIR / name
         self.evidence_dir = EVIDENCE_ROOT / name
 
-    def view_elevation(self, asset_id: str) -> float:
-        """Degrees above the horizon the object's Canva sheet was drawn from: its
-        ``view_elevation_deg``, else the default for its layout."""
-        entry = next((o for o in self.manifest["objects"] if o["id"] == asset_id), {})
-        layout = entry.get("layout", "object")
-        return float(entry.get("view_elevation_deg", manifest_tool.VIEW_ELEVATIONS[layout]))
+    def entry(self, asset_id: str) -> dict:
+        return next((o for o in self.manifest["objects"] if o["id"] == asset_id), {})
 
-    def sheet(self, asset_id: str) -> Path | None:
-        """The object's downloaded Canva 360 sheet, or None when there is none yet."""
-        matches = sorted((self.data_dir / "canva").glob(f"*_{asset_id}_360.png"))
-        return matches[0] if matches else None
+    def camera(self, asset_id: str) -> dict:
+        """The camera the builder chose to match the reference: ``{"lens": mm}`` or ``{"ortho": True}``."""
+        return self.entry(asset_id).get("camera") or {"lens": DEFAULT_LENS_MM}
+
+    def views(self, asset_id: str) -> list[dict]:
+        """The views the object's builder recorded (``pack.py views``): image, box, azimuth, elevation."""
+        views = self.entry(asset_id).get("views") or []
+        if not views:
+            raise ValueError(f"{asset_id} has no recorded views: record them with tools/assetgen/pack.py views")
+        return views
 
 
 _active_pack: Pack | None = None
@@ -531,11 +544,20 @@ def _single_uv_layer(obj: bpy.types.Object) -> None:
     layers[keep].name = UV_LAYER
 
 
+SMOOTH_ANGLE_DEG = 40.0  # shading default: smooth across gentle bends, sharp at real edges
+
+
 def _finalize(asset_id: str, objects: list[bpy.types.Object], origin: str) -> bpy.types.Object:
     meshes = [o for o in objects if o.type == "MESH"]
     if not meshes:
         raise ValueError(f"{asset_id}: build() returned no mesh objects")
     for obj in meshes:
+        if not obj.get("flat_shading") and not obj.get("keep_shading"):
+            # Round parts read round and hard edges stay hard, at no cost in triangles. A part that must look
+            # faceted sets obj["flat_shading"] = True; one whose shading the generator set itself, "keep_shading".
+            smooth(obj, SMOOTH_ANGLE_DEG)
+        elif obj.get("flat_shading"):
+            obj.data.shade_flat()
         _bake(obj)
         if not obj.get("keep_uv"):
             _box_uvs(obj)
@@ -590,7 +612,7 @@ def _studio(radius: float) -> None:
     hdri_bg.inputs["Strength"].default_value = HDRI_STRENGTH
     links.new(environment.outputs["Color"], hdri_bg.inputs["Color"])
     grey_bg = nodes.new("ShaderNodeBackground")
-    grey_bg.inputs["Color"].default_value = srgb_hex_to_linear(SHEET_BACKGROUND)
+    grey_bg.inputs["Color"].default_value = srgb_hex_to_linear(BACKDROP)
     light_path = nodes.new("ShaderNodeLightPath")
     mix = nodes.new("ShaderNodeMixShader")
     links.new(light_path.outputs["Is Camera Ray"], mix.inputs["Fac"])
@@ -610,43 +632,50 @@ def _studio(radius: float) -> None:
         obj.rotation_euler = [math.radians(a) for a in rotation]
 
 
-def _cell_size(asset_id: str) -> tuple[int, int]:
-    """One view's size: a quarter of the Canva sheet's width by half its height (two rows of
-    four), so the render sheet lines up with whatever size Canva returned."""
-    canva = active_pack().sheet(asset_id)
-    if canva is None:
-        return DEFAULT_CELL_SIZE
-    image = bpy.data.images.load(str(canva))
-    width, height = image.size
-    bpy.data.images.remove(image)
-    return width // 4, height // 2
+def _cell(box: list[int], long_side: int) -> tuple[int, int]:
+    """Render size with the aspect of a reference box, ``long_side`` pixels on its longer side."""
+    width, height = box[2] - box[0], box[3] - box[1]
+    scale = long_side / max(width, height)
+    return max(16, round(width * scale)), max(16, round(height * scale))
 
 
 def _camera(center: Vector, half_width: float, half_height: float, elevation_deg: float,
-            cell: tuple[int, int]) -> bpy.types.Object:
-    """Camera ``elevation_deg`` above the horizon, as close as keeps every turntable view in frame.
+            cell: tuple[int, int], setting: dict) -> bpy.types.Object:
+    """Camera ``elevation_deg`` above the horizon that keeps the object in frame from every azimuth.
 
     The object turns about the vertical axis through ``center``, so every view fits inside the
-    cylinder of radius ``half_width`` and half height ``half_height`` around that axis. The
-    distance is the smallest at which that whole cylinder projects inside the frame (with
-    :data:`FRAME_MARGIN`), so the framing and the scale are the same in all eight views.
+    cylinder of radius ``half_width`` and half height ``half_height`` around that axis. A
+    perspective camera (``{"lens": mm}``) stands at the smallest distance at which that whole
+    cylinder projects inside the frame (with :data:`FRAME_MARGIN`); an orthographic one
+    (``{"ortho": True}``) gets the smallest scale that holds it. Either way, views at the same
+    elevation and aspect share one scale.
     """
     data = bpy.data.cameras.new("Camera")
-    data.lens = 50.0
     camera = scene.link(bpy.data.objects.new("Camera", data))
-    wide = data.sensor_width / 2 / data.lens  # tan of the half field of view along the longer side
-    tan_x = wide if cell[0] >= cell[1] else wide * cell[0] / cell[1]
-    tan_y = wide if cell[1] > cell[0] else wide * cell[1] / cell[0]
     elevation = math.radians(elevation_deg)
     back = Vector((0.0, -math.cos(elevation), math.sin(elevation)))  # from the centre to the camera
     up = Vector((0.0, math.sin(elevation), math.cos(elevation)))
-    distance = 0.0
-    for i in range(FRAME_SAMPLES):
-        angle = 2 * math.pi * i / FRAME_SAMPLES
-        for z in (-half_height, half_height):
-            point = Vector((half_width * math.cos(angle), half_width * math.sin(angle), z))
-            spread = max(abs(point.x) / tan_x, abs(point.dot(up)) / tan_y)
-            distance = max(distance, point.dot(back) + FRAME_MARGIN * spread)
+    if setting.get("ortho"):
+        data.type = "ORTHO"
+        reach_x = 2 * half_width
+        reach_y = 2 * (half_height * math.cos(elevation) + half_width * abs(math.sin(elevation)))
+        if cell[0] >= cell[1]:
+            data.ortho_scale = FRAME_MARGIN * max(reach_x, reach_y * cell[0] / cell[1])
+        else:
+            data.ortho_scale = FRAME_MARGIN * max(reach_x * cell[1] / cell[0], reach_y)
+        distance = 4.0 * max(half_width, half_height) + 1.0
+    else:
+        data.lens = float(setting.get("lens", DEFAULT_LENS_MM))
+        wide = data.sensor_width / 2 / data.lens  # tan of the half field of view along the longer side
+        tan_x = wide if cell[0] >= cell[1] else wide * cell[0] / cell[1]
+        tan_y = wide if cell[1] > cell[0] else wide * cell[1] / cell[0]
+        distance = 0.0
+        for i in range(FRAME_SAMPLES):
+            angle = 2 * math.pi * i / FRAME_SAMPLES
+            for z in (-half_height, half_height):
+                point = Vector((half_width * math.cos(angle), half_width * math.sin(angle), z))
+                spread = max(abs(point.x) / tan_x, abs(point.dot(up)) / tan_y)
+                distance = max(distance, point.dot(back) + FRAME_MARGIN * spread)
     camera.location = center + back * distance
     camera.rotation_euler = (center - camera.location).to_track_quat("-Z", "Y").to_euler()
     data.clip_start = distance / 100.0
@@ -655,70 +684,46 @@ def _camera(center: Vector, half_width: float, half_height: float, elevation_deg
     return camera
 
 
-def _configure_render(samples: int, threads: int, cell: tuple[int, int]) -> None:
+def _configure_render(samples: int, threads: int) -> None:
     render_scene = bpy.context.scene
     render_scene.render.engine = "CYCLES"
-    render_scene.cycles.device = "CPU"
-    render_scene.cycles.samples = samples
-    render_scene.cycles.use_denoising = True
+    cycles = render_scene.cycles
+    cycles.device = "CPU"
+    cycles.samples = samples
+    cycles.use_adaptive_sampling = True
+    cycles.use_denoising = True
+    cycles.max_bounces = 6
+    cycles.diffuse_bounces = 2
+    cycles.glossy_bounces = 2
+    cycles.transmission_bounces = 4
+    cycles.transparent_max_bounces = 8
     render_scene.render.threads_mode = "FIXED"
     render_scene.render.threads = threads
-    render_scene.render.resolution_x, render_scene.render.resolution_y = cell
     render_scene.render.resolution_percentage = 100
+    render_scene.render.film_transparent = True  # the object's outline is the render's alpha
     render_scene.render.image_settings.file_format = "PNG"
     render_scene.render.image_settings.color_mode = "RGBA"
     render_scene.view_settings.view_transform = "Standard"
+    render_scene.view_settings.exposure = RENDER_EXPOSURE
 
 
-def _pixels(path: Path) -> np.ndarray:
-    image = bpy.data.images.load(str(path))
-    width, height = image.size
-    buffer = np.empty(width * height * 4, dtype=np.float32)
-    image.pixels.foreach_get(buffer)
-    bpy.data.images.remove(image)
-    return buffer.reshape(height, width, 4)
-
-
-def _save_png(array: np.ndarray, path: Path) -> Path:
-    height, width = array.shape[:2]
-    image = bpy.data.images.new(path.stem, width, height, alpha=True)
-    image.pixels.foreach_set(np.ascontiguousarray(array, dtype=np.float32).ravel())
-    image.filepath_raw = str(path)
-    image.file_format = "PNG"
-    image.save()
-    bpy.data.images.remove(image)
+def _render(path: Path, cell: tuple[int, int]) -> Path:
+    render_scene = bpy.context.scene
+    render_scene.render.resolution_x, render_scene.render.resolution_y = cell
+    render_scene.render.filepath = str(path)
+    bpy.ops.render.render(write_still=True)
     return path
 
 
-def _on_backdrop(image: np.ndarray) -> np.ndarray:
-    """``image`` laid over the renders' grey: a background-removed sheet is transparent around
-    the object. Blender reports PNG pixels as their stored sRGB values, so the grey is sRGB too."""
-    alpha = image[..., 3:4]
-    backdrop = np.array([int(SHEET_BACKGROUND[i:i + 2], 16) / 255.0 for i in (1, 3, 5)], dtype=np.float32)
-    return np.concatenate([image[..., :3] * alpha + backdrop * (1.0 - alpha), np.ones_like(alpha)], axis=-1)
-
-
-def _compose(asset_id: str, views: list[Path], out_dir: Path, cell: tuple[int, int]) -> None:
-    width, height = cell
-    sheet = np.ones((2 * height, 4 * width, 4), dtype=np.float32)
-    for index, path in enumerate(views):
-        row, column = divmod(index, 4)
-        top = (1 - row) * height  # image rows run bottom-up
-        sheet[top:top + height, column * width:(column + 1) * width] = _pixels(path)
-    _save_png(sheet, out_dir / f"{asset_id}_sheet.png")
-    canva = active_pack().sheet(asset_id)
-    if canva is None:
-        print(f"COMPARE {asset_id}: no Canva sheet *_{asset_id}_360.png in the pack, comparison skipped")
-        return
-    # A sheet whose size is not divisible into 4 x 2 cells loses its last few pixel columns/rows.
-    reference = _pixels(canva)
-    reference = _on_backdrop(reference[reference.shape[0] - sheet.shape[0]:, :sheet.shape[1]])
-    # Rows run bottom-up, so the first block ends up at the bottom: the render goes on top.
-    _save_png(np.concatenate([reference, sheet], axis=0), out_dir / f"{asset_id}_compare.png")
-
-
-def render_views(asset_id: str, obj: bpy.types.Object, samples: int, threads: int) -> Path:
-    """Render the eight turntable views, the sheet and the comparison; return the output folder."""
+def render_views(asset_id: str, obj: bpy.types.Object, samples: int, threads: int, resolution: int,
+                 only: list[int] | None = None, final: bool = False) -> dict:
+    """Render the recorded views (or only the view numbers in ``only``) and, for a final build, the
+    turnaround; returns what was rendered, relative to the repository."""
+    views = active_pack().views(asset_id)
+    numbers = list(range(1, len(views) + 1)) if not only else sorted(set(only))
+    unknown = [number for number in numbers if not 1 <= number <= len(views)]
+    if unknown:
+        raise ValueError(f"--views {unknown}: {asset_id} has views 1 to {len(views)}")
     out_dir = active_pack().evidence_dir / asset_id
     out_dir.mkdir(parents=True, exist_ok=True)
     corners = [obj.matrix_world @ Vector(c) for c in obj.bound_box]
@@ -728,24 +733,62 @@ def render_views(asset_id: str, obj: bpy.types.Object, samples: int, threads: in
     points = [obj.matrix_world @ v.co for v in obj.data.vertices]
     half_width = max(math.hypot(p.x - center.x, p.y - center.y) for p in points)
     half_height = max(abs(p.z - center.z) for p in points)
-    cell = _cell_size(asset_id)
     pivot = scene.link(bpy.data.objects.new("Turntable", None))
     pivot.location = center
     obj.parent = pivot
     obj.matrix_parent_inverse = Matrix.Translation(-center)  # the asset stays where it is
     _studio(radius)
-    _camera(center, half_width, half_height, active_pack().view_elevation(asset_id), cell)
-    _configure_render(samples, threads, cell)
-    views = []
-    for azimuth in VIEW_AZIMUTHS:
-        pivot.rotation_euler = (0.0, 0.0, math.radians(-azimuth))
-        path = out_dir / f"{asset_id}_view_{azimuth:03d}.png"
-        bpy.context.scene.render.filepath = str(path)
-        bpy.ops.render.render(write_still=True)
-        views.append(path)
-    _compose(asset_id, views, out_dir, cell)
-    print(f"RENDERED {asset_id}: {out_dir.relative_to(REPO_ROOT)}")
-    return out_dir
+    _configure_render(samples, threads)
+    setting = active_pack().camera(asset_id)
+    rendered = {"views": [], "turnaround": [], "camera": setting}
+    for number in numbers:
+        view = views[number - 1]
+        cell = _cell(view["box"], resolution)
+        camera = _camera(center, half_width, half_height, float(view["elevation"]), cell, setting)
+        pivot.rotation_euler = (0.0, 0.0, math.radians(-float(view["azimuth"])))
+        path = _render(out_dir / f"{asset_id}_view_{number}.png", cell)
+        bpy.data.objects.remove(camera, do_unlink=True)
+        rendered["views"].append({"view": number, "azimuth": view["azimuth"], "elevation": view["elevation"],
+                                  "file": str(path.relative_to(REPO_ROOT))})
+    for stale in out_dir.glob(f"{asset_id}_turn_*.png"):
+        stale.unlink()
+    if final:
+        elevation = float(views[0]["elevation"])
+        cell = _cell([0, 0, 1, 1], round(resolution * 2 / 3))
+        camera = _camera(center, half_width, half_height, elevation, cell, setting)
+        for index in range(TURNAROUND_VIEWS):
+            azimuth = 360.0 * index / TURNAROUND_VIEWS
+            pivot.rotation_euler = (0.0, 0.0, math.radians(-azimuth))
+            path = _render(out_dir / f"{asset_id}_turn_{index + 1}.png", cell)
+            rendered["turnaround"].append({"azimuth": azimuth, "elevation": elevation,
+                                           "file": str(path.relative_to(REPO_ROOT))})
+    print(f"RENDERED {asset_id}: {len(rendered['views'])} view(s)"
+          + (f" and a {TURNAROUND_VIEWS}-view turnaround" if final else "") + f" in {out_dir.relative_to(REPO_ROOT)}")
+    return rendered
+
+
+def _write_build(asset_id: str, report: dict, rendered: dict, final: bool, samples: int, resolution: int) -> dict:
+    """Record the build (numbered from 1 per object) for the CV compare, the build gate and pack.py done."""
+    path = active_pack().evidence_dir / asset_id / f"{asset_id}_build.json"
+    previous = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    record = {"build": previous.get("build", 0) + 1, "final": final,
+              "at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+              "samples": samples, "resolution": resolution, "report": report, **rendered}
+    path.write_text(json.dumps(record, indent=1) + "\n", encoding="utf-8")
+    return record
+
+
+def _compare(pack_name: str, asset_id: str) -> None:
+    """Run the CV compare of this build (system Python with the CV libraries, not Blender's)."""
+    try:
+        result = subprocess.run(["python3", str(CV_TOOL), "compare", pack_name, asset_id],
+                                capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        print(f"CV ERROR: {error}; run python3 tools/assetgen/cv.py compare {pack_name} {asset_id}")
+        return
+    print(result.stdout.rstrip())
+    if result.returncode != 0:
+        print(f"CV ERROR: {result.stderr.strip()}")
 
 
 # --------------------------------------------------------------------------------- #
@@ -760,7 +803,8 @@ def _generator_identity(generator: Path) -> tuple[str, str]:
 
 
 def run(build: Callable[[], list[bpy.types.Object]], origin: str = "bottom") -> dict:
-    """Build, finish, export and render the calling generator's asset; returns the build report.
+    """Build, finish, export and render the calling generator's asset, then compare it with the
+    reference (CV); returns the build report.
 
     The generator's folder names the pack and its file name the asset. ``origin`` is
     ``"bottom"`` (centre of the base, for free-standing objects) or ``"back"`` (centre of the
@@ -769,15 +813,25 @@ def run(build: Callable[[], list[bpy.types.Object]], origin: str = "bottom") -> 
     global _active_pack
     pack_name, asset_id = _generator_identity(Path(inspect.stack()[1].filename).resolve())
     parser = argparse.ArgumentParser(description=f"Build {pack_name}/{asset_id}")
+    parser.add_argument("--views", type=int, nargs="+", help="render only these recorded views (a quick check)")
+    parser.add_argument("--final", action="store_true", help="final build: larger, cleaner renders and the turnaround")
     parser.add_argument("--no-render", action="store_true", help="export the .glb only")
-    parser.add_argument("--samples", type=int, default=32, help="Cycles samples per view")
+    parser.add_argument("--samples", type=int, help=f"Cycles samples per view ({CYCLE_SAMPLES}, final {FINAL_SAMPLES})")
+    parser.add_argument("--resolution", type=int, help=f"longer side of a view in px ({CYCLE_RESOLUTION}, final {FINAL_RESOLUTION})")
     parser.add_argument("--threads", type=int, default=2, help="render threads (builds run in parallel)")
     args = cli.script_args(parser)
+    if args.final and args.views:
+        parser.error("--final renders every view; leave out --views")
+    samples = args.samples or (FINAL_SAMPLES if args.final else CYCLE_SAMPLES)
+    resolution = args.resolution or (FINAL_RESOLUTION if args.final else CYCLE_RESOLUTION)
     scene.reset_scene()
     _active_pack = Pack(pack_name)
     obj = _finalize(asset_id, build(), origin)
     glb = export.export_glb(_active_pack.models_dir / f"{asset_id}.glb", selection=[obj])
     report = _report(asset_id, obj, glb)
     if not args.no_render:
-        render_views(asset_id, obj, args.samples, args.threads)
+        rendered = render_views(asset_id, obj, samples, args.threads, resolution, args.views, args.final)
+        record = _write_build(asset_id, report, rendered, args.final, samples, resolution)
+        print(f"BUILD {record['build']} of {asset_id}" + (" (final)" if args.final else ""))
+        _compare(pack_name, asset_id)
     return report
