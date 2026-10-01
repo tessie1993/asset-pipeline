@@ -1,6 +1,7 @@
 ---
 name: image-to-3d
 description: Convert a photo into a 3D model using Meshy API and import it into Blender via MCP.
+disable-model-invocation: true
 ---
 
 ## Image to 3D Blender Skill

@@ -1,6 +1,7 @@
 ---
 name: multi-image-to-3d
 description: Convert multiple photos (1-4 angles) of the same object into a high-accuracy 3D model using Meshy API and import into Blender.
+disable-model-invocation: true
 ---
 
 ## Multi-Image to 3D Blender Skill

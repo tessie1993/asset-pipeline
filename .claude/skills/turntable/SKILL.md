@@ -1,6 +1,7 @@
 ---
 name: turntable
 description: 360-degree turntable camera orbit around a 3D product. Classic product showcase animation.
+disable-model-invocation: true
 ---
 
 ## Turntable Camera Animation

@@ -1,4 +1,5 @@
-"""HTTP helpers for the asset pipeline: JSON lookups and size-checked downloads with retries.
+"""HTTP helpers for the asset pipeline: JSON lookups, size-checked downloads with retries, and
+the Blendkit material library.
 
 Downloads (texture sets, HDRIs, thumbnails) go to a cache **outside the repository**, so a pack's
 working files never carry library downloads. ``ASSETGEN_CACHE`` overrides the cache folder
@@ -10,7 +11,9 @@ import http.client
 import json
 import os
 import time
+import urllib.parse
 import urllib.request
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -90,3 +93,45 @@ def download(url: str, destination: Path, expected_size: int | None = None) -> P
 def asset_cache_dir(cache: Path, source: str, asset_id: str) -> Path:
     """Folder holding the downloaded files of one library asset."""
     return cache / source / asset_id
+
+
+# --------------------------------------------------------------------------------- #
+# Blendkit (formerly BlenderKit): free CC0 Blender materials, no login needed
+# --------------------------------------------------------------------------------- #
+
+BLENDKIT_API = "https://www.blenderkit.com/api/v1"
+BLENDKIT_LICENCE = "cc_zero"  # only CC0: the royalty-free licence forbids reselling assets in a pack
+BLENDKIT_RESOLUTIONS = ("resolution_2K", "resolution_1K", "blend")  # preferred file, best first
+
+
+def blendkit_search(words: list[str], limit: int) -> list[dict]:
+    """Free CC0 Blendkit materials matching ``words``, best match first."""
+    query = "+".join(urllib.parse.quote(word) for word in words)
+    url = (f"{BLENDKIT_API}/search/?query={query}+asset_type:material+is_free:true+license:{BLENDKIT_LICENCE}"
+           f"&page_size={limit}&dict_parameters=1")
+    return get_json(url).get("results", [])
+
+
+def blendkit_asset(asset_base_id: str) -> dict:
+    """The Blendkit search record of one material (by its asset base id)."""
+    results = get_json(f"{BLENDKIT_API}/search/?query=asset_base_id:{asset_base_id}&dict_parameters=1").get("results", [])
+    if not results:
+        raise FetchError(f"Blendkit has no material {asset_base_id}")
+    asset = results[0]
+    if asset.get("license") != BLENDKIT_LICENCE or not asset.get("isFree"):
+        raise FetchError(f"Blendkit material {asset_base_id} is not free CC0 ({asset.get('license')})")
+    return asset
+
+
+def blendkit_download(asset: dict, cache: Path = DEFAULT_CACHE) -> Path:
+    """Download a Blendkit material's .blend (2K textures when offered) into the cache, once."""
+    files = {entry["fileType"]: entry for entry in asset.get("files", [])}
+    kind = next((name for name in BLENDKIT_RESOLUTIONS if name in files), None)
+    if kind is None:
+        raise FetchError(f"Blendkit material {asset['assetBaseId']} has no downloadable .blend")
+    target = asset_cache_dir(cache, "blendkit", asset["assetBaseId"]) / f"{kind}.blend"
+    if target.exists():
+        return target
+    # The download endpoint answers with a signed URL for this "scene"; any uuid will do.
+    signed = get_json(f"{files[kind]['downloadUrl']}?scene_uuid={uuid.uuid4()}")["filePath"]
+    return download(signed, target, files[kind].get("fileUploadSize") if kind == "blend" else None)

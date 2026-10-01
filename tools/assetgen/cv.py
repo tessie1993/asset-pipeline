@@ -3,12 +3,13 @@
 views in any reference image, measure them, and compare every build's renders with them.
 
 Everything here is an observation, never a verdict: the numbers say what differs and where, the
-builder decides why and what to change. Text output is compact on purpose (it goes into the
-builder's context); each command writes at most one image per view, sized to stay cheap to read.
+builder decides why and what to change. Each command writes at most one image per view.
 
     python3 tools/assetgen/cv.py views   <pack> <id> [--ref N]        # find the object views in a reference image
     python3 tools/assetgen/cv.py grid    <pack> <id> [--ref N]        # the image with a pixel grid, to read boxes
     python3 tools/assetgen/cv.py measure <pack> <id>                  # measure the recorded views
+    python3 tools/assetgen/cv.py observe <pack> <id> [--view N]       # magnified tiles: details, variation, wear
+    python3 tools/assetgen/cv.py sample  <pack> <id> --view N --box X0 Y0 X1 Y1 [--box ...]  # colour statistics
     python3 tools/assetgen/cv.py compare <pack> <id>                  # last build vs reference (the kit runs it)
     python3 tools/assetgen/cv.py closeup <pack> <id> --view N --box X0 Y0 X1 Y1 [--scale S]
 
@@ -408,23 +409,6 @@ def measure_view(region: np.ndarray) -> dict:
             "colours": dominant_colours(bgr, mask), "edge_density": density, "directions": directions}
 
 
-TEXTURE_MAX = 1024  # px, the longer side of a projected texture
-
-
-def texture_crop(region: np.ndarray, mask: np.ndarray) -> np.ndarray:
-    """The object's pixels (BGR) with every background pixel set to the colour of the nearest object
-    pixel, so a texture projected from it has no background fringe at the outline; at most
-    :data:`TEXTURE_MAX` pixels on the longer side."""
-    colour = region[..., :3].copy()
-    if mask.any() and not mask.all():
-        background = (mask == 0).astype(np.uint8)
-        _, labels = cv2.distanceTransformWithLabels(background, cv2.DIST_L2, 5, labelType=cv2.DIST_LABEL_PIXEL)
-        nearest = np.flatnonzero(background.ravel() == 0)  # labels count the object pixels in row order
-        flat = colour.reshape(-1, 3)
-        colour = flat[nearest[labels.ravel() - 1]].reshape(colour.shape)
-    return fit_width(colour, TEXTURE_MAX)
-
-
 def proportions(views: list[dict], measures: list[dict]) -> str | None:
     """width : height : depth from a front or back view and a side view at a similar elevation."""
     def near(angle, targets):
@@ -452,19 +436,13 @@ def measure_command(root: Path, pack_name: str, object_id: str) -> list[str]:
         region = reference_view(root, pack_name, view)
         measured = measure_view(region)
         measured["view"] = number
+        # The view exactly as the reference shows it, for tools that take an image file (ImageSorcery).
+        write_image(evidence / f"{object_id}_ref_view_{number}.png", region)
+        measured["view_image"] = f"{object_id}_ref_view_{number}.png"
         measures.append(measured)
         if measured.get("empty"):
             lines.append(f"REF {_view_name(number, view)}: no object found in the box ({measured['method']})")
             continue
-        # The object's outline and pixels, cut tight to it: the kit carves its silhouette hull from the
-        # masks and projects the crops onto the model (kit.silhouette_hull, kit.project_reference).
-        x0, y0, x1, y1 = measured["object_box"]
-        view_mask, _ = object_mask(region)
-        tight_mask = view_mask[y0:y1, x0:x1]
-        write_image(evidence / f"{object_id}_cv_mask_{number}.png", (tight_mask * 255).astype(np.uint8))
-        write_image(evidence / f"{object_id}_cv_crop_{number}.png", texture_crop(region[y0:y1, x0:x1], tight_mask))
-        measured["mask"] = f"{object_id}_cv_mask_{number}.png"
-        measured["crop"] = f"{object_id}_cv_crop_{number}.png"
         colours = ", ".join(f"{c['colour']} {round(c['share'] * 100)}% L{c['brightness']:.2f}"
                             for c in measured["colours"])
         directions = ", ".join(f"{key} {round(value * 100)}%" for key, value in
@@ -699,7 +677,7 @@ def _line(number: int, view: dict, result: dict, build: int) -> str:
                      for name, delta in result["lighter_darker"]) or "none"
     ref_colours = " ".join(c["colour"] for c in result["colours_reference"][:3])
     render_colours = " ".join(c["colour"] for c in result["colours_render"][:3])
-    return (f"CV build {build} {name}: outline overlap {result['overlap']:.2f} | w/h reference "
+    return (f"CV build {build} {name} [reference outline: {result['method']}]: outline overlap {result['overlap']:.2f} | w/h reference "
             f"{result['aspect_reference']:.2f} render {result['aspect_render']:.2f} ({result['aspect_change']:+.0%}) | "
             f"missing in render: {regions(result['missing'])} | extra in render: {regions(result['extra'])} | "
             f"colour reference {result['colour_reference']} L{result['brightness_reference']:.2f} render "
@@ -756,15 +734,22 @@ def compare_command(root: Path, pack_name: str, object_id: str) -> list[str]:
         ref_colour, render_colour, ref_shape, render_shape = images
         write_image(evidence / f"{object_id}_cv_survey_{number}.png",
                     survey_image(ref_colour, render_colour, f"{object_id} {_view_name(number, view)}: reference | render"))
-        columns.append(_column([on_grey(render_colour), on_grey(ref_colour),
-                                overlay_image(ref_colour, render_colour, ref_shape, render_shape)],
-                               SHEET_MAX_CELL, f"{number}: overlap {result['overlap']:.2f}"))
+        cells = [on_grey(render_colour)]
+        if rendered.get("clay") and (root / rendered["clay"]).exists():
+            clay = read_image(root / rendered["clay"])
+            clay_mask = (clay[..., 3] > 127).astype(np.uint8)
+            if bbox(clay_mask) is not None:
+                cells.append(on_grey(normalise(clay, clay_mask)[0]))
+        cells += [on_grey(ref_colour), overlay_image(ref_colour, render_colour, ref_shape, render_shape)]
+        columns.append(_column(cells, SHEET_MAX_CELL, f"{number}: overlap {result['overlap']:.2f}"))
     if columns:
         sheet = np.concatenate(columns, axis=1)
         if sheet.shape[1] > SHEET_MAX_WIDTH:
             sheet = fit_width(sheet, SHEET_MAX_WIDTH)
         legend = np.full((24, sheet.shape[1], 3), 255, np.uint8)
-        label(legend, "render | reference | overlay", scale=0.42)
+        clay_row = any(item.get("clay") for item in build.get("views", []))
+        label(legend, "rows: render | clay (shape only) | reference | overlay" if clay_row
+              else "rows: render | reference | overlay", scale=0.42)
         write_image(evidence / f"{object_id}_compare.png", np.concatenate([legend, sheet], axis=0))
     turnaround = [root / item["file"] for item in build.get("turnaround", [])]
     if turnaround:
@@ -833,6 +818,161 @@ def closeup_command(root: Path, pack_name: str, object_id: str, number: int, box
     return [f"CLOSEUP {_view_name(number, views[number - 1])} box {x0:g} {y0:g} {x1:g} {y1:g}: {out} ({shown})"]
 
 
+CONTACT_CELL = 200  # px, each thumbnail of a material-search sheet
+
+
+def contact_sheet(paths: list[Path], labels: list[str], out: Path, per_row: int = 6) -> Path:
+    """Thumbnails in a labelled grid (``pack.py material-search --previews``): one image to compare
+    candidate textures by pattern, scale, relief and colour."""
+    cells = []
+    for path, text in zip(paths, labels):
+        try:
+            image = on_grey(read_image(path))
+        except CVError:
+            continue
+        scale = CONTACT_CELL / max(image.shape[:2])
+        image = cv2.resize(image, (max(1, round(image.shape[1] * scale)), max(1, round(image.shape[0] * scale))),
+                           interpolation=cv2.INTER_AREA)
+        cell = np.full((CONTACT_CELL + 22, CONTACT_CELL, 3), 255, np.uint8)
+        cell[:image.shape[0], :image.shape[1]] = image
+        label(cell, text[-34:], origin=(3, CONTACT_CELL + 15), scale=0.36)
+        cells.append(np.pad(cell, ((0, 4), (0, 4), (0, 0)), constant_values=220))
+    if not cells:
+        raise CVError("no thumbnail could be read")
+    blank = np.full_like(cells[0], 255)
+    rows = []
+    for start in range(0, len(cells), per_row):
+        row = cells[start:start + per_row]
+        row += [blank] * (per_row - len(row))
+        rows.append(np.concatenate(row, axis=1))
+    return write_image(out, fit_width(np.concatenate(rows, axis=0), SHEET_MAX_WIDTH))
+
+
+OBSERVE_TILE = 420  # px, each magnified tile of the observe sheets
+OBSERVE_GRID = 3
+
+
+def _texture_energy(bgr: np.ndarray, mask: np.ndarray) -> float:
+    """How busy the surface is: mean absolute Laplacian of the lightness inside ``mask`` (0 flat, ~0.1 busy)."""
+    grey = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(np.float32) / 255.0
+    laplacian = np.abs(cv2.Laplacian(grey, cv2.CV_32F, ksize=3))
+    inside = cv2.erode(mask, np.ones((3, 3), np.uint8)) > 0
+    return round(float(laplacian[inside].mean()), 3) if inside.any() else 0.0
+
+
+def region_stats(bgr: np.ndarray, mask: np.ndarray) -> dict:
+    """Colour statistics of the object pixels in a region: what a material's variation needs."""
+    pixels = bgr[mask > 0].reshape(-1, 3)
+    if len(pixels) < 4:
+        return {"empty": True}
+    lab = cv2.cvtColor(pixels.reshape(-1, 1, 3), cv2.COLOR_BGR2LAB).reshape(-1, 3).astype(np.float32)
+    lightness = lab[:, 0] / 255.0
+    order = np.argsort(lightness)
+    dark = pixels[order[: max(1, len(order) // 20)]].mean(axis=0)
+    light = pixels[order[-max(1, len(order) // 20):]].mean(axis=0)
+    chroma = np.hypot(lab[:, 1] - 128, lab[:, 2] - 128)
+    return {"mean": hex_colour(pixels.mean(axis=0)), "darkest_5pct": hex_colour(dark), "lightest_5pct": hex_colour(light),
+            "lightness_spread": round(float(lightness.std()), 3), "chroma_spread": round(float(chroma.std() / 128), 3),
+            "texture": _texture_energy(bgr, mask), "colours": dominant_colours(bgr, mask, 3)}
+
+
+def _stats_text(stats: dict) -> str:
+    if stats.get("empty"):
+        return "no object pixels"
+    colours = " ".join(f"{c['colour']} {round(c['share'] * 100)}%" for c in stats["colours"])
+    return (f"mean {stats['mean']}, dark {stats['darkest_5pct']} / light {stats['lightest_5pct']}, lightness spread "
+            f"{stats['lightness_spread']:.3f}, colour spread {stats['chroma_spread']:.3f}, texture {stats['texture']:.3f}; "
+            f"colours {colours}")
+
+
+def observe_command(root: Path, pack_name: str, object_id: str, number: int | None = None,
+                    grid: int = OBSERVE_GRID) -> list[str]:
+    """Magnified tiles of every recorded view (or ``number``), each with its colour variation and
+    texture strength: what to look at closely before modelling the details, imperfections,
+    variations and materials."""
+    _, entry = _entry(root, pack_name, object_id)
+    views = entry.get("views") or []
+    if not views:
+        raise CVError(f"{object_id} has no recorded views: run `cv.py views`, then `pack.py views`")
+    numbers = [number] if number else list(range(1, len(views) + 1))
+    evidence = pack.evidence_dir(root, pack_name, object_id)
+    lines = []
+    for n in numbers:
+        if not 1 <= n <= len(views):
+            raise CVError(f"--view must be 1 to {len(views)}")
+        region = reference_view(root, pack_name, views[n - 1])
+        mask, _ = object_mask(region)
+        box = bbox(mask)
+        if box is None:
+            lines.append(f"OBSERVE {_view_name(n, views[n - 1])}: no object found")
+            continue
+        x0, y0, x1, y1 = box
+        colour, shape = region[y0:y1, x0:x1, :3], mask[y0:y1, x0:x1]
+        height, width = shape.shape
+        tiles, overall = [], region_stats(colour, shape)
+        lines.append(f"OBSERVE {_view_name(n, views[n - 1])} whole object {width}x{height} px: {_stats_text(overall)}")
+        for row in range(grid):
+            for col in range(grid):
+                ty0, ty1 = round(row * height / grid), round((row + 1) * height / grid)
+                tx0, tx1 = round(col * width / grid), round((col + 1) * width / grid)
+                tile_mask = shape[ty0:ty1, tx0:tx1]
+                fractions = (tx0 / width, ty0 / height, tx1 / width, ty1 / height)
+                name = f"r{row + 1}c{col + 1}"
+                if tile_mask.mean() < 0.03:
+                    tiles.append(None)
+                    continue
+                stats = region_stats(colour[ty0:ty1, tx0:tx1], tile_mask)
+                lines.append(f"OBSERVE {n} {name} box {fractions[0]:.2f} {fractions[1]:.2f} {fractions[2]:.2f} "
+                             f"{fractions[3]:.2f}: {_stats_text(stats)}")
+                tile = on_grey(np.dstack([colour[ty0:ty1, tx0:tx1], tile_mask * 255]))
+                scale = OBSERVE_TILE / max(tile.shape[:2])
+                tile = cv2.resize(tile, (max(1, round(tile.shape[1] * scale)), max(1, round(tile.shape[0] * scale))),
+                                  interpolation=cv2.INTER_CUBIC if scale > 1 else cv2.INTER_AREA)
+                tile = np.pad(tile, ((0, OBSERVE_TILE - tile.shape[0]), (0, OBSERVE_TILE - tile.shape[1]), (0, 0)),
+                              constant_values=255)
+                label(tile, f"{name} ({fractions[0]:.2f},{fractions[1]:.2f})-({fractions[2]:.2f},{fractions[3]:.2f})",
+                      scale=0.45)
+                tiles.append(tile)
+        blank = np.full((OBSERVE_TILE, OBSERVE_TILE, 3), 255, np.uint8)
+        rows = [np.concatenate([np.pad(t if t is not None else blank, ((0, 6), (0, 6), (0, 0)), constant_values=230)
+                                for t in tiles[r * grid:(r + 1) * grid]], axis=1) for r in range(grid)]
+        out = write_image(evidence / f"{object_id}_cv_observe_{n}.png", fit_width(np.concatenate(rows, axis=0), SHEET_MAX_WIDTH))
+        lines.append(f"OBSERVE image {n}: {out} (tiles magnified; boxes are fractions of the object for cv.py closeup/sample)")
+    return lines
+
+
+def sample_command(root: Path, pack_name: str, object_id: str, number: int, boxes: list[list[float]]) -> list[str]:
+    """Colour statistics of the reference inside each box (fractions of the object, as closeup),
+    and of the latest render in the same place when there is one."""
+    _, entry = _entry(root, pack_name, object_id)
+    views = entry.get("views") or []
+    if not 1 <= number <= len(views):
+        raise CVError(f"--view must be 1 to {len(views)}")
+    region = reference_view(root, pack_name, views[number - 1])
+    ref_mask, _ = object_mask(region)
+    if bbox(ref_mask) is None:
+        raise CVError("no object found in the reference box")
+    images = [normalise(region, ref_mask)]
+    build = pack.read_json(pack.build_report_path(root, pack_name, object_id)) or {}
+    rendered = next((item for item in build.get("views", []) if item["view"] == number), None)
+    if rendered and (root / rendered["file"]).exists():
+        render = read_image(root / rendered["file"])
+        render_mask = (render[..., 3] > 127).astype(np.uint8)
+        if bbox(render_mask) is not None:
+            images = list(pair_canvas(images[0], normalise(render, render_mask)))
+    lines = []
+    for box in boxes:
+        x0, y0, x1, y1 = box
+        if not (0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1):
+            raise CVError("--box is X0 Y0 X1 Y1 as fractions of the object (0 to 1, from its top-left)")
+        for name, (colour, shape) in zip(("reference", "render"), images):
+            h, w = shape.shape[:2]
+            ys, xs = slice(round(y0 * h), round(y1 * h)), slice(round(x0 * w), round(x1 * w))
+            stats = region_stats(colour[ys, xs, :3], shape[ys, xs])
+            lines.append(f"SAMPLE {number} box {x0:g} {y0:g} {x1:g} {y1:g} {name}: {_stats_text(stats)}")
+    return lines
+
+
 def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
@@ -859,6 +999,16 @@ def _parser() -> argparse.ArgumentParser:
     command.add_argument("--view", type=int, required=True)
     command.add_argument("--box", type=float, nargs=4, required=True, metavar=("X0", "Y0", "X1", "Y1"))
     command.add_argument("--scale", type=float, default=2.0)
+    command = commands.add_parser("observe", help="magnified tiles of the reference with their colour variation")
+    command.add_argument("pack")
+    command.add_argument("id")
+    command.add_argument("--view", type=int, help="one recorded view (default: every view)")
+    command.add_argument("--grid", type=int, default=OBSERVE_GRID, help="tiles per side")
+    command = commands.add_parser("sample", help="colour statistics of the reference (and render) in boxes")
+    command.add_argument("pack")
+    command.add_argument("id")
+    command.add_argument("--view", type=int, required=True)
+    command.add_argument("--box", type=float, nargs=4, action="append", required=True, metavar=("X0", "Y0", "X1", "Y1"))
     return parser
 
 
@@ -877,6 +1027,10 @@ def main(argv: list[str] | None = None, root: Path = pack.REPO_ROOT) -> int:
             lines = measure_command(root, args.pack, args.id)
         elif args.command == "compare":
             lines = compare_command(root, args.pack, args.id)
+        elif args.command == "observe":
+            lines = observe_command(root, args.pack, args.id, args.view, args.grid)
+        elif args.command == "sample":
+            lines = sample_command(root, args.pack, args.id, args.view, args.box)
         else:
             lines = closeup_command(root, args.pack, args.id, args.view, args.box, args.scale)
     except (CVError, pack.PackError) as error:

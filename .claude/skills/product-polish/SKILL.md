@@ -1,6 +1,7 @@
 ---
 name: blender-product-polish
 description: Import a 3D model (GLB/GLTF) into Blender and apply a sleek, glossy product-shot finish with studio lighting. Trigger when asked to polish a 3D model, make a Meshy AI model look shiny, apply product lighting in Blender, or prepare a 3D asset for product shots.
+disable-model-invocation: true
 ---
 
 # Blender Product Polish
