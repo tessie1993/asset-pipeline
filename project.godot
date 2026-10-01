@@ -1,0 +1,15 @@
+; Minimal Godot project for the asset pipeline's import and capture step (SKILL.md step 8).
+; Not part of the original pipeline: nokepom's own project.godot is the game's. The engine version
+; and renderer match it, so the screenshots look the same.
+
+config_version=5
+
+[application]
+
+config/name="asset-pipeline"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+anti_aliasing/quality/msaa_3d=1
