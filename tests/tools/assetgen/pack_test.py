@@ -71,14 +71,14 @@ class PackTestCase(unittest.TestCase):
     def tearDown(self) -> None:
         self._tmp.cleanup()
 
-    def _canva_pack(self, **extra) -> None:
+    def _flow_pack(self, **extra) -> None:
         pack.init(self.root, "demo", self.image)
         pack.set_style(self.root, "demo", "style words")
         pack.add(self.root, "demo", "object_a", name="object a", where="left side",
                  details="part one, part two", **extra)
 
     def _skip_pack(self, **extra) -> None:
-        pack.init(self.root, "demo", self.image, skip_canva=True)
+        pack.init(self.root, "demo", self.image, skip_flow=True)
         pack.set_style(self.root, "demo", "the style of the reference image")
         pack.add(self.root, "demo", "object_a", name="object a", where="left side", details="part one",
                  references=[self.image], **extra)
@@ -89,8 +89,8 @@ class PackTestCase(unittest.TestCase):
         manifest = pack.init(self.root, "demo", self.image)
         folder = self.root / "design" / "asset-packs" / "demo"
         self.assertEqual(manifest["source"], "source.png")
-        self.assertFalse(manifest["skip_canva"])
-        self.assertTrue((folder / "canva").is_dir())
+        self.assertFalse(manifest["skip_flow"])
+        self.assertTrue((folder / "flow").is_dir())
         self.assertEqual((folder / "source.png").read_bytes(), self.image.read_bytes())
         with self.assertRaises(pack.PackError):
             pack.init(self.root, "demo", self.image)
@@ -101,9 +101,9 @@ class PackTestCase(unittest.TestCase):
         with self.assertRaises(pack.PackError):
             pack.init(self.root, "demo", text)
 
-    def test_skip_canva_pack_keeps_references_and_needs_them(self) -> None:
-        manifest = pack.init(self.root, "demo", self.image, skip_canva=True)
-        self.assertTrue(manifest["skip_canva"])
+    def test_skip_flow_pack_keeps_references_and_needs_them(self) -> None:
+        manifest = pack.init(self.root, "demo", self.image, skip_flow=True)
+        self.assertTrue(manifest["skip_flow"])
         self.assertTrue((self.root / "design" / "asset-packs" / "demo" / "references").is_dir())
         with self.assertRaises(pack.PackError):
             pack.add(self.root, "demo", "object_a", name="a", where="w", details="d")
@@ -113,19 +113,19 @@ class PackTestCase(unittest.TestCase):
         other.write_bytes(png_bytes(10, 10))
         second = pack.add(self.root, "demo", "object_b", name="b", where="w", details="d", references=[other, other])
         self.assertEqual(second["references"], ["references/object_b_1.png", "references/object_b_1.png"])
-        self.assertNotIn("canva", second)
+        self.assertNotIn("flow", second)
 
-    def test_canva_pack_refuses_references(self) -> None:
+    def test_flow_pack_refuses_references(self) -> None:
         pack.init(self.root, "demo", self.image)
         with self.assertRaises(pack.PackError):
             pack.add(self.root, "demo", "object_a", name="a", where="w", details="d", references=[self.image])
 
     def test_add_numbers_objects_and_checks_ids_mount_and_budget(self) -> None:
-        self._canva_pack()
+        self._flow_pack()
         second = pack.add(self.root, "demo", "object_b", name="b", where="w", details="d", mount="wall", budget=1200)
         self.assertEqual(second["number"], 2)
         self.assertEqual((second["budget"], second["budget_why"]), (1200, "given by the user"))
-        self.assertEqual(pack.sheet_name(second), "02_object_b.png")
+        self.assertEqual(pack.flow_name(second, 3, ".png"), "02_object_b_3.png")
         for bad in ({"object_id": "Object C"}, {"object_id": "object_a"}, {"object_id": "object_c", "mount": "ceiling"},
                     {"object_id": "object_c", "budget": 0}):
             arguments = {"name": "x", "where": "x", "details": "x", **bad}
@@ -140,91 +140,58 @@ class PackTestCase(unittest.TestCase):
         pack.add(self.root, "demo", "object_a", name="rendering desk", where="left", details="cuter than none")
         self.assertEqual(pack.look_words("A Cosy, toon-ish 3d render"), ["3d", "cosy", "render", "toon"])
 
-    # ----------------------------------------------------------------------- Canva
+    # ----------------------------------------------------------------------- Google Flow
 
-    def test_prompt_fills_every_placeholder_and_carries_no_look_of_its_own(self) -> None:
-        self._canva_pack()
-        text = pack.prompt(self.root, "demo", "object_a")
-        self.assertIn("the object a (part one, part two; left side in the reference)", text)
-        self.assertTrue(text.endswith("Art style for every view: style words."))
-        self.assertNotIn("$", text)
-        fixed = Template((pack.TEMPLATES / "canva_prompt.txt").read_text()).substitute(
+    def test_flow_call_sets_grid_architect_up_with_exact_prompts_and_the_source_only(self) -> None:
+        self._flow_pack()
+        call = pack.flow_call(self.root, "demo", "object_a")
+        self.assertEqual(call["tool"], "mcp__google-flow__flow_use_grid_architect")
+        arguments = call["arguments"]
+        self.assertIn("the object a (part one, part two; left side in the reference)", arguments["theme_prompt"])
+        self.assertTrue(arguments["theme_prompt"].endswith("Art style for every shot: style words."))
+        self.assertEqual(len(arguments["shot_prompts"]), 5)
+        self.assertTrue(all("object a" in shot for shot in arguments["shot_prompts"]))
+        self.assertEqual(arguments["references"], [str((self.root / "design/asset-packs/demo/source.png").resolve())])
+        self.assertEqual((arguments["engine"], arguments["ratio"]), (pack.FLOW_ENGINE, pack.FLOW_RATIO))
+        self.assertNotIn("auto_confirm", arguments)  # it only sets up: the user generates
+        texts = [arguments["theme_prompt"], *arguments["shot_prompts"]]
+        self.assertFalse(any("$" in text for text in texts))
+        fixed = Template((pack.TEMPLATES / "flow_theme_prompt.txt").read_text()).substitute(
             name="", details="", where="", style="")
         self.assertEqual(pack.look_words(fixed), [])
-        for angle in ("45", "90", "degrees", "eight"):
-            self.assertNotIn(angle, fixed)
 
-    def test_prompt_needs_a_style_and_a_canva_pack(self) -> None:
+    def test_flow_call_needs_a_style_and_a_flow_pack(self) -> None:
         pack.init(self.root, "demo", self.image)
         pack.add(self.root, "demo", "object_a", name="a", where="w", details="d")
         with self.assertRaises(pack.PackError):
-            pack.prompt(self.root, "demo", "object_a")
+            pack.flow_call(self.root, "demo", "object_a")
         with self.assertRaises(pack.PackError):
             pack.set_style(self.root, "demo", "   ")
         self._tmp.cleanup()
         self.setUp()
         self._skip_pack()
         with self.assertRaises(pack.PackError):
-            pack.prompt(self.root, "demo", "object_a")
+            pack.flow_call(self.root, "demo", "object_a")
 
-    def _two_cutouts(self) -> None:
-        self._canva_pack()
-        pack.add(self.root, "demo", "object_b", name="b", where="w", details="d")
-        pack.record(self.root, "demo", "object_a", media="M1", job=None, refused=None)
-        pack.record(self.root, "demo", "object_b", media="M2", job=None, refused=None)
-        pack.cutout(self.root, "demo", "object_a", media="C1", failed=None)
-        pack.cutout(self.root, "demo", "object_b", media="C2", failed=None)
-
-    def test_sheets_need_every_background_removed_or_its_failure_recorded(self) -> None:
-        self._canva_pack()
-        pack.add(self.root, "demo", "object_b", name="b", where="w", details="d")
-        pack.record(self.root, "demo", "object_a", media="M1", job=None, refused=None)
-        pack.record(self.root, "demo", "object_b", media=None, job=None, refused="unsafe input")
+    def test_flow_record_copies_the_images_in_order_or_records_a_refusal(self) -> None:
+        self._flow_pack()
+        front, back = self.root / "front.png", self.root / "back.jpg"
+        front.write_bytes(png_bytes(64, 36))
+        back.write_bytes(b"\xff\xd8\xff\xc0\x00\x11\x08\x00\x10\x00\x20\x03\x01\x22\x00\x02\x11\x01\x03\x11\x01")
         with self.assertRaises(pack.PackError):
-            pack.sheets(self.root, "demo")
-        pack.cutout(self.root, "demo", "object_a", media=None, failed="tool error")
-        rows = pack.sheets(self.root, "demo")
-        self.assertEqual([(row["page"], row["id"], row["media_id"]) for row in rows], [(2, "object_a", "M1")])
-
-    def test_canva_calls_use_the_recorded_ids_and_one_page_size(self) -> None:
-        self._two_cutouts()
+            pack.flow_record(self.root, "demo", "object_a", None, None)
         with self.assertRaises(pack.PackError):
-            pack.canva_calls(self.root, "demo", "open")
-        pack.set_canva(self.root, "demo", None, "D1", "T1")
-        add = pack.canva_calls(self.root, "demo", "add-pages")[0]["arguments"]
-        self.assertEqual([op["title"] for op in add["operations"]], ["01_object_a", "02_object_b"])
-        self.assertEqual({(op["width"], op["height"]) for op in add["operations"]}, {pack.CANVA_PAGE})
-        with self.assertRaises(pack.PackError):
-            pack.canva_calls(self.root, "demo", "place", ["P2"])
-        place = pack.canva_calls(self.root, "demo", "place", ["P2", "P3"])
-        self.assertEqual([c["arguments"]["operations"][0]["asset_id"] for c in place], ["C1", "C2"])
-        export = pack.canva_calls(self.root, "demo", "export")
-        self.assertEqual(export[1]["arguments"]["format"]["pages"], [2, 3])
-        self.assertTrue(export[1]["arguments"]["format"]["transparent_background"])
-
-    def test_canva_download_accepts_any_png_size_and_makes_it_the_reference(self) -> None:
-        self._two_cutouts()
-        big, odd = self.root / "big.png", self.root / "odd.png"
-        big.write_bytes(png_bytes(64, 36))
-        odd.write_bytes(png_bytes(50, 77))
-        not_png = self.root / "x.jpg"
-        not_png.write_bytes(b"\xff\xd8 not a png")
-        with self.assertRaises(pack.PackError):
-            pack.canva_download(self.root, "demo", [big.as_uri()])
-        with self.assertRaises(pack.PackError):
-            pack.canva_download(self.root, "demo", [big.as_uri(), not_png.as_uri()])
-        self.assertFalse((self.root / "design" / "asset-packs" / "demo" / "canva" / "01_object_a.png").exists())
-        pack.canva_download(self.root, "demo", [big.as_uri(), odd.as_uri()])
-        entry = pack.find_object(pack.load(self.root, "demo"), "object_b")
-        self.assertEqual(entry["references"], ["canva/02_object_b.png"])
-        self.assertEqual(pack.image_size(pack.reference_paths(self.root, "demo", entry)[0]), (50, 77))
-
-    def test_record_needs_exactly_one_outcome(self) -> None:
-        self._canva_pack()
-        with self.assertRaises(pack.PackError):
-            pack.record(self.root, "demo", "object_a", media=None, job=None, refused=None)
-        self.assertEqual(pack.record(self.root, "demo", "object_a", media="M1", job="J1", refused=None),
-                         {"media_id": "M1", "job_id": "J1"})
+            pack.flow_record(self.root, "demo", "object_a", [front], "refused too")
+        result = pack.flow_record(self.root, "demo", "object_a", [front, back], None)
+        self.assertEqual(result["images"], ["flow/01_object_a_1.png", "flow/01_object_a_2.jpg"])
+        entry = pack.find_object(pack.load(self.root, "demo"), "object_a")
+        self.assertEqual(entry["references"], result["images"])
+        self.assertEqual(pack.image_size(pack.reference_paths(self.root, "demo", entry)[0]), (64, 36))
+        pack.flow_record(self.root, "demo", "object_a", [front], None)  # a new round replaces the old images
+        self.assertEqual(sorted(p.name for p in (self.root / "design/asset-packs/demo/flow").iterdir()),
+                         ["01_object_a_1.png"])
+        pack.flow_record(self.root, "demo", "object_a", None, "unsafe content")
+        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "refused")
 
     # ----------------------------------------------------------------------- images and views
 
@@ -274,10 +241,15 @@ class PackTestCase(unittest.TestCase):
         skill = self.root / ".claude" / "skills" / "skill_x"
         skill.mkdir(parents=True)
         (skill / "SKILL.md").write_text('---\nname: skill_x\ndescription: "Does x: well"\n---\nbody\n')
+        manual = self.root / ".claude" / "skills" / "skill_y"
+        manual.mkdir(parents=True)
+        (manual / "SKILL.md").write_text("---\nname: skill_y\ndescription: y\ndisable-model-invocation: true\n---\n")
         self.assertEqual([(row["name"], row["description"]) for row in pack.skills_list(self.root)],
                          [("skill_x", "Does x: well")])
         with self.assertRaises(pack.PackError):
             pack.set_skills(self.root, "demo", "object_a", ["not_installed"])
+        with self.assertRaises(pack.PackError):
+            pack.set_skills(self.root, "demo", "object_a", ["skill_y"])
         self.assertEqual(pack.set_skills(self.root, "demo", "object_a", ["skill_x"]), ["skill_x"])
         self.assertEqual(pack.set_skills(self.root, "demo", "object_a", []), [])
 
@@ -371,13 +343,11 @@ class PackTestCase(unittest.TestCase):
         self.assertEqual((result["build"], result["triangles"]), (3, 800))
 
     def test_status_next_step_follows_the_object_through_the_run(self) -> None:
-        self._canva_pack()
-        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "canva")
+        self._flow_pack()
+        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "flow")
         sheet = self.root / "sheet.png"
         sheet.write_bytes(png_bytes(30, 20))
-        pack.record(self.root, "demo", "object_a", media="M1", job=None, refused=None)
-        pack.cutout(self.root, "demo", "object_a", media="C1", failed=None)
-        pack.canva_download(self.root, "demo", [sheet.as_uri()])
+        pack.flow_record(self.root, "demo", "object_a", [sheet], None)
         self.assertEqual(pack.status(self.root, "demo")[0]["next"], "build")
         with self.assertRaises(pack.PackError):
             pack.accept(self.root, "demo", "object_a")
@@ -479,26 +449,78 @@ class PackTestCase(unittest.TestCase):
         with self.assertRaises(pack.PackError):
             pack.run_end(self.root)
 
-    def test_export_copies_the_deliverables_outside_the_repo_and_discard_cleans_up(self) -> None:
-        self._skip_pack()
-        pack.add(self.root, "demo", "object_b", name="b", where="w", details="d", references=[self.image])
+    def _outputs_and_helpers(self) -> None:
+        """object_a finished: renders, helper images, notes, a review, a helper script and baked maps."""
         self._finished_build()
         evidence = pack.evidence_dir(self.root, "demo", "object_a")
-        for name in ("object_a_compare.png", "object_a_turnaround.png", "object_a_godot_1.png"):
+        for name in ("object_a_view_1.png", "object_a_clay_1.png", "object_a_turn_1.png", "object_a_turnaround.png",
+                     "object_a_godot_1.png", "object_a_compare.png", "object_a_cv_survey_1.png", "object_a_ref_view_1.png",
+                     "object_a_review_1.md"):
             (evidence / name).write_bytes(b"png")
+        pack.notes_path(self.root, "demo", "object_a").write_text("# notes")
+        work = pack.work_dir(self.root, "demo", "object_a")
+        work.mkdir(parents=True)
+        (work / "helper.py").write_text("# helper")
+        baked = self.root / pack.BAKE_DIR / "demo" / "object_a"
+        baked.mkdir(parents=True)
+        for name in ("object_a_basecolor.png", "object_a_orm.png", "object_a_normal.png"):
+            (baked / name).write_bytes(b"png")
+        (pack.pack_dir(self.root, "demo") / "scribble.md").write_text("# helper notes")
+
+    def test_export_copies_the_outputs_outside_the_repo_and_discard_cleans_up(self) -> None:
+        self._skip_pack()
+        pack.add(self.root, "demo", "object_b", name="b", where="w", details="d", references=[self.image])
+        self._outputs_and_helpers()
         with self.assertRaises(pack.PackError):
             pack.export(self.root, "demo", self.root / "inside")
         with tempfile.TemporaryDirectory() as outside:
             archive = pack.export(self.root, "demo", Path(outside))
-            folder = Path(outside) / "demo"
-            self.assertEqual(sorted(p.name for p in (folder / "object_a").iterdir()),
-                             ["object_a.glb", "object_a_compare.png", "object_a_godot_1.png",
-                              "object_a_reference_1.png", "object_a_turnaround.png"])
-            self.assertFalse((folder / "object_b").exists())
+            folder = Path(outside) / "demo" / "object_a"
+            self.assertEqual(sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()),
+                             ["object_a.glb", "renders/object_a_clay_1.png", "renders/object_a_godot_1.png",
+                              "renders/object_a_turn_1.png", "renders/object_a_turnaround.png",
+                              "renders/object_a_view_1.png", "textures/object_a_basecolor.png",
+                              "textures/object_a_normal.png", "textures/object_a_orm.png"])
+            self.assertFalse((Path(outside) / "demo" / "object_b").exists())
             self.assertTrue(archive.exists())
         removed = pack.discard(self.root, "demo")
         self.assertIn("design/asset-packs/demo", removed)
         self.assertFalse(pack.pack_dir(self.root, "demo").exists())
+
+    def test_finish_keeps_models_textures_and_renders_and_deletes_the_helpers_and_notes(self) -> None:
+        self._skip_pack()
+        self._outputs_and_helpers()
+        notes = pack.notes_path(self.root, "demo", "object_a")
+        notes.write_text(FILLED_ANALYSIS + "\n## Report\nall checks pass\n")
+        pack.done(self.root, "demo", "object_a")
+        pack.run_start(self.root, "demo")
+        with self.assertRaises(pack.PackError):
+            pack.finish(self.root, "demo")
+        pack.run_end(self.root)
+        result = pack.finish(self.root, "demo")
+        models = "assets/models/demo"
+        evidence = "production/qa/evidence/demo/object_a"
+        self.assertEqual(result["kept"], sorted([
+            f"{models}/object_a.glb", f"{models}/object_a_textures/object_a_basecolor.png",
+            f"{models}/object_a_textures/object_a_normal.png", f"{models}/object_a_textures/object_a_orm.png",
+            f"{evidence}/object_a_clay_1.png", f"{evidence}/object_a_godot_1.png", f"{evidence}/object_a_turn_1.png",
+            f"{evidence}/object_a_turnaround.png", f"{evidence}/object_a_view_1.png"]))
+        for path in result["kept"]:
+            self.assertTrue((self.root / path).is_file(), path)
+        for gone in (notes, pack.generator_path(self.root, "demo", "object_a"),
+                     pack.build_report_path(self.root, "demo", "object_a"),
+                     pack.evidence_dir(self.root, "demo", "object_a") / "object_a_review_1.md",
+                     pack.evidence_dir(self.root, "demo", "object_a") / "object_a_compare.png",
+                     pack.evidence_dir(self.root, "demo", "object_a") / "object_a_ref_view_1.png",
+                     pack.pack_dir(self.root, "demo") / "scribble.md",
+                     pack.work_dir(self.root, "demo", "object_a"), self.root / pack.BAKE_DIR / "demo"):
+            self.assertFalse(gone.exists(), gone)
+        self.assertFalse((self.root / pack.GENERATORS_DIR / "demo").exists())
+        self.assertTrue((pack.pack_dir(self.root, "demo") / "pack.json").exists())
+        row = pack.status(self.root, "demo")[0]
+        self.assertEqual((row["next"], row["triangles"], row["builds"]), ("finished", 800, 3))
+        with self.assertRaises(pack.PackError):
+            pack.reopen(self.root, "demo", "object_a")
 
     # ----------------------------------------------------------------------- texture search
 

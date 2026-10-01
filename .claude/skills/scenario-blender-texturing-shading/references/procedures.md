@@ -336,6 +336,8 @@ Image value semantics (measured by writing 0.5 and reading the PNG): byte images
 
 ## P12. Photo texture pattern extraction (Kaspar, Snow #4)
 
+Only on downloaded CC0 texture sets, never on the user's reference image.
+
 Verified on 5.2.1. Test: `test_uvpaint.py`: low-frequency std 0.129 to 0.018, pattern correlation 0.99.
 
 ```python
@@ -425,6 +427,8 @@ print(d.is_valid)
 Add the same driven mix on Roughness (to 0.6) and Subsurface Weight (to 0) in every material; `ctrl["clay"] = 1` turns the whole character to clay for the presentation turntable.
 
 ## P17. Hand-painted stylized light, procedurally (Grant Abbitt, 5.1 guide)
+
+Only when the user's art style is hand-painted/unlit AND the reference itself shows light painted into the colours; otherwise never bake light into base colour.
 
 Verified on 5.2.1. Test: `test_painted_light.py` (unlit and studio rigs, EEVEE and Cycles; albedo top third 0.216 vs bottom third 0.177 linear). Grant paints the light into the albedo for unlit game shaders: lighter top, darker bottom, MULTIPLY in crevices, SCREEN on extremities, judged with no lighting. The node version builds the same structure from masks; bake it (Emit) for the game, then add hand details (cracks, lettering) on top in the GUI or with P11.
 

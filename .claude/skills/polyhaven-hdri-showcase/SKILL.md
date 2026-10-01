@@ -1,6 +1,7 @@
 ---
 name: polyhaven-hdri-showcase
 description: Render the same product across multiple HDRI environments and output a comparison grid. Trigger when asked to compare lighting setups, test different environments, show product in multiple settings, or create an HDRI comparison.
+disable-model-invocation: true
 ---
 
 # PolyHaven HDRI Showcase

@@ -11,8 +11,12 @@
   until the CV compare of the previous build is written up in the notes.
 - **Context budget**: a builder makes at most ``BUILDS_PER_BUILDER`` cycle builds (plus one final
   build); then it hands off through its notes and a fresh builder continues.
-- **No bias added to Canva**: a Canva image is generated only from the exact text
-  ``pack.py prompt`` prints, with the source image as the only reference.
+- **No bias added to Flow, no credits spent behind the user's back**: Google Flow's Grid
+  Architect is set up only with the exact arguments ``pack.py flow-call`` prints (its prompts, the
+  source image as the only reference); Flow's automatic image generation is refused, so only the
+  user's own click in Flow generates (and spends credits).
+- **ImageSorcery stays in the evidence**: its tools take and write files only in the run pack's
+  evidence folders and ``.scratch`` (its find and detect write masks next to their input).
 - **The critic only looks**: an ``asset-critic`` agent never starts Blender and writes nothing but
   its review file (``production/qa/evidence/<pack>/<id>/<id>_review_<n>.md``).
 
@@ -40,13 +44,16 @@ import pack  # noqa: E402
 
 SNAPSHOT_DIR = Path(".scratch/assetgen/snapshot")
 QUARANTINE_DIR = Path(".scratch/assetgen/quarantine")
-# Never part of the pipeline snapshot, never strays: version control, run scratch, Godot's cache.
-EXCLUDED_DIRS = {".git", ".scratch", ".godot", "__pycache__"}
+# Never part of the pipeline snapshot, never strays: version control, run scratch, Godot's cache,
+# plugins' own environments (plugins/<name>/.venv).
+EXCLUDED_DIRS = {".git", ".scratch", ".godot", "__pycache__", ".venv"}
 OUTPUT_ROOTS = (pack.PACKS_DIR, pack.GENERATORS_DIR, pack.MODELS_DIR, pack.EVIDENCE_DIR)
 # Run state in .scratch that only pack.py and this module write.
 LOCKED_SCRATCH = (SNAPSHOT_DIR, QUARANTINE_DIR, pack.AGENTS_DIR, pack.RUN_LOCK)
 WRITE_TOOLS = ("Write", "Edit", "MultiEdit", "NotebookEdit")
-CANVA_GENERATE = "mcp__Canva__generate-image"
+FLOW_SETUP = pack.FLOW_TOOL
+FLOW_GENERATE = f"mcp__{pack.FLOW_SERVER}__flow_generate_image"
+SORCERY_TOOLS = "mcp__imagesorcery__"  # ImageSorcery MCP (plugins/imagesorcery/install.sh)
 CRITIC = "asset-critic"
 REVIEW_FILE = re.compile(r"^production/qa/evidence/([a-z][a-z0-9_]*)/([a-z][a-z0-9_]*)/\2_review_[0-9]+\.md$")
 RUNS_BLENDER = re.compile(r"(^|[\s;&|(/])blender(\s|$)")
@@ -438,29 +445,46 @@ def gate_build(root: Path, state: dict, pack_name: str, object_id: str, command:
     return None
 
 
-def check_canva(root: Path, state: dict, args: dict) -> str | None:
-    """A Canva image is generated only from an object's exact prompt and the recorded source image."""
+def check_flow(root: Path, state: dict, args: dict) -> str | None:
+    """Grid Architect is set up only with one object's exact ``pack.py flow-call`` arguments."""
     manifest = pack.load(root, state["pack"])
-    if manifest["skip_canva"]:
-        return "Refused: this run skips Canva; no Canva image is generated for it."
-    text = (args.get("prompt") or "").strip()
-    prompts = set()
+    if manifest["skip_flow"]:
+        return "Refused: this run skips Google Flow; no Flow image is made for it."
+    expected = []
     for entry in manifest["objects"]:
         try:
-            prompts.add(pack.prompt(root, state["pack"], entry["id"]))
+            expected.append(pack.flow_call(root, state["pack"], entry["id"])["arguments"])
         except pack.PackError as error:
             return f"Refused: {error}"
-    if text not in prompts:
-        return ("Refused: the Canva prompt must be exactly the text `python3 tools/assetgen/pack.py prompt <pack> <id>` "
-                "prints, unchanged — no words added, removed or reworded (the look comes only from the user's art style).")
-    source = manifest["canva"].get("source_media_id")
-    if not source:
-        return "Refused: upload the source image and record it first (`pack.py canva <pack> --source-media <id>`)."
-    references = [(item.get("type"), item.get("id")) for item in args.get("imageReferences") or []]
-    if references != [("MEDIA", source)]:
-        return f'Refused: imageReferences must be exactly [{{"type": "MEDIA", "id": "{source}"}}], the recorded source image.'
-    if args.get("aspectRatio") != pack.CANVA_ASPECT_RATIO:
-        return f"Refused: aspectRatio must be {pack.CANVA_ASPECT_RATIO}."
+    if dict(args) not in expected:
+        return ("Refused: call Grid Architect with exactly the arguments `python3 tools/assetgen/pack.py flow-call <pack> <id>` "
+                "prints, unchanged: its theme and shot prompts (no words added, removed or reworded; the look comes "
+                "only from the user's art style), the engine, the ratio and the source image as the only reference.")
+    return None
+
+
+def _path_arguments(value, name: str = ""):
+    """``(name, path)`` of every argument ImageSorcery treats as a file: ``path`` or ``*_path``."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if (key == "path" or key.endswith("_path")) and isinstance(item, str) and item.strip():
+                yield f"{name}.{key}" if name else key, item
+            else:
+                yield from _path_arguments(item, f"{name}.{key}" if name else key)
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            yield from _path_arguments(item, f"{name}[{index}]")
+
+
+def check_sorcery(root: Path, state: dict, args: dict) -> str | None:
+    """ImageSorcery reads and writes only in the run pack's evidence folders and .scratch; its find
+    and detect write masks next to their input, so the input must be a copy there too."""
+    evidence = (pack.EVIDENCE_DIR / state["pack"]).as_posix()
+    for name, path in _path_arguments(args):
+        rel = _rel(root, path)
+        if rel is None or not (_inside(rel, evidence) or (_inside(rel, ".scratch") and writable(rel, state["pack"]))):
+            return (f"Refused: during a run ImageSorcery works only on files in {evidence}/<id>/ (the view copies "
+                    f"`cv.py measure` writes: <id>_ref_view_<n>.png) and .scratch/; `{name}` is {path}.")
     return None
 
 
@@ -504,8 +528,13 @@ def pre(root: Path, data: dict) -> str | None:
     if tool == "Bash":
         cwd = Path(data.get("cwd") or root)
         return check_bash(root, state, args.get("command", ""), cwd, data)
-    if tool == CANVA_GENERATE:
-        return check_canva(root, state, args)
+    if tool == FLOW_SETUP:
+        return check_flow(root, state, args)
+    if tool == FLOW_GENERATE:
+        return ("Refused: during a run Flow never generates on its own (it spends the user's credits). Set Grid "
+                "Architect up with `pack.py flow-call`; the user clicks Generate in Flow.")
+    if tool.startswith(SORCERY_TOOLS):
+        return check_sorcery(root, state, args)
     return None
 
 

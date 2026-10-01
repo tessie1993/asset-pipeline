@@ -12,3 +12,5 @@ so it never competes with that skill, and `user-invocable: false`. Nothing else 
 In this repository's container, `scripts/review_render.py`, `scripts/roundtrip.py` and
 `scripts/world_gate.py` render with Workbench, which needs a display: run them as
 `xvfb-run -a blender -b ...`. The pipeline's own builds render with Cycles and need none.
+
+- Edited for the image-to-assets pipeline (2026-10-01): removed or scoped defaults that conflict with its rules (no projection, no low poly, no asking, style from the user).

@@ -1,6 +1,7 @@
 ---
 name: polyhaven-material-swap
 description: Cycle through multiple PolyHaven materials on a product and render each variant. Great for showing color/finish options. Trigger when asked to show material variants, swap textures, create color options, show finish comparisons, or render product in different materials.
+disable-model-invocation: true
 ---
 
 # PolyHaven Material Swap

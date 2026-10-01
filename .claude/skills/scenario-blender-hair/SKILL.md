@@ -6,7 +6,7 @@ license: MIT
 
 # Hair and fur grooming (hair curves, Blender 5.2)
 
-Expert grooming means a few evenly spaced guides that set direction and silhouette. Stacked, masked procedural layers add density, clumping, frizz, length variation and strays, judged in a lit render at full density and in pose. Write guides as data (no curve brush stroke can be scripted in 5.2.1) and make every look decision through the Essentials hair node-group assets. If a sibling skill named here is missing from your available skills, ask the user to install it (`npx skills add scenario-labs/skills --skill <name>`); unattended, proceed from tool schemas and flag the gap.
+Expert grooming means a few evenly spaced guides that set direction and silhouette. Stacked, masked procedural layers add density, clumping, frizz, length variation and strays, judged in a lit render at full density and in pose. Write guides as data (no curve brush stroke can be scripted in 5.2.1) and make every look decision through the Essentials hair node-group assets. Sibling skills that are not in .claude/skills/ are not installed here: do not ask for them; proceed without them.
 
 **REQUIRED BACKGROUND:** scenario-blender-expert (execution channel, review loop, 5.2 API changes).
 
@@ -23,6 +23,8 @@ Expert grooming means a few evenly spaced guides that set direction and silhouet
 
 ## Establish first
 
+Under /image-to-assets: hair cards or mesh hair only, converted to MESH (the kit keeps only meshes; strands never reach Godot), static, and builders never ask: they work from the reference.
+
 | Input        | Changes                                                                    | Default when the brief is silent                 |
 | ------------ | -------------------------------------------------------------------------- | ------------------------------------------------ |
 | Target       | Cycles strands vs EEVEE or game cards                                      | Cycles strands (Principled Hair BSDF)            |
@@ -30,7 +32,7 @@ Expert grooming means a few evenly spaced guides that set direction and silhouet
 | Length class | points per guide, clump and curl layers                                    | short fur: 3 points, long: 8, long human: 15     |
 | Deformation  | animated means Hair Dynamics (Animation) stays last, and you check in pose | animated                                         |
 | Budget       | render curves, card triangles                                              | say the number: evaluated curves at full density |
-| Reference    | same subspecies, season, ideally the same individual (Schmidbauer)         | ask for it; draw landmarks and flow first        |
+| Reference    | same subspecies, season, ideally the same individual (Schmidbauer)         | the reference you have; draw landmarks and flow first |
 
 Finish topology and non-overlapping UVs before grooming (hair binds to UV space) and apply scale: density counts the mesh's local area (verified).
 
@@ -40,7 +42,7 @@ Finish topology and non-overlapping UVs before grooming (hair binds to UV space)
 | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Curves object, surface binding, guides as data, snap, subdivide or resample, asset modifiers, inputs, masks, counts, renders, cards | yes ([`scripts/bx_hair.py`](scripts/bx_hair.py)) | yes, same code in Object Mode                                                                                                                                                                                   |
 | Enter Sculpt Curves, activate the 11 curve brushes, set brush settings, `sculpt_curves.select_random`                               | n/a                                              | yes (`bx_gui.activate_brush("SCULPT_CURVES", "Comb")`)                                                                                                                                                          |
-| Comb, Add, Density, Grow/Shrink, Pull Tips strokes                                                                                  | no                                               | **no**. `sculpt_curves.brush_stroke` has no exec, so `bx_gui.stroke("SCULPT_CURVES", ...)` returns PASS_THROUGH and changes nothing. Set the brush up and ask the user to stroke, or use the substitutes below. |
+| Comb, Add, Density, Grow/Shrink, Pull Tips strokes                                                                                  | no                                               | **no**. `sculpt_curves.brush_stroke` has no exec, so `bx_gui.stroke("SCULPT_CURVES", ...)` returns PASS_THROUGH and changes nothing. Use the substitutes below. |
 
 1. **Prepare the surface.** `H.uv_report(surface)`: stacked UVs make curves ignore the rig, UDIMs are fine, an unmerged mirror seam needs UV Merge by Distance (Schmidbauer). Humans: a hair cap split into islands along the part. Animals: separate the mouth interior. Masks: vertex groups (fast) or textures (detail on low-poly meshes). **GATE:** `overlap_faces == 0`, scale applied, one mask per region.
 2. **Plan flow and objects.** Turn the draw-over into regions (vertex groups) with one flow direction each. Schmidbauer: one curves object per landmark (face, cheeks, ears, neck, body, tail, feet) for performance. Thommes: one object with masks. Bystedt: split front and back where combing one disturbs the other. **GATE:** written list of regions, flows, objects.

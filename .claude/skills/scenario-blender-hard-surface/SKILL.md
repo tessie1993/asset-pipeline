@@ -6,7 +6,7 @@ license: MIT
 
 # Blender hard surface
 
-Expert hard surface is controlled light on edges: every edge catches a highlight from a bevel or a support loop, flat faces read perfectly flat, and cuts stay editable until the design is settled. The experts disagree on method (n-gons and booleans vs quad cages and subdivision), not on the checks: order of operations, cutter hygiene, planar faces, a shiny matcap orbit. The agent builds the stack with the toolkit and lets the measurable gates find what a human finds by orbiting. If a sibling skill named here is missing from your available skills, ask the user to install it (`npx skills add scenario-labs/skills --skill <name>`); unattended, proceed from tool schemas and flag the gap.
+Expert hard surface is controlled light on edges: every edge catches a highlight from a bevel or a support loop, flat faces read perfectly flat, and cuts stay editable until the design is settled. The experts disagree on method (n-gons and booleans vs quad cages and subdivision), not on the checks: order of operations, cutter hygiene, planar faces, a shiny matcap orbit. The agent builds the stack with the toolkit and lets the measurable gates find what a human finds by orbiting. Sibling skills that are not in .claude/skills/ are not installed here: do not ask for them; proceed without them.
 
 **REQUIRED BACKGROUND:** scenario-blender-expert (execution channel, review loop, 5.2 API changes). Toolkit: [`scripts/bx_hardsurface.py`](scripts/bx_hardsurface.py) (`import sys; sys.path.append("<skills>/scenario-blender-hard-surface/scripts"); import bx_hardsurface as HS`), world-space meters, stock Blender only.
 
@@ -23,12 +23,14 @@ Expert hard surface is controlled light on edges: every edge catches a highlight
 
 ## Establish first
 
+Under /image-to-assets (one static mid-to-high-poly model, budget from `pack.py budget`): render-quality bevels (3 or more segments) unless the budget forbids, and the 15k-triangle figures below are examples, not targets.
+
 | Input             | Why it changes the plan                                                                                                                       | Default when silent                                                               |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Purpose           | render: 3+ micro segments (Gambrell); game mid-poly: 1 to 2 segments, triangulated, custom normals; bake: subD or boolean high + separate low | render still                                                                      |
 | Real size         | bevel widths are absolute: du Mont uses about 3 mm on a small robot body, 1 mm on small parts, 0.1 mm on a collar                             | model at real size; if unknown, micro width 0.5% of the largest dimension [added] |
 | Surface           | mostly planar vs curved vs organic-mechanical                                                                                                 | School A for planar parts, B for curved shells, hybrid when mixed                 |
-| Budget and engine | Augusto: 15k tris, one 2K map; a quad-only pipeline forces School B (Gambrell [00:24:35])                                                     | no budget: report tris                                                            |
+| Budget and engine | Augusto: 15k tris, one 2K map (an example); a quad-only pipeline forces School B (Gambrell [00:24:35])                                                     | no budget: report tris                                                            |
 | Later stages      | sculpted damage or multires detail needs a quad cage (PzThree); rigging needs collapsed copies (du Mont)                                      | none                                                                              |
 | Symmetry          | mirror the target when the part is symmetric; mirror the cutter around the target when only the cut is (Gambrell [00:14:53])                  | ask the reference                                                                 |
 
@@ -62,7 +64,7 @@ Expert hard surface is controlled light on edges: every edge catches a highlight
 | Creases                  | fine for small details or rounding a coarse cylinder at level 1; 10x tris for primary edges | Lampel, du Mont [00:52:18]              |
 | SubD cage                | circle 18 verts body, 36 on a denser part; square quads                                     | rileyb3d [00:01:34], PzThree [00:03:15] |
 | Mirror seam fix          | bevel Face Strength Affected + WN Face Influence, weight 100                                | Gambrell [00:06:57]                     |
-| Game budget              | 15k tris, one 2K map, animated parts separate                                               | Augusto [00:11:48]                      |
+| Game budget              | 15k tris, one 2K map, animated parts separate (an example)                                               | Augusto [00:11:48]                      |
 | Cost measured            | case 1,984 tris (A) vs 4,608 (B, level 2); barrel 7,308 (A), 25,728 (B), 3,716 (A game)     | test_03 [added]                         |
 
 ## Quality gates

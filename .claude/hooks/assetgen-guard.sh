@@ -3,8 +3,9 @@
 # PostToolUse ("post"). Does nothing unless a pipeline run is in progress
 # (.scratch/assetgen/run.json, written by `pack.py run-start`). During a run it executes the copy of
 # guard.py in the run's snapshot, so changing the pipeline cannot switch the guards off.
-#   pre:  refuses edits outside the pack's folders, git changes, unprepared Blender builds and
-#         Canva prompts that are not exactly `pack.py prompt` (exit 2, reason on stderr)
+#   pre:  refuses edits outside the pack's folders, git changes, unprepared Blender builds, Flow
+#         set-ups that are not exactly `pack.py flow-call` and Flow's automatic generation
+#         (exit 2, reason on stderr)
 #   post: restores changed pipeline files, quarantines stray files, points builders at their CV compare
 
 MODE="${1:-pre}"

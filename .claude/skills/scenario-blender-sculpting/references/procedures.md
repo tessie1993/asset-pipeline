@@ -32,7 +32,7 @@ H = 0.24
 G = S.head_guides(H, brow=0.60)   # eye_z 0.5H, nose_base_z brow/2, mouth_z 1/3 down, head_width H/1.5 ...
 STYLE = {"nose_tip_r": 0.085, "brow_r": 0.05, "jaw_to_cheek": 0.95, "eye_r": 0.064,
          "lid_thick": 0.012, "neck_r": 0.205, "gonial_blend": 0.025}   # the exaggerations, written first (Yan)
-CUES = ["swept hair in clumps", "neckerchief"]                          # what sells "adventurer" [added]
+CUES = ["swept hair in clumps", "neckerchief"]                          # what sells "adventurer" [added] (example only)
 ```
 
 `brow=0.60` is an [added] assumption (equal thirds with the hairline at 0.9 H).
@@ -269,7 +269,7 @@ rep = S.form_report(obj, P, H)                    # sphere_R, sphere_rms, plane_
 
 `ball` = one sphere fits within 10 % of the region size AND fits at least twice as well as a plane. Calibration: E2 with-skill final 0.082 / 0.073, its stage 2 0.070 / 0.064, v1 example stage 3 0.057 / 0.065 (all balls, plane_rms 0.22 to 0.25); E2 baseline 0.180 / 0.197 (not a ball); v2 example 0.255 / 0.231. `flat_frac` did not separate the heads (baseline 0.0): what makes a lower face read is several forms, not flatness.
 
-## P16. Stylized hair as clumps (separate object)
+## P16. Stylized hair as clumps (separate object) (example only)
 
 Verified in `stylized_head_blockout.py` (`hair_clay`).
 
@@ -288,7 +288,7 @@ hair = clay.to_object("Hair", symmetric=False)
 
 One quiff swept to one side owns the front, three clumps behind it (Yan: three is the magic number, keep hair off the eyes and forehead, vB7kPWjBgQI 01:08:06, 01:10:27; Keelan Jon: a slicked-back mass with ridges, amVAlpxHp8k 00:50:44). Failures on the way: a uniform offset read as a helmet; tubes on a thick cap as a beanie with worms; clumps starting behind the hairline left a bare headband; temple cuts left horn points; symmetrizing the swept hair made a centered flame with a seam.
 
-## P17. Costume cue
+## P17. Costume cue (example only)
 
 A neckerchief from `sd_tube` rings round the neck, a knot ellipsoid and a clipped flap (`scarf_clay` in the example). Keep it above the bust cut: the first flap sat below `z = -0.40 H` and was cut away.
 

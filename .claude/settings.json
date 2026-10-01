@@ -15,7 +15,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|mcp__Canva__generate-image",
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit|mcp__google-flow__flow_use_grid_architect|mcp__google-flow__flow_generate_image|mcp__imagesorcery__.*",
         "hooks": [
           {
             "type": "command",
@@ -33,16 +33,6 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/assetgen-guard.sh\" post",
             "timeout": 30
-          }
-        ]
-      },
-      {
-        "matcher": "mcp__Canva__generate-image|mcp__Canva__get-generate-image-job",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/canva-remove-background.sh\"",
-            "timeout": 10
           }
         ]
       }

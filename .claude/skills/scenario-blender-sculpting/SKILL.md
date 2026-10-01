@@ -1,12 +1,12 @@
 ---
 name: scenario-blender-sculpting
-description: "Use when sculpting in Blender through Python: sculpt a head, face or bust, a stylized or cartoon character, a creature or a realistic portrait; block out from primitives; cut planes, a jaw or gonial angle, cheekbones; fix a jaw or face that looks like a ball or balloon; stylized hair clumps; eyelids; an expression or smirk; plan remesh or multires resolution; reproduce Clay Strips, Crease, Draw Sharp, Scrape, Grab or mask moves without a tablet; final clay renders; or when a sculpt operator crashes headless."
+description: "Use when sculpting in Blender through Python: any organic or soft form built from signed-distance clay (plants, food, rocks, animal bodies, cloth folds, heads); sculpt a head, face or bust, a stylized or cartoon character, a creature or a realistic portrait; block out from primitives; cut planes, a jaw or gonial angle, cheekbones; fix a jaw or face that looks like a ball or balloon; stylized hair clumps; eyelids; an expression or smirk; plan remesh or multires resolution; reproduce Clay Strips, Crease, Draw Sharp, Scrape, Grab or mask moves without a tablet; final clay renders; or when a sculpt operator crashes headless."
 license: MIT
 ---
 
 # Sculpting (heads and characters, Blender 5.2)
 
-Expert sculpting is structure first and surface last: masses blocked with stated planes and corners, proportions locked at low resolution, every stage judged by eye through a long lens, and appeal as the final test, not the mesh numbers. The agent builds blockout and primary forms headless ([`scripts/bx_sculpt.py`](scripts/bx_sculpt.py): smooth-blend `Clay`, plane cuts, numpy brushes) and does client-quality surface work with Blender's real brushes in a live GUI session (`bx_gui`). If a sibling skill named here is missing from your available skills, ask the user to install it (`npx skills add scenario-labs/skills --skill <name>`); unattended, proceed from tool schemas and flag the gap.
+Expert sculpting is structure first and surface last: masses blocked with stated planes and corners, proportions locked at low resolution, every stage judged by eye through a long lens, and appeal as the final test, not the mesh numbers. The agent builds blockout and primary forms headless ([`scripts/bx_sculpt.py`](scripts/bx_sculpt.py): smooth-blend `Clay`, plane cuts, numpy brushes) and does client-quality surface work with Blender's real brushes in a live GUI session (`bx_gui`). Headless, the finish is `remesh_stage` + `crease_line`/`plane_cut` + relief in the material (bump/normal), baked by the kit. Sibling skills that are not in .claude/skills/ are not installed here: do not ask for them; proceed without them.
 
 **REQUIRED BACKGROUND:** scenario-blender-expert (execution channel, review loop, 5.2 API changes).
 
@@ -18,16 +18,18 @@ Expert sculpting is structure first and surface last: masses blocked with stated
 - **Low resolution as long as possible.** Abbitt: smoothing is strong only on big polygons; Thelen: lock proportions coarse. Symmetrize after every remesh (Keelan Jon), then a global relax (Kaspar FDscc66fC90 00:11:55).
 - **Indicate small landmarks early** (nostrils, brows, eyes): Yan found a too-wide nose from the nostrils (vB7kPWjBgQI 00:05:11).
 - **Stylize by consistent exaggeration** (Yan: pick it in minute one, make neighbors follow; a long face needs a smaller skull, not a stretch).
-- **A concept head needs its cues.** Thelen: hair makes a male head read better (00:48:58); Naydenov: hair changes the read a lot (00:53:05). An "adventurer" with no hair or costume reads as a bald mannequin.
+- **A concept head needs its cues.** Thelen: hair makes a male head read better (00:48:58); Naydenov: hair changes the read a lot (00:53:05). Cues only as the reference shows them; add nothing the reference does not show.
 - **Asymmetry and expression live on a shape key; the basis stays neutral and symmetric** (Kaspar f-mx-Jfx9lA 00:09:44; Thelen 00:38:27). Expression tests expose proportion errors; fix them in the neutral (Kaspar 00:10:49).
 
 ## Establish first
+
+Under /image-to-assets none of these defaults apply: the reference and the user's art style decide subject, style, size and framing.
 
 | Input                          | Changes                                                     | Default when silent                                      |
 | ------------------------------ | ----------------------------------------------------------- | -------------------------------------------------------- |
 | Who (sex, age, type, attitude) | gonial angle, brow, jaw width, shape language               | adult male, neutral basis, stated [added]                |
 | Style                          | stylized: exaggeration table; realistic: canon + reference  | stylized, "abstracted enough to not be uncanny" (Kaspar) |
-| Character cues                 | hair, costume, props that sell the type                     | at least hair plus one costume signifier [added]         |
+| Character cues                 | hair, costume, props that sell the type                     | cues only as the reference shows them; add nothing the reference does not show |
 | Purpose                        | still (vertex paint, decimate) vs game or film (retopology) | still; scenario-blender-retopology if animated           |
 | Delivery framing               | detail frequency, expression size                           | bust fills a 1080 px frame [added]                       |
 | Scale                          | nothing if sizes are fractions of head height H             | H = 0.24 m [added]                                       |
@@ -39,7 +41,7 @@ Expert sculpting is structure first and surface last: masses blocked with stated
 1. **Blockout (voxel H/40).** Default for heads: `Clay`. Cranium ellipsoid clipped by skull side and front-taper half-spaces; a jaw `sd_round_box` BEHIND the mouth mound, clipped by side, underside and ramus planes through the gonion; a square chin block; cheekbone ellipsoids along the ear-to-cheek line with a lower plane; mouth mound; brow ridges; nose; neck leaning about 15 degrees; ears; frontal box around the eyes. Blend big masses at 0.08 to 0.15 H, clip edges at 0.02 to 0.03 H. Option: `union_remesh` of primitives (rounded_box is a Catmull-Clark blob that reads as a ball: never use it for a jaw). GATE: 1 component; `lower_face_report(head, H)["ball"]` False; silhouette plus 90 mm renders show a jawline and gonial corner in profile and three-quarter; the exaggeration visible.
 2. **Primary forms (H/100 to H/110).** Rebuild the Clay at the finer voxel with landmarks: sockets (sphere 1.1 x eyeball, smaller than the lids), thin shell lids around separate eyeballs (Keelan Jon's lids from the eyeball, amVAlpxHp8k 00:37:05), nose wings tucked in, ear bowls, neck muscles. Hair and costume as separate Clay objects (`to_object(name, symmetric=False)` for anything asymmetric). GATE: profile beats; eyes not marbles or bags; hair frames the face; `stage_report` clean.
 3. **Secondary (H/130 to H/150, `remesh_stage`).** Lines with `crease_line` (mouth, under-lip, lid rim) on surfaces facing the projection; nostrils from below. Restate planes with `corner_cut` / `plane_cut` only where the mass is right and moves stay small. GATE: under 100k faces (Abbitt), no scratches, cracks or rims in 90 mm renders.
-4. **Surface finish (client quality): live GUI.** Real Clay Strips, Scrape, Crease Polish, Smooth 0.2 via `bx_gui` (fixed and verified: strokes raycast onto the mesh and pass object-space locations; `set_view(frame=obj)` first, `view_distance` a few head heights). Headless numpy strokes suit blockout and primary forms, not polish. Multires only on a settled clean base (Henning Cmi0KoFtc-4 00:16:04).
+4. **Surface finish (client quality): live GUI.** Real Clay Strips, Scrape, Crease Polish, Smooth 0.2 via `bx_gui` (fixed and verified: strokes raycast onto the mesh and pass object-space locations; `set_view(frame=obj)` first, `view_distance` a few head heights). Headless numpy strokes suit blockout and primary forms, not polish. Multires only on a settled clean base (Henning Cmi0KoFtc-4 00:16:04). Headless, the finish is `remesh_stage` + `crease_line`/`plane_cut` + relief in the material (bump/normal), baked by the kit.
 5. **Expression.** Neutral symmetric basis; `sc = S.Sculptor(head, symmetry_x=False)`, `move_feature` the corner, cheek, lower lid, opposite brow; `S.write_shape_key(head, "Smirk", sc.co)`. Size the corner move to the delivery framing (Numbers). Voxel remesh drops keys: last step.
 6. **Final render.** `S.final_render(objs, path, direction, lens=90, res=1600)` (cavity, framed on real vertices) from front, profile, three-quarter, neutral and expression; open every image.
 

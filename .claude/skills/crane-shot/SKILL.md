@@ -1,6 +1,7 @@
 ---
 name: crane-shot
 description: Camera starts low and rises up to reveal the full product. Great for dramatic product reveals on a pedestal.
+disable-model-invocation: true
 ---
 
 ## Crane Shot Camera Animation

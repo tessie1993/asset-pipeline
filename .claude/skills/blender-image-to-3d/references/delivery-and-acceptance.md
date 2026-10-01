@@ -74,6 +74,9 @@ Pick a target device and frame budget before finalising density; a desktop 60 fp
 16.7 ms for everything, not for meshes alone. These are starting planning ranges, not
 measurements or guarantees:
 
+Not for /image-to-assets: there the budget is the builder's `pack.py budget`, mid to high poly, as
+many triangles as the detail needs.
+
 | Asset class | LOD0 tris | LOD1 / LOD2 | Textures | Material groups |
 | --- | --- | --- | --- | --- |
 | Hero character | 60 to 100k | 15 to 30k / 5 to 10k | 2k main set, 4k only for a proven close view | 3 to 6 |

@@ -2,11 +2,12 @@
 name: scenario-blender-lighting-rendering
 description: "Use when lighting, rendering or compositing in Blender: light a character, product or hero shot, interior at dusk or night, three-point or motivated lighting, sun and sky, HDRI, EEVEE vs Cycles settings, light leaks or noise, flat or muddy renders, subject not standing out, AgX/ACES color management, render passes, EXR, light groups, bloom and vignette in the 5.x compositor, rule of thirds and value checks, toon/NPR looks, or judging a render like a lighter."
 license: MIT
+disable-model-invocation: true
 ---
 
 # Lighting, rendering and compositing
 
-Expert lighting controls where the eye goes. Shape comes from gradients, the subject is separated from its surroundings by value (checked desaturated), every light has a source and a purpose, and every decision is measured on the render, not on lamp values. Work from a controlled base, change one thing at a time, and compare. If a sibling skill named here is missing from your available skills, ask the user to install it (`npx skills add scenario-labs/skills --skill <name>`); unattended, proceed from tool schemas and flag the gap.
+Expert lighting controls where the eye goes. Shape comes from gradients, the subject is separated from its surroundings by value (checked desaturated), every light has a source and a purpose, and every decision is measured on the render, not on lamp values. Work from a controlled base, change one thing at a time, and compare. Sibling skills that are not in .claude/skills/ are not installed here: do not ask for them; proceed without them.
 
 **REQUIRED BACKGROUND:** scenario-blender-expert (execution channel, review loop, 5.2 API changes). Related: scenario-blender-texturing-shading (materials, skin SSS), scenario-blender-previs-storyboard (shot planning, cameras).
 

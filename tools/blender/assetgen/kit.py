@@ -2,7 +2,7 @@
 
 The pipeline is described in ``.claude/skills/image-to-assets/SKILL.md``; a pack is the user's image
 and the objects chosen from it, recorded in ``design/asset-packs/<pack>/pack.json``. Each object has
-reference images (Canva's drawing of it, or the user's own images) and the views its builder
+reference images (Google Flow's drawings of it, or the user's own images) and the views its builder
 recorded in them: per view the image, the box around the object, its azimuth and its elevation.
 
 What a generator builds is the model itself, mid to high poly: real forms (sculpted signed-distance
@@ -107,21 +107,23 @@ TURNAROUND_VIEWS = 8  # evenly spaced from the front, final build only: a review
 FRAME_MARGIN = 1.1
 FRAME_SAMPLES = 64
 DEFAULT_LENS_MM = 85.0  # unless the builder recorded another lens or an orthographic camera (pack.py views)
-# Measured under the studio set-up below: at this exposure a lit surface's median brightness matches its
-# material colour (spheres and boxes, colours from L 0.34 to 0.79, mostly within about 0.04), so a builder that gives a
-# part the reference's colour sees that colour in the render and Godot gets the true colour.
-RENDER_EXPOSURE = -1.5
+# Measured under the studio set-up below (white lights aimed at the asset, 2026-10-01): at this exposure a lit
+# surface's median brightness matches its material colour on average (spheres in 8 colours from L 0.34 to 0.79: mean
+# difference -0.005, at most 0.046; dark colours render a little lighter, light ones a little darker), so a builder
+# that gives a part the reference's colour sees that colour in the render and Godot gets the true colour.
+RENDER_EXPOSURE = -1.3
 BACKDROP = "#d3d3d3"
 UV_LAYER = "UVMap"
 HDRI_STRENGTH = 0.6
 
-# product-polish "studio" preset: (name, location, rotation in degrees, energy W, size m, colour),
-# laid out for an object of STUDIO_REFERENCE_RADIUS; scaled to the asset's bounding radius.
+# Studio area lights: (name, position from the asset's centre, energy W, size m), laid out for an
+# object of STUDIO_REFERENCE_RADIUS, scaled to the asset's bounding radius and aimed at its centre.
+# All white: a tinted light would shift every colour the CV compare measures.
 STUDIO_LIGHTS = (
-    ("Key", (2.0, -2.0, 3.0), (45, 0, 45), 350.0, 3.0, (1.0, 0.95, 0.9)),
-    ("Fill", (-2.5, -1.0, 2.0), (50, 0, -45), 250.0, 4.0, (0.9, 0.95, 1.0)),
-    ("Rim", (0.0, 2.0, 2.5), (130, 0, 0), 250.0, 2.0, (1.0, 1.0, 1.0)),
-    ("Bounce", (0.0, 0.0, -1.0), (180, 0, 0), 100.0, 5.0, (1.0, 1.0, 1.0)),
+    ("Key", (2.0, -2.0, 3.0), 350.0, 3.0),
+    ("Fill", (-2.5, -1.0, 2.0), 250.0, 4.0),
+    ("Rim", (0.0, 2.0, 2.5), 250.0, 2.0),
+    ("Bounce", (0.0, 0.0, -1.5), 100.0, 5.0),
 )
 STUDIO_REFERENCE_RADIUS = 1.0
 
@@ -775,8 +777,24 @@ def _read_obj(obj: bpy.types.Object, path: Path) -> None:
 # Finishing: bake modifiers, world-space UVs, join, place the origin
 # --------------------------------------------------------------------------------- #
 
+def _realize_tree() -> bpy.types.GeometryNodeTree:
+    tree = bpy.data.node_groups.get("KIT_realize_instances")
+    if tree is None:
+        tree = bpy.data.node_groups.new("KIT_realize_instances", "GeometryNodeTree")
+        tree.interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
+        tree.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
+        group_in, group_out = tree.nodes.new("NodeGroupInput"), tree.nodes.new("NodeGroupOutput")
+        realize = tree.nodes.new("GeometryNodeRealizeInstances")
+        tree.links.new(group_in.outputs[0], realize.inputs[0])
+        tree.links.new(realize.outputs[0], group_out.inputs[0])
+    return tree
+
+
 def _apply(obj: bpy.types.Object) -> None:
-    """Apply modifiers and the world transform into the mesh data."""
+    """Apply modifiers and the world transform into the mesh data. Geometry nodes' instances are
+    realized first: an object's mesh does not hold them, so scattered or arrayed copies would be lost."""
+    if any(modifier.type == "NODES" for modifier in obj.modifiers):
+        obj.modifiers.new("KIT_realize_instances", "NODES").node_group = _realize_tree()
     depsgraph = bpy.context.evaluated_depsgraph_get()
     evaluated = obj.evaluated_get(depsgraph)
     baked = bpy.data.meshes.new_from_object(evaluated, preserve_all_data_layers=True, depsgraph=depsgraph)
@@ -869,8 +887,9 @@ def _report(asset_id: str, obj: bpy.types.Object, glb: Path) -> dict:
 # Renders: turntable views, sheet and side-by-side comparison
 # --------------------------------------------------------------------------------- #
 
-def _studio(radius: float) -> None:
-    """HDRI lighting (seen by light rays only) over a flat grey backdrop, plus the four studio lights."""
+def _studio(radius: float, center: Vector) -> None:
+    """HDRI lighting (seen by light rays only) over a flat grey backdrop, plus the four white studio
+    lights around ``center``, each aimed at it."""
     world = bpy.data.worlds.new("Studio")
     bpy.context.scene.world = world
     world.use_nodes = True
@@ -892,14 +911,13 @@ def _studio(radius: float) -> None:
     links.new(mix.outputs["Shader"], output.inputs["Surface"])
 
     scale = max(radius / STUDIO_REFERENCE_RADIUS, 0.25)
-    for name, location, rotation, energy, size, color in STUDIO_LIGHTS:
+    for name, offset, energy, size in STUDIO_LIGHTS:
         light = bpy.data.lights.new(name, "AREA")
         light.energy = energy * scale * scale
         light.size = size * scale
-        light.color = color
         obj = scene.link(bpy.data.objects.new(name, light))
-        obj.location = Vector(location) * scale
-        obj.rotation_euler = [math.radians(a) for a in rotation]
+        obj.location = center + Vector(offset) * scale
+        obj.rotation_euler = (center - obj.location).to_track_quat("-Z", "Y").to_euler()  # area lights shine along -Z
 
 
 def _cell(box: list[int], long_side: int) -> tuple[int, int]:
@@ -1018,7 +1036,7 @@ def render_views(asset_id: str, obj: bpy.types.Object, samples: int, threads: in
     pivot.location = center
     obj.parent = pivot
     obj.matrix_parent_inverse = Matrix.Translation(-center)  # the asset stays where it is
-    _studio(radius)
+    _studio(radius, center)
     _configure_render(samples, threads)
     setting = active_pack().camera(asset_id)
     rendered = {"views": [], "turnaround": [], "camera": setting}

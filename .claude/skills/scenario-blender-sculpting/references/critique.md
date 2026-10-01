@@ -40,7 +40,7 @@ Use after every stage, on the numbers (`S.stage_report`, `S.lower_face_report`, 
 | small landmarks         | nostrils, brows, eyes not indicated yet (they expose proportion errors the masses hide)               | Yan vB7kPWjBgQI 00:05:11                                          |
 | lids and sockets        | sleepy (upper margin too low), a ring groove that reads as eye bags, lid cups sticking out in profile | v2 iterations 2 to 5                                              |
 | hair                    | a helmet ledge, a beanie with worms, a bare headband above the forehead, a symmetric crown or flame   | v2 iterations 1 to 9; Yan 01:08:06                                |
-| character cues          | the type does not read without the face: no hair, costume or prop                                     | Thelen 00:48:58; Naydenov 00:53:05                                |
+| character cues          | hair, costume or props differ from the reference: cues only as the reference shows them; add nothing the reference does not show | Thelen 00:48:58; Naydenov 00:53:05                                |
 | mouth                   | straight across instead of wrapping the head                                                          | Yan 00:08:00; Ryan King 00:16:33                                  |
 | ears                    | glued flat, or flapping out at the bottom; start visible from the front                               | Naydenov 00:19:35, 00:23:59                                       |
 | neighbors               | one part stylized alone (face vs neck, long face on a big skull)                                      | Yan 01:13:23, 00:35:38                                            |
@@ -74,7 +74,7 @@ Use after every stage, on the numbers (`S.stage_report`, `S.lower_face_report`, 
 2. Which single exaggeration defines it, and do the neighbors follow it? (Yan 01:13:23)
 3. Is there structure under the skin (skull, tissue over teeth), not a blob? (Zarins 00:00:40; Thelen 00:11:45)
 4. Is it harmonious (jaw vs cheekbones, eye size vs face length)? (Thelen 00:44:02)
-5. Are the character cues there (hair, costume, prop), and do they frame the face rather than compete with it? (Yan 01:08:06)
+5. Are the character cues only as the reference shows them (add nothing the reference does not show), and do they frame the face rather than compete with it? (Yan 01:08:06)
 6. What is the weakest link now? Fix only that.
 
 ## Reporting

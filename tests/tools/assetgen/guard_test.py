@@ -32,10 +32,10 @@ class GuardTestCase(unittest.TestCase):
         (self.root / ".claude" / "settings.json").write_text("{}\n")
         image = self.root / "upload.png"
         image.write_bytes(png_bytes(60, 40))
-        pack.init(self.root, "demo", image, skip_canva=True)
+        pack.init(self.root, "demo", image, skip_flow=True)
         pack.set_style(self.root, "demo", "the style of the reference image")
         pack.add(self.root, "demo", "thing", name="thing", where="middle", details="a body", references=[image])
-        pack.init(self.root, "other", image, skip_canva=True)
+        pack.init(self.root, "other", image, skip_flow=True)
         pack.run_start(self.root, "demo")
 
     def tearDown(self) -> None:
@@ -162,29 +162,47 @@ class GuardTestCase(unittest.TestCase):
     def test_builds_of_another_pack_are_refused(self) -> None:
         self.assertIn("pack demo", self.bash(BUILD.replace("/demo/", "/other/")))
 
-    # ----------------------------------------------------------------------- Canva
+    # ----------------------------------------------------------------------- Google Flow
 
-    def _canva_run(self) -> str:
+    def _flow_run(self) -> dict:
         pack.run_end(self.root)
         image = self.root / "upload.png"
         pack.init(self.root, "drawn", image)
         pack.set_style(self.root, "drawn", "ink lines")
         pack.add(self.root, "drawn", "thing", name="thing", where="middle", details="a body")
-        pack.set_canva(self.root, "drawn", "MSOURCE", None)
         pack.run_start(self.root, "drawn")
-        return pack.prompt(self.root, "drawn", "thing")
+        return pack.flow_call(self.root, "drawn", "thing")["arguments"]
 
-    def test_canva_gets_only_the_exact_prompt_with_the_source_image(self) -> None:
-        text = self._canva_run()
-        good = {"prompt": text, "imageReferences": [{"type": "MEDIA", "id": "MSOURCE"}],
-                "aspectRatio": pack.CANVA_ASPECT_RATIO}
-        self.assertIsNone(self.pre(guard.CANVA_GENERATE, **good))
-        self.assertIn("exactly", self.pre(guard.CANVA_GENERATE, **{**good, "prompt": text + " Cute, 3D render."}))
-        self.assertIn("imageReferences", self.pre(guard.CANVA_GENERATE, **{**good, "imageReferences": []}))
-        self.assertIn("aspectRatio", self.pre(guard.CANVA_GENERATE, **{**good, "aspectRatio": "SQUARE_1_1"}))
+    def test_flow_gets_only_the_exact_grid_architect_set_up(self) -> None:
+        good = self._flow_run()
+        self.assertIsNone(self.pre(guard.FLOW_SETUP, **good))
+        self.assertIn("exactly", self.pre(guard.FLOW_SETUP, **{**good, "theme_prompt": good["theme_prompt"] + " Cute, 3D render."}))
+        self.assertIn("exactly", self.pre(guard.FLOW_SETUP, **{**good, "references": []}))
+        self.assertIn("exactly", self.pre(guard.FLOW_SETUP, **{**good, "shot_prompts": good["shot_prompts"][:2]}))
+        self.assertIn("exactly", self.pre(guard.FLOW_SETUP, **{**good, "engine": "Imagen 4"}))
 
-    def test_a_run_that_skips_canva_generates_nothing(self) -> None:
-        self.assertIn("skips Canva", self.pre(guard.CANVA_GENERATE, prompt="x"))
+    def test_flow_never_generates_on_its_own_during_a_run(self) -> None:
+        self._flow_run()
+        self.assertIn("never generates", self.pre(guard.FLOW_GENERATE, prompt="x", auto_confirm=True))
+
+    def test_a_run_that_skips_flow_sets_nothing_up(self) -> None:
+        self.assertIn("skips Google Flow", self.pre(guard.FLOW_SETUP, theme_prompt="x"))
+
+    def test_imagesorcery_works_only_in_the_run_packs_evidence_and_scratch(self) -> None:
+        view = self.root / "production/qa/evidence/demo/thing/thing_ref_view_1.png"
+        self.assertIsNone(self.pre("mcp__imagesorcery__find", input_path=str(view), description="a part"))
+        self.assertIsNone(self.pre("mcp__imagesorcery__crop", input_path=str(view), x1=0, y1=0, x2=9, y2=9,
+                                   output_path=str(self.root / ".scratch/assetgen/work/demo/thing/crop.png")))
+        self.assertIn("only on files", self.pre("mcp__imagesorcery__crop", input_path=str(view), x1=0, y1=0, x2=9, y2=9,
+                                                output_path=str(self.root / "design/asset-packs/demo/crop.png")))
+        self.assertIn("only on files", self.pre("mcp__imagesorcery__ocr",
+                                                input_path=str(self.root / "production/qa/evidence/other/x.png")))
+        self.assertIn("only on files", self.pre("mcp__imagesorcery__resize", input_path=str(view),
+                                                output_path=str(self.root / ".scratch/assetgen/snapshot/x.png")))
+        self.assertIn("only on files", self.pre("mcp__imagesorcery__overlay", base_image_path=str(view),
+                                                overlay_image_path="/etc/x.png", output_path=str(view)))
+        pack.run_end(self.root)
+        self.assertIsNone(self.pre("mcp__imagesorcery__ocr", input_path="/anywhere/x.png"))
 
     # ----------------------------------------------------------------------- after a tool call
 

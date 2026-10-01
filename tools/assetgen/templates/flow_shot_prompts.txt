@@ -1,0 +1,5 @@
+The $name seen straight from the front.
+The $name seen straight from the back.
+The $name seen straight from its left side.
+The $name seen straight from its right side.
+The $name seen from the front, from above at an angle, so its top shows.

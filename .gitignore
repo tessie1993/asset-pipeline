@@ -9,3 +9,6 @@
 
 # Python bytecode
 __pycache__/
+
+# Plugins' own environments (plugins/<name>/install.sh)
+plugins/*/.venv/

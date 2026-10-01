@@ -10,7 +10,7 @@ and the builder's own analysis of the reference.
 | What | Where |
 |---|---|
 | Pack manifest: objects, art style, reference images, recorded views and camera, budget, skills, critic reviews | `design/asset-packs/<pack>/pack.json` |
-| Source image; Canva images (`canva/NN_<id>.png`) or the user's references (`references/`) | `design/asset-packs/<pack>/` |
+| Source image; Google Flow images (`flow/NN_<id>_<k>.<ext>`, one per side) or the user's references (`references/`) | `design/asset-packs/<pack>/` |
 | Generators, one per object | `tools/blender/assetgen/packs/<pack>/<id>.py` |
 | Models for Godot (baked textures inside) | `assets/models/<pack>/<id>.glb` |
 | Notes, renders, CV reports, compare sheets, critic reviews, Godot shots | `production/qa/evidence/<pack>/<id>/` |
@@ -58,9 +58,10 @@ blender -b --factory-startup --python tools/blender/assetgen/packs/<pack>/<id>.p
   before the next build.
 
 Renders have a transparent background (the outline is the alpha), a neutral studio (Poly Haven HDRI
-plus key, fill, rim and bounce lights) and an exposure of -1.5, at which a lit surface's median
-brightness matches its material colour (measured on spheres and boxes, colours L 0.34 to 0.79,
-mostly within about 0.04).
+plus white key, fill, rim and bounce lights, each aimed at the asset) and an exposure of -1.3, at
+which a lit surface's median brightness matches its material colour on average (spheres in 8
+colours, L 0.34 to 0.79: mean difference -0.005, at most 0.046; dark colours render a little
+lighter, light ones a little darker).
 
 ## Structure checks, every build
 
@@ -137,11 +138,11 @@ import their scripts with `kit.skill(...)`:
 | `scenario-blender-retopology` | QuadriFlow, voxel remesh, loops, low-poly preparation (`bx_retopo`) |
 | `scenario-blender-geometry-nodes` | scattering, arrays, repeated detail (`bx_gn`) |
 | `scenario-blender-hair` | fur and hair, hair cards for games (`bx_hair`) |
-| `scenario-blender-lighting-rendering` | judging renders like a lighter |
 
 Scripts that render with Workbench or EEVEE need a display: `xvfb-run -a blender -b ...`. The
-older `kevinbadi` skills drive Blender over the blender-mcp socket or EEVEE; only their method
-carries over headless.
+other skills in `.claude/skills/` (lighting and render set-ups, camera videos, product shots, AI
+image-to-3D, Blender GUI tools) are marked `disable-model-invocation: true`: `pack.py skills-list`
+leaves them out and builders never use them, so they cannot change the kit's renders or the model.
 
 Installed add-ons (`kit.enable_addon("<id>")`): `extra_mesh_objects` (rocks, round cubes, gears,
 gems), `ivygen`, `looptools`, `mmgpy` (adaptive remeshing), `proceduraltiles` (tile and brick node
@@ -175,6 +176,6 @@ From `pack.py run-start` to `pack.py run-end` the hooks (`.claude/hooks/assetgen
 in `tools/assetgen/guard.py`) allow changes only in the run pack's own folders and `.scratch/`;
 any pipeline file changed anyway is restored from the run-start snapshot, stray files are moved to
 `.scratch/assetgen/quarantine/`, git is locked, the critic never starts Blender and writes only its
-review, and Canva gets only the exact `pack.py prompt`. If the kit cannot do something, the
+review, Google Flow gets only the exact `pack.py flow-call` set-up and never generates on its own. If the kit cannot do something, the
 builder writes the helper inside its own generator; if the pipeline itself is wrong, the builder
 reports it and the orchestrator tells the user.
