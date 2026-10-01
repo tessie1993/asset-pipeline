@@ -211,9 +211,10 @@ def status_line() -> str:
     if code != 200:
         return f"Logged in, but the server answered {code}: log in again"
     user = me.get("user", me)
-    name = user.get("fullName") or user.get("username") or "your account"
+    name = user.get("username") or f"account {user.get('id', '?')}"  # fullName is "(anonymous)" when unset
+    plan = user.get("currentPlanName") or ("Free" if user.get("hasFreePlan") else "unknown")
     until = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(preferences["api_key_timeout"]))
-    return f"Logged in to BlendKit as {name} (token valid until {until}, refreshed automatically)"
+    return f"Logged in to BlendKit as {name}, plan {plan} (token valid until {until}, refreshed automatically)"
 
 
 def logout() -> str:
