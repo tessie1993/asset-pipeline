@@ -1,0 +1,8 @@
+# Pipeline run state and tool-install logs
+.scratch/
+
+# Godot's import cache
+.godot/
+
+# Per-machine Claude Code settings
+.claude/settings.local.json
