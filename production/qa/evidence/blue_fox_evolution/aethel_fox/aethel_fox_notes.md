@@ -156,9 +156,9 @@ body, tail, back) in the work folder. Samples (cv.py sample, mean / darkest / li
 | 2 | legs and paws | 4 | leg r 0.018, paw 0.034 x 0.045 x 0.025 | front X +-0.027 Y -0.11; hind X +-0.035 Y 0.095 / 0.05 | SDF tubes through hip/stifle/hock/paw joints, part of the body clay | elbows, hock angle, wrist bump, 4 toe lobes with 3 creases per paw, flat soles | hind stride differs left/right; toe sizes vary |
 | 3 | fur locks: cheek tufts, chest ruff spikes, elbow tufts, belly fringe | ~24 | cones r 0.008-0.015, 0.02-0.05 long | cheeks X +-0.07..0.09 Z 0.28; chest Y -0.19 Z 0.10-0.17; elbows; belly | SDF round cones blended into the clay | pointed tips with real relief | every lock its own length/angle (seeded) |
 | 4 | ears | 2 | 0.14 long, 0.06 wide at base, 0.012 thick | base X +-0.05 Y -0.13 Z 0.335, tips X +-0.098 Z 0.46, bowls facing forward-out | lofted leaf bowl (rings of front + back surface), Subsurf 1 | bowl depth 0.015, thick rim, tip notch | ear spirals painted per side, left/right differ slightly |
-| 5 | ear fur blades | 10 | 0.03-0.05 long, 0.01 wide | inner base of each bowl, fanning up | swept flat blades | pointed tips, thickness 2 mm | each blade own angle/length |
-| 6 | eyes | 2 | 0.024 x 0.018 | X +-0.028 Y -0.184 Z 0.318, turned out | squashed sphere on the head surface with UV iris | slight bulge | catch light offset same side, gaze slightly forward |
-| 7 | lid liners | 2 | tube r 0.0012 | upper lid edge + outer flick | swept tube | flick at outer corner | — |
+| 5 | ear tufts (cream fur locks at the inner ear base) | 10 | 0.03-0.05 long, 0.01 wide | inner base of each bowl, fanning up | swept flat blades | pointed tips, thickness 2 mm | each blade own angle/length |
+| 6 | eyes (eyeball: sclera, iris, pupil, cornea catch light) | 2 | opening 0.027 x 0.020, iris 0.0164 x 0.0194 | X +-0.031 Z 0.327 (pre-scale), surface normal turned out 14 deg, long axis tilted 20 deg (outer corner up) | domed lens (1.6 mm) on a bed fitted to the finished body mesh (EyeBed: ray cast, never cut by the face), UV iris shader | dome, rim tucked 1.2 mm under the eyelid lines | iris toward the nose, catch light upper inner on both eyes |
+| 7 | eyelids (upper and lower eyelid lines) | 2 x 2 | upper 0.9-2.9 mm wide, lower 0.5-1.5 mm | upper: tear duct over the top to the outer corner and on into a rising wing; lower: whole lower edge | flat swept lines lying on the higher of eye and face (build_eyelids) | wing tapers to a point, thicker at the tear duct | — |
 | 8 | nose | 1 | 0.016 x 0.012 x 0.010 | Y -0.24 Z 0.298 | small SDF clay | nostrils, philtrum line | — |
 | 9 | collar cord | 1 | 3 strands r 0.0022 around a ring of 0.05 x 0.06 | ring tilted: front Z 0.19, back Z 0.29 | three helically twisted swept tubes along the neck ring, snapped onto the neck surface | strand bumps, twist | twist phase varies, slight sag at the front |
 | 10 | pendant bail | 1 | 0.009 x 0.003 x 0.011 | under the cord front | swept closed loop | rounded | — |
@@ -166,8 +166,8 @@ body, tail, back) in the work folder. Samples (cv.py sample, mean / darkest / li
 | 12 | gem | 1 | 0.024 diameter, 0.010 deep | in the bezel | squashed UV sphere (cabochon dome) | domed | — |
 | 13 | antler branches | 2 sides x 6-7 | tubes r 0.004 -> 0.0015, 0.03-0.10 long | from the pendant up over each shoulder | swept tapered tubes along bezier paths, tips hooked | rounded tips, root blended into beam | each tine own length/curl; sides differ |
 | 14 | gem scroll curls + drop | 2 + 1 | r 0.003, curl r 0.01 | beside and under the gem | swept spiral tubes | — | mirrored but varied |
-| 15 | tail plume | 1 | 0.20 x 0.19 x 0.27 + tip | root Y 0.08 Z 0.23, up and back, tip curls to Y 0.36 Z 0.33 | swept tube with elliptic section along a spline, radius swelling 0.03 -> 0.095 -> tip | fur-lock flutes cut into the surface (radial ripple), jagged cream tip lobes | painted swirl atlas, every flame different |
-| 16 | tail fur flicks | 3 | 0.03-0.06 long | lower edge and tip of the plume | swept tapered blades | pointed | different lengths |
+| 15 | tail (a fox's brush: underfur round the tail bone + 54 guard-hair locks in 5 layers) | 1 | 0.20 x 0.19 x 0.27 + tip | root Y 0.08 Z 0.23, up and back, tip curls to Y 0.36 Z 0.33 | underfur: swept mass at 0.87 of the outline radius (TailBody path); locks: clumps laid in (arc s, angle, radius) on the fur volume, each rooted under the previous layer, widest a third along, drawn to a point, tips lifting (build_tail_fur_lock) | lock sections domed on top, flat below; tips break the outline; tip-tag locks run on past the end into the curled cream tip | every lock its own width, length, twist, sway, lift; shared painted atlas; root dark, tip light |
+| 16 | tail edge locks (guard-hair locks standing out of the outline) | 7 | 0.03-0.04 wide, 0.25-0.32 of the tail long | 3 on the lower back edge, 3 on the top of the cream crown, 1 under the curled tip | same lock builder with a higher tip lift (0.08-0.2) | pointed tips | different lengths and lifts |
 
 ### Materials and shaders
 - S1 body fur (blue): parts 1-3. Painted stylised fur. Colour by height: lower legs #435a80..#526d92
@@ -290,3 +290,198 @@ Differs, cause, fix:
   (normal-driven, jagged edge) and bigger flames.
 - Clay row: a horizontal shading line across the tail mid-height: check the flute ripple / frames.
 - Head front: face reads flat, eyes small; later cycle (forms after the silhouette).
+
+## Handoff
+State: build 1 is the last kit build (its CV and compare are in the evidence folder). Since then the
+generator holds UNBUILT changes (cycle 2 work, stopped by the user before the kit build): the eyes,
+eyelids, brow markings, under-eye strokes and the whole tail were rebuilt; a debug build of them ran
+(119,090 triangles, budget 120,000) and close-ups were rendered from it, but no kit build, no CV
+compare. The user ended this run to commit. Note: the generator already had un-noted edits after
+build 1 (02:10, mostly the eye / face work of the previous builder and the 120k budget); they are
+kept and included in the numbers below.
+
+### 1. Understanding
+- What it is: Aethel Fox, phase-2 evolution of a stylised blue fox (anime / painted game art: soft
+  cel shading, thin navy ink outlines, painted fur strokes). A slim young fox standing square on
+  long legs, head up, front -Y, 0.50 m to the tail top. Alive, groomed, nothing worn or dirty;
+  variation comes from fur strokes, soft shadows, glowing markings.
+- How it is made (as a creature): one furred body over a skeleton (skull, neck, ribcage, pelvis,
+  four legs with paws and toes); fur is short and smooth on the body (painted strokes, no locks
+  except cheek tufts, chest ruff, elbow tufts, belly fringe); long fur only on the tail.
+- The eye (what it is): an eyeball (warm grey-white sclera, big iris with a dark limbal ring and
+  radial fibres, a pupil, a glossy cornea whose reflection is the white catch light) in a socket,
+  wrapped by upper and lower eyelids; the tear duct sits in the low inner corner. The drawing keeps:
+  a large opening (front 60 x 53 px, side 59 x 41 px), long axis rising ~20 deg from the low pointed
+  tear duct to the higher outer corner, a thick dark upper eyelid line carried on into a rising
+  wing, a thin lower eyelid line, a big grey iris toward the nose (dark slate top under the lid,
+  light below with a pale crescent), dark pupil, one white catch light upper-inner. Approach: a domed
+  lens (eyeball surface) on a bed measured on the finished body mesh, eyelid lines as flat swept
+  lines lying on top, iris painted from the lens UVs.
+- The tail (what it is): a fox's brush: a thin tail bone under skin, buried in long fur; dense,
+  darker underfur close to the bone; long guard hairs growing from the bone toward the tip, clumping
+  into locks that overlap like shingles (locks rooted nearer the base cover the roots of later
+  ones), parting where the tail bends; tips lighter, roots darker; the outline is made of lock tips;
+  the end is a cream tag. Painted style: broad soft S-flowing locks, cream flame locks curling at
+  their ends, pointed tips flicking off the outline, glowing cyan swirls and dots on the lower third.
+  Approach: underfur mass + layered mesh guard-hair locks (NOT one smooth shell). The user: "The tail
+  is fur."
+- Collar (unchanged): braided brown leather cord (three twisted strands), silver bail and bezel,
+  deep-blue cabochon gem, silver-white antler branches over both shoulders.
+
+### Part inventory (current, names by what each thing is)
+body (torso, neck, head, muzzle, legs, paws with toes, cheek tufts, chest ruff, elbow tufts, belly
+fringe: SDF clay -> quad remesh 16,500); ears + ear tufts (5 cream locks per ear); eyes (eye_left /
+eye_right); eyelids (eyelid_upper_* / eyelid_lower_*); brow markings (shader, 3D oval per side);
+nose; cord (3 strands); bail; bezel + plate; gem; antlers (per side beam + tines, scroll curls,
+drop); tail (tail_underfur + tail_fur_lock_00..60: 54 layer locks + 7 edge locks). Full table in the
+Analysis, section "Parts inventory" (rows 5, 6, 7, 15, 16 updated this cycle).
+
+### 2. Comparison (latest evidence)
+Kit numbers are still build 1: overlap front 0.73, side 0.53 (clean 0.739), back 0.76; w/h +5 %,
+-7 %, -15 %; CHECK all clean; 65,066 tris then (now 119,090 in the debug build).
+Eyes, build 1 (user: "Both eyes are bad"), measured against the front/side crops: the eyes read as
+narrow slits / round buttons: (a) the eye lens lay on the SDF clay but the remeshed body deviates
+from it by 1-2 mm, so body faces cut through the eye edges (torn light-blue shards over the eye);
+(b) the opening was 0.0256 x 0.0178 (ref 0.027 x 0.020-0.024), tilt 12 deg (ref ~20 deg); (c) iris
+only 1.2 mm toward the nose (ref: iris at the inner side, sclera on the outer side), iris colour too
+saturated blue (ref grey #61677b mid, #2a2833 top, #b6b8c4 low; sclera warm #c7c2bd..#dcd7d2);
+(d) the eyelid wing floated off the face and the lower eyelid line covered only the outer 60 %;
+(e) brow markings doubled (front and side decal projections overlapped on the oblique brow);
+(f) glowing arcs under the eyes ("smile" lines): the side-image face strokes and front strokes
+landed under the eyes instead of small pale strokes behind / beyond the outer corner.
+Eyes after the cycle-2 code (debug close-up c2/b2_0, b2_1, BEFORE the last fixes): opening and iris
+now read as anime eyes with eyelid lines all round; remaining then: eyes too big and pushed off the
+face (the quadratic bed was raised by the worst penetration: goggle look in the side view), too
+much white on the outer side in front view, eyelid colour too grey. Fixed in code after that render
+(lens bed = max(fit, face) + 0.4 mm; opening 0.027 x 0.020; iris centre -2.8 mm; dome 1.6 mm;
+eye seat in the clay 1.8 mm instead of 3.5; eyelid #1b1d30..#2c2e44 roughness 0.6; brow centre by a
+front ray on the body, tilt d=(-0.5,0,1)) -> render c2/b3_* (being written when stopped) not yet
+judged.
+Tail, build 1: one smooth swept shell with ripples and painted flames ("tails are wrong. It's fur").
+Cycle-2 tail (c2/b2_2 side, b2_3 back, first version): reads as fur locks now, but locks were thin
+ribbons with gaps, spiky tips like a broom, smooth underfur showing at the root. Fixed in code after
+that render (fewer, broader locks 0.03-0.078 wide, thicker 8-12 mm, lift 0.01-0.04, edge locks
+0.08-0.2, roots at 0.84 of the radius rising to 0.96, sections 10 around) -> not yet judged.
+
+### 2b. Comparison of the latest code (c2/b3 close-ups; pairs ref | render in work/eyes/p_*.png)
+Eyes, front (p_front_eyes.png, same 0.12 m box): now anime eyes with eyelid lines all round, iris
+toward the nose, a white catch light, no face shards over the eye, brow markings single ovals.
+Still differs: (a) eye centres ~28 % too far apart (render +-135 px vs ref +-105 px in the 420 px
+pair; check with cv.py closeup after the kit build before moving them: eye_frame X 0.031 -> ~0.026);
+brow markings likewise too far out (+-90 vs +-70 px: brow_frame X 0.0214 -> ~0.018);
+(b) a light streak runs across each pupil (the second catch light / fibre noise reads as a scratch):
+drop hlm2 to 0.2 or move it below the pupil; (c) nose sits only 0.014 below the eye centre in the
+front view vs 0.029 in the front drawing (side drawing: 0.017, model 0.020): a drawing disagreement,
+leave the nose; (d) muzzle cream starts higher than the drawing beside the eyes: fine for now.
+Eyes, side (p_side_eye.png): too round and facing the camera (render h/w ~0.85, ref 0.69 = 59 x 41
+px; ref iris sits in the front corner with the white behind it). Fix: eye normal turned out less
+(eye_frame n + side*0.25 -> side*0.10), EYE_BT 0.0112 -> 0.0102, IRIS_C x -0.0028 -> -0.0040, longer
+rising wing (last three wing points x1.12/1.26/1.40 -> x1.15/1.38/1.60 of EYE_A, y up to 0.6 EYE_BT),
+upper eyelid line thicker over the top (rv peak 0.00145 -> 0.0018). The far eye and its eyelid stick
+out beyond the face profile like goggles (ref: only a lash tip shows): EyeBed.lens_h should follow the
+face (body_h + 0.4 mm) where the face turns away, not the fitted surface; and lower the dome to 1.2
+mm. A cyan side stroke lands on the outer eye corner: move the three side_strokes face strokes 0.008
+back (+Y).
+Tail, side (p_side_tail.png; note the render box is 0.36 m vs the crop's ~0.30 m, so the render is
+drawn ~13 % smaller): reads as fur now (locks overlap, tips break the outline, root dark, tips light).
+Differs: (1) the lower plume is a narrow column and the upper part a hood: the drawing's plume swells
+into a broad teardrop (widest at ~0.35 of its height, width ~0.6 of the height) then necks into the S
+and the curl; raise the underfur to 0.92 of the outline and lock rho to 0.90 -> 1.02, and check the
+side CV outline; (2) locks run straight and parallel: give them the drawing's S flow (twist/sway
+per layer larger, sway sign following the S: lean forward low, sweep back high); (3) the tip is one
+straight spike with a broom end: the drawing's tip is a fat cream curl hooking back, down and up into
+a main point plus a second point under the curl: make the tip-tag locks wider (0.04-0.06), fewer (4),
+and bend their run-on past s = 1 (TailBody.surface over-run: add a curl up at the end, not only the
+-Z droop); (4) cream flames are chopped into stripes by the locks: make cream S-locks (whole locks
+cream with curled ends) where the atlas flames are, instead of sampling flames across blue locks.
+Tail, back (p_back_tail.png): the drawing's egg is smooth, wide and full with a cream top and blue
+sides with cream flame swirls; the render shows cream strands hanging down the middle, gaps and lock
+tips poking out at the sides: fewer, broader, better overlapped locks (as above), lock tips lifted less
+on the sides (lift 0.01-0.04 -> 0.005-0.02 except the edge locks).
+
+### Exactly what changed in the generator (unbuilt; build and check it)
+tools/blender/assetgen/packs/blue_fox_evolution/aethel_fox.py:
+- EYES section rewritten: EYE_A/BT/BB = 0.0135/0.0112/0.0088, EYE_TILT 20, IRIS_C (-0.0028,
+  0.0004), IRIS_R (0.0082, 0.0097); eye_frame (tilt param); eye_opening() (was almond); class
+  EyeBed (ray casts on the finished body mesh, quadratic fit, lens_h = max(fit, face) + 0.4 mm);
+  build_eye(bed, mat) -> objects eye_left / eye_right (dome 1.6 mm, rim 1.2 mm under);
+  build_eyelids(bed, mat) (was build_liner) -> eyelid_upper_*/eyelid_lower_*; build() makes
+  body_bvh = bvh_of(body) after the cream mark and an EyeBed per side.
+- eye_material rewritten (grey iris ellipse, crescent, fibres, limbal ring, pupil, lid shadow,
+  tear duct, two catch lights; no Coat: it does not reach Godot). M_liner renamed M_eyelid.
+- Clay eye seat depth 0.0035 -> 0.0018.
+- Brow markings: decal brow ovals removed; brow_frame(clay, body_bvh) + brow_marking(nt) (Mapping
+  node in object space, X mirrored); BROW_NODES set to the final scale at the end of build().
+- front_strokes: the under-eye arcs replaced by 3 short pale strokes beyond each outer eye corner;
+  side_strokes: the 2 long cheek strokes replaced by 3 short strokes behind the outer corner.
+- TAIL: tail_flicks removed; class TailBody (path, frames, radii, surface(s, angle, rho), past-tip
+  run-on); tail_fur_lock_specs(rng) (5 layers 12/13/12/11/6 + 7 edge locks); build_tail_fur_lock
+  (n 22 x 10 section, attributes fur_t / fur_w / fur_id, UVs on the tail atlas, REPEAT); build_tail
+  = tail_underfur (0.87 radius, 40 around, every 2nd path sample, fur_t 0.12) + locks;
+  tail_material rewritten (root dark / tip light ramp, strand grooves, lock-edge darkening, per-lock
+  tone, AO, bump).
+- Renames: ear_blades -> build_ear_tufts (ear_tuft_*), M_cream_blade -> M_ear_tuft.
+- Budget trims: body quad remesh 18000 -> 16500, cord 300 -> 240 rings.
+Backup of the generator as of the first cycle-2 debug build:
+.scratch/assetgen/work/blue_fox_evolution/aethel_fox/eyes/gen_c2_backup.py (before the last fixes);
+the current generator = snap_gen.py in the work folder.
+
+### 3. Next step
+1. Making the eye (first priority): apply the eye fixes listed in 2b (spacing, side-view shape and
+   facing, iris further forward, wing, goggle edge, pupil streak, side stroke), then build (kit) the
+   current generator in the background; open the compare and new close-ups;
+   pair each with the target crops (eyes/pair.py) and judge the eyes first (user's priority):
+   the eye: opening 0.027 x 0.020 at front view 60 x 53 px ref; iris toward the nose with white only
+   as a crescent on the outer side; eyelid lines continuous with the wing attached to the face; no
+   face shards over the eye; eye surface level with the eyelids (side view: no goggle rim). If the
+   eye is still too large in the front view, lower EYE_A first (0.0135 -> 0.0125), then EYE_BT.
+2. The tail is fur (user): check in the side and back close-ups that the locks read as soft broad
+   clumps flowing root to tip, overlapping, outline broken into tips, cream tip curling into 2-3
+   points (ref tail: main hook at the end, a second point under the curl, flicks on the crown top
+   edge and the lower right edge). If locks still look like thin ribbons, raise widths again and
+   lower the count; if the underfur shows between locks, raise layer counts or the root rho (0.84).
+   Check the side CV outline: locks may grow the silhouette 3-6 %: scale the underfur / rho.
+   Then the cream pattern: cream flames should be whole cream locks (consider giving locks whose
+   tips sample cream in the atlas a cream body, making cream S-locks with curled ends).
+3. Then the cycle-1 outline items still open: lower the tail top 0.015-0.02 (height 0.527 -> 0.50
+   before the scale), ears 0.01-0.015 higher and further forward, splay ears more for the back view,
+   widen the tail across X (back w/h -15 %).
+
+### 4. Do not undo
+Overall stance and leg layout; navy lower legs; cream throat / chest V / muzzle; braided cord,
+pendant (bail, bezel, gem), antlers over the shoulders; flank glow markings; tan patch; the eye
+built on the finished body mesh (EyeBed), never on the clay; eyelid lines on top of the eye's edge;
+the tail as underfur + guard-hair locks (not a shell); the 120k budget split.
+
+### 5. Files
+- Reference views: production/qa/evidence/blue_fox_evolution/aethel_fox/aethel_fox_ref_view_{1,2,3}.png
+- Latest kit compare (build 1): .../aethel_fox_compare.png; renders aethel_fox_view_*.png, clay_*.png
+- Target crops: .scratch/assetgen/work/blue_fox_evolution/aethel_fox/eyes/t_front_eyes.png
+  (ref_view_1 box 127 291 389 553 = 0.12 m square at eye height, pairs with close.py shot
+  [0,-8,0,-0.205,0.345,0.12]), t_side_eye.png (ref_view_2 80 355 243 518 = 0.075 m, pairs with
+  [62,6,0.01,-0.21,0.345,0.075]), t_side_tail.png (ref_view_2 560 10 1200 690), ref1_eyes.png,
+  ref2_eye.png (magnified with pixel grid), ref2_tailgrid.png
+- Close-ups: .../work/.../c2/cur_*.png (before this cycle), b2_*.png (first cycle-2 code), b3_*.png
+  (latest code, if the render finished)
+- Scripts: work/dbg2.py (builds snap_gen.py into dbg2.blend, prints TRIS per part; copy the
+  generator to snap_gen.py first), work/close.py (blender -b <blend> --python close.py -- '[[az,el,
+  cx,cy,cz,size],...]' out), eyes/gridcrop.py (pixel-grid crop), eyes/pair.py (ref crop | render),
+  both run with PYTHONPATH=.scratch/pydeps.
+
+### 6. Standing rules
+- builder_guide.md (/tmp/claude-0/-home-user-asset-pipeline/2396fed5-5999-5364-b5d1-d9749bebc958/scratchpad/builder_guide.md)
+  and blender_tools_guide.md (same folder) are the method; read both first.
+- User's wishes: "Both eyes are bad. Fix the eyes." (first priority until they match the drawings).
+- The tail is fur.
+- Think about what you see and build that (builder_guide.md section 1).
+- Understand the thing you are making, conceptually (an eye, wood, a body, a tree root), and let
+  that choose the approach (builder_guide.md section 1).
+- Name every part by what it is, never by its shape or look (builder_guide.md section 2).
+- Multitask: Blender builds and renders in the background while you keep working; independent steps
+  together (blender_tools_guide.md section 6).
+- Compare to the reference often, part by part, after every change, not only at the end of the
+  cycle (builder_guide.md section 6).
+- The user doubled the triangle budget to 120,000: spend it on details (body and paws with toes,
+  tail locks, ears, antler scrolls, braided cord, eyes, gem).
+- Work in one render cycle per run when the user asks; end with a Handoff as builder_guide.md
+  section 7 describes.

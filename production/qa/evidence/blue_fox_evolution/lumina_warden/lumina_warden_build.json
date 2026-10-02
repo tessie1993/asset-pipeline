@@ -1,26 +1,38 @@
 {
- "build": 9,
- "final": true,
- "at": "2026-10-02T01:06:45+00:00",
- "samples": 32,
- "resolution": 1280,
+ "build": 10,
+ "final": false,
+ "at": "2026-10-02T02:03:46+00:00",
+ "samples": 16,
+ "resolution": 768,
  "report": {
-  "triangles": 99263,
+  "triangles": 185728,
   "dimensions_m": [
-   0.675,
-   1.247,
-   0.993
+   0.722,
+   1.242,
+   1.013
   ],
   "materials": [
-   "M_lumina_warden"
+   "M_fur",
+   "M_fur_cream",
+   "M_ear_outer",
+   "M_ear_inner",
+   "M_cream_tuft",
+   "M_eye",
+   "M_liner",
+   "M_nose",
+   "M_gem",
+   "M_silver",
+   "M_feather",
+   "M_tail",
+   "M_star"
   ],
   "texture_sources": [],
   "glb": "assets/models/blue_fox_evolution/lumina_warden.glb",
-  "glb_bytes": 42772520
+  "glb_bytes": 8849276
  },
  "checks": {
   "parts": {
-   "parts": 86,
+   "parts": 93,
    "floating": [],
    "no_material": [],
    "flat_colour": []
@@ -30,32 +42,10 @@
    "open_edges": 0,
    "loose_vertices": 0,
    "degenerate_faces": 0,
-   "mirror_error": 0.0123
+   "mirror_error": 0.0159
   }
  },
- "bake": {
-  "baked": true,
-  "resolution": 4096,
-  "atlas": "smart_project",
-  "maps": [
-   "base_color",
-   "emission",
-   "normal",
-   "orm"
-  ],
-  "alpha": false,
-  "emission": true,
-  "averaged_shader_mixes": [],
-  "coverage": 0.273,
-  "kept_materials": [],
-  "seconds": 666.2,
-  "files": [
-   "/home/user/asset-pipeline/.scratch/assetgen/bake/blue_fox_evolution/lumina_warden/lumina_warden_basecolor.png",
-   "/home/user/asset-pipeline/.scratch/assetgen/bake/blue_fox_evolution/lumina_warden/lumina_warden_orm.png",
-   "/home/user/asset-pipeline/.scratch/assetgen/bake/blue_fox_evolution/lumina_warden/lumina_warden_normal.png",
-   "/home/user/asset-pipeline/.scratch/assetgen/bake/blue_fox_evolution/lumina_warden/lumina_warden_emission.png"
-  ]
- },
+ "bake": null,
  "texture": 4096,
  "views": [
   {
@@ -80,48 +70,7 @@
    "clay": "production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_clay_3.png"
   }
  ],
- "turnaround": [
-  {
-   "azimuth": 0.0,
-   "elevation": 5.0,
-   "file": "production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_turn_1.png"
-  },
-  {
-   "azimuth": 45.0,
-   "elevation": 5.0,
-   "file": "production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_turn_2.png"
-  },
-  {
-   "azimuth": 90.0,
-   "elevation": 5.0,
-   "file": "production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_turn_3.png"
-  },
-  {
-   "azimuth": 135.0,
-   "elevation": 5.0,
-   "file": "production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_turn_4.png"
-  },
-  {
-   "azimuth": 180.0,
-   "elevation": 5.0,
-   "file": "production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_turn_5.png"
-  },
-  {
-   "azimuth": 225.0,
-   "elevation": 5.0,
-   "file": "production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_turn_6.png"
-  },
-  {
-   "azimuth": 270.0,
-   "elevation": 5.0,
-   "file": "production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_turn_7.png"
-  },
-  {
-   "azimuth": 315.0,
-   "elevation": 5.0,
-   "file": "production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_turn_8.png"
-  }
- ],
+ "turnaround": [],
  "camera": {
   "ortho": true
  }

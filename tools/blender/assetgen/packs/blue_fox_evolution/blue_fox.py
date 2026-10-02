@@ -210,11 +210,16 @@ def ear_tufts(side):
 TAIL_PTS = np.array([(0.086, 0.125), (0.097, 0.131), (0.108, 0.137), (0.120, 0.145), (0.135, 0.156),
                      (0.152, 0.171), (0.170, 0.182), (0.188, 0.195), (0.206, 0.209), (0.224, 0.2275),
                      (0.242, 0.240), (0.258, 0.240), (0.272, 0.232)])
-TAIL_RZ = np.array([0.024, 0.027, 0.030, 0.035, 0.042, 0.048, 0.052, 0.051, 0.045, 0.0295, 0.014, 0.008,
+# vertical half-thickness of the tail's fur (outer surface of the locks); review 1: max thickness 8 % less,
+# the distal fifth tapering to a point
+TAIL_RZ = np.array([0.024, 0.027, 0.030, 0.035, 0.042, 0.047, 0.049, 0.048, 0.043, 0.026, 0.012, 0.007,
                     0.004])
-# lateral / vertical radius per point: the back view's egg is widest low (root and middle), narrow on top
-# (distal end); the front view shows the wide middle beside the shoulders
-TAIL_W = np.array([1.10, 1.18, 1.28, 1.35, 1.35, 1.30, 1.22, 1.12, 1.03, 1.0, 1.0, 1.0, 1.0])
+# lateral / vertical radius per point. Review 1: from behind the tail is 0.76 W wide (render 0.89 W) and the
+# front view shows it beside the shoulders at 0.46-0.58 H: widest low (Z 0.14-0.19, half width ~0.053),
+# narrower above (half 0.047 at Z 0.19-0.21)
+TAIL_W = np.array([1.08, 1.19, 1.33, 1.37, 1.26, 1.15, 1.08, 1.0, 0.98, 1.0, 1.0, 1.0, 1.0])
+TAIL_VOXEL = 0.0007
+TAIL_TRIS = 26000
 
 
 def tail_samples(n=48):
@@ -232,7 +237,9 @@ def tail_samples(n=48):
     return C, r, T, s, cum[-1]
 
 
-def tail_prims():
+def tail_underfur_prims(scale=0.80, s_max=0.92):
+    """The tail's dense underfur along the tail bone: a chain of ellipsoids at `scale` of the fur's outer
+    radius; the guard-hair locks lie on it."""
     C, r, T, s, _ = tail_samples(30)
     seg = np.linalg.norm(np.diff(TAIL_PTS, axis=0), axis=1)
     sp = np.concatenate([[0], np.cumsum(seg)]) / seg.sum()
@@ -240,19 +247,13 @@ def tail_prims():
     prims = []
     spacing = np.linalg.norm(C[1] - C[0])
     for k in range(len(C)):
-        if r[k] < 0.004:
+        if r[k] * scale < 0.004 or s[k] > s_max:
             continue
+        rr = r[k] * scale
         ang = math.degrees(math.atan2(T[k][2], T[k][1]))
-        prims.append(S.sd_ellipsoid(tuple(C[k]), (r[k] * wide[k], max(r[k] * 0.75, spacing * 1.6), r[k]),
+        prims.append(S.sd_ellipsoid(tuple(C[k]), (rr * wide[k], max(rr * 0.75, spacing * 1.6), rr),
                                     rot=(ang, 0, 0)))
     return prims
-
-
-TAIL_TUFTS = [  # (a, b, ra, rb): main tip flick, top spike (points back to the base), lower hook
-    ((0.0, 0.250, 0.240), (0.0, 0.285, 0.236), 0.010, 0.0008),
-    ((0.0, 0.238, 0.250), (0.0, 0.220, 0.264), 0.0062, 0.0007),
-    ((0.0, 0.232, 0.215), (0.0, 0.256, 0.212), 0.0062, 0.0007),
-]
 
 FRONT_PAW_Y = {1: -0.067, -1: -0.068}   # view 2 at az 55 el 13: the paws need no stagger
 HIND_PAW_Y = {1: 0.057, -1: 0.056}
@@ -272,8 +273,9 @@ def hr(*r):
     return tuple(np.array(r, dtype=float) * HS)
 FRONT_X, HIND_X = 0.0200, 0.0265       # paw X: the front and back views draw the paws closer than the shoulders/hips
 
-MOUTH = [h(0.0, -0.1405, 0.1748), h(0.0037, -0.1390, 0.1724), h(0.0077, -0.1350, 0.1730),
-         h(0.0110, -0.1300, 0.1750), h(0.0130, -0.1250, 0.1772)]
+# the mouth: a soft smile line 33 mm wide, a slight rise in the middle, 1.5 mm dips, corners turned up
+MOUTH = [h(0.0, -0.1405, 0.1727), h(0.0040, -0.1392, 0.1714), h(0.0080, -0.1354, 0.1713),
+         h(0.0115, -0.1302, 0.1729), h(0.0145, -0.1245, 0.1750)]
 
 
 MOUTH_S = {}     # surface points of the carved mouth lines (filled by body_clay, painted by body_color)
@@ -342,13 +344,11 @@ def body_clay():
                     (x0, y0 + 0.006, 0.014)], [0.0165, 0.0125, 0.0090, 0.0082], blend=0.006), blend=0.010)
         clay.add(E((x0, y0 - 0.004, 0.0088), (0.0124, 0.0152, 0.0098)), blend=0.006)
 
-    # tail plume and its tip tufts
-    tail = None
-    for p in tail_prims():
-        tail = p if tail is None else tail.add(p, 0.010)
-    clay.add(tail, blend=0.018)
-    for a, b, ra, rb in TAIL_TUFTS:
-        clay.add(C(a, b, ra, rb), blend=0.004)
+    # the tail's root: the croup flows into it; the tail itself (underfur + fur locks) is its own object
+    stub = None
+    for p in tail_underfur_prims(0.85, s_max=0.16):
+        stub = p if stub is None else stub.add(p, 0.010)
+    clay.add(stub, blend=0.018)
     # chest fur tufts on the cream edge (seeded)
     rng = random.Random(3)
     for side in (1, -1):
@@ -357,17 +357,8 @@ def body_clay():
             clay.add(C((side * 0.020, -0.075, z), (side * 0.023, -0.074 + 0.004, z - 0.016), 0.0050, 0.0006),
                      blend=0.003)
 
-    # carved details: eye sockets, toe grooves, mouth line
-    for side in (1, -1):
-        clay.sub(E(tuple(eye_centre(side) - 0.001 * eye_dir(side)), (0.0113, 0.0113, 0.0100)), blend=0.0018)
-        # upper lid ridge
-        e, d = eye_centre(side), eye_dir(side)
-        up = np.array([0, 0, 1.0]) - d * d[2]
-        up /= np.linalg.norm(up)
-        rt = np.cross(d, up)
-        arc = [tuple(e + 0.0117 * math.cos(a) * rt + 0.0101 * math.sin(a) * up + 0.0008 * d)
-               for a in np.linspace(0.45, math.pi - 0.45, 9)]
-        clay.add(T(arc, 0.0011), blend=0.0020)
+    # the eyes: sockets, openings, eyelids and lash lines; then toe grooves and the mouth line
+    carve_eyes(clay)
     for side in (1, -1):
         for y0, x0 in ((FRONT_PAW_Y[side], side * FRONT_X), (HIND_PAW_Y[side], side * HIND_X)):
             for dx in (-0.0034, 0.0034):
@@ -375,9 +366,6 @@ def body_clay():
     for side in (1, -1):
         S_, _ = clay.stroke(mouth_line(side), 0.0010, 0.0005, op="sub", blend=0.0006)
         MOUTH_S[side] = np.asarray(S_)
-    # philtrum: short groove from the nose down to the middle of the "w" mouth
-    S_, _ = clay.stroke([h(0.0, -0.1440, 0.1805), h(0.0, -0.1420, 0.1760)], 0.0008, 0.0004, op="sub", blend=0.0005)
-    MOUTH_S[0] = np.asarray(S_)
 
     clay.intersect(S.sd_halfspace((0, 0, 0), (0, 0, -1)))   # flat soles on the ground
     return clay
@@ -387,6 +375,7 @@ EYE_START = {1: (0.010, -0.098, 0.2030), -1: (-0.010, -0.098, 0.2030)}
 
 
 def eye_dir(side):
+    """Direction the eye faces (out of the face, 18 deg outward)."""
     d = np.array([side * 0.31, -0.95, 0.04])
     return d / np.linalg.norm(d)
 
@@ -394,8 +383,13 @@ def eye_dir(side):
 _EYE_CACHE = {}
 
 
+def brow_anchor(side):
+    return eye_centre(side)
+
+
 def eye_centre(side):
-    """Point where the eye's line of sight leaves the head surface (cranium + brow + cheek only)."""
+    """Point where the old eye's line of sight leaves the head surface (cranium + brow + cheek only);
+    it anchors the brow dots (they passed review and stay where they are)."""
     if side in _EYE_CACHE:
         return _EYE_CACHE[side]
     E = S.sd_ellipsoid
@@ -410,6 +404,202 @@ def eye_centre(side):
         p = p + d * 0.0002
     _EYE_CACHE[side] = p
     return p
+
+
+# ----------------------------------------------------------------------------------------- #
+# the eyes: an eyeball sitting in its socket, wrapped by the upper and the lower eyelid
+# ----------------------------------------------------------------------------------------- #
+# A living eye is a ball (white sclera, the iris disc with the pupil, under a wet clear cornea) in a
+# socket of the skull; the eyelids are skin over the ball and their edges make the almond opening.
+# The upper lid is thicker, carries the lash line and shades the top of the ball; the lower lid is a
+# thin rim. This style keeps that build and exaggerates it: a big almond opening, an iris filling its
+# height, a thick dark lash line with a wing at the outer corner, a thin lower line, a big pupil and a
+# white catch light. Front view (0.433 mm/px): opening 24 x 20 mm, centres 120 px apart (X +-0.026),
+# outer corner ~3.5 mm higher than the inner, iris ~19 mm across set 3.5 mm toward the nose (the fox
+# looks at the viewer while its eyes face 18 deg outward).
+EYE_X, EYE_Z = 0.0262, 0.2040
+EYE_A, EYE_B = 0.0117, 0.0098            # half width / half height of the eye opening seen from the front
+EYE_TILT = math.radians(9.0)              # outer corner higher than the inner corner
+EYEBALL_R = np.array([0.0170, 0.0145, 0.0115])   # eyeball radii: across (outward), up, along its facing
+EYEBALL_PROUD = 0.0008                    # the eyeball's front stands this far out of the face
+LID_T = (0.0009, 0.0017)                  # lower / upper eyelid thickness over the eyeball
+EYE = {}                                  # per side: eyeball centre and axes, the face's height map
+
+
+def eye_local(side, X, Z):
+    """Front-view coordinates of the eye opening: a toward the outer corner, b up (metres)."""
+    ar = side * X - EYE_X
+    br = Z - EYE_Z
+    c, s = math.cos(EYE_TILT), math.sin(EYE_TILT)
+    return ar * c + br * s, -ar * s + br * c
+
+
+def eye_world2d(side, a, b):
+    c, s = math.cos(EYE_TILT), math.sin(EYE_TILT)
+    ar, br = a * c - b * s, a * s + b * c
+    return side * (EYE_X + ar), EYE_Z + br
+
+
+def eye_opening_field(a, b):
+    """Distance-like field of the eye opening seen from the front (< 0 inside): an almond, round at
+    the inner corner, pointed at the outer corner."""
+    o = np.clip(a / EYE_A, 0.0, 1.0) ** 3
+    aa = a / (EYE_A * (1.0 + 0.05 * o))
+    bb = b / (EYE_B * (1.0 - 0.42 * o))
+    return (np.sqrt(aa * aa + bb * bb) - 1.0) * EYE_B
+
+
+def eye_outline(grow=0.0, n=120, th0=0.0, th1=2 * math.pi):
+    th = np.linspace(th0, th1, n)
+    c, s = np.cos(th), np.sin(th)
+    o = np.maximum(c, 0.0) ** 3
+    return (EYE_A * (1.0 + 0.05 * o) + grow) * c, (EYE_B * (1.0 - 0.42 * o) + grow) * s
+
+
+def face_height_map(clay, side, half=(0.024, 0.020), step=0.0004):
+    """Y of the face surface seen from the front over the eye region (before the socket is cut)."""
+    xs = np.arange(side * EYE_X - half[0], side * EYE_X + half[0] + 1e-9, step)
+    zs = np.arange(EYE_Z - half[1], EYE_Z + half[1] + 1e-9, step)
+    X, Z = np.meshgrid(xs, zs, indexing="ij")
+    X, Z = X.ravel(), Z.ravel()
+    hit = np.full(len(X), np.nan)
+    y0, dy = -0.170, 0.0002
+    for k in range(600):
+        y = y0 + k * dy
+        inside = clay.sample(np.stack([X, np.full(len(X), y), Z], 1)) < 0
+        new = inside & np.isnan(hit)
+        hit[new] = y
+        if not np.isnan(hit).any():
+            break
+    hit[np.isnan(hit)] = y0 + 600 * dy
+    a, b = hit - dy, hit.copy()
+    for _ in range(8):
+        m = 0.5 * (a + b)
+        inside = clay.sample(np.stack([X, m, Z], 1)) < 0
+        b = np.where(inside, m, b)
+        a = np.where(inside, a, m)
+    return xs, zs, (0.5 * (a + b)).reshape(len(xs), len(zs))
+
+
+def face_y(hm, X, Z):
+    xs, zs, Yg = hm
+    X, Z = np.broadcast_arrays(np.asarray(X, float), np.asarray(Z, float))
+    fx = np.clip((X - xs[0]) / (xs[1] - xs[0]), 0, len(xs) - 1.0001)
+    fz = np.clip((Z - zs[0]) / (zs[1] - zs[0]), 0, len(zs) - 1.0001)
+    i, k = fx.astype(int), fz.astype(int)
+    tx, tz = fx - i, fz - k
+    return (Yg[i, k] * (1 - tx) * (1 - tz) + Yg[i + 1, k] * tx * (1 - tz) + Yg[i, k + 1] * (1 - tx) * tz
+            + Yg[i + 1, k + 1] * tx * tz)
+
+
+def eyeball_setup(clay, side):
+    hm = face_height_map(clay, side)
+    d, up, out = eye_frame(side)
+    X0, Z0 = side * EYE_X, EYE_Z
+    front = np.array([X0, float(face_y(hm, X0, Z0)), Z0])
+    centre = front + (EYEBALL_PROUD - EYEBALL_R[2]) * d
+    EYE[side] = dict(hm=hm, centre=centre, axes=np.stack([out, up, d]), front=front)
+
+
+def eyeball_fn(side, grow=0.0):
+    e = EYE[side]
+    c, A = e["centre"], e["axes"]
+    r = EYEBALL_R + grow
+
+    def fn(x, y, z):
+        px, py, pz = x - c[0], y - c[1], z - c[2]
+        u = (px * A[0, 0] + py * A[0, 1] + pz * A[0, 2]) / r[0]
+        v = (px * A[1, 0] + py * A[1, 1] + pz * A[1, 2]) / r[1]
+        w = (px * A[2, 0] + py * A[2, 1] + pz * A[2, 2]) / r[2]
+        k0 = np.sqrt(u * u + v * v + w * w)
+        k1 = np.sqrt((u / r[0]) ** 2 + (v / r[1]) ** 2 + (w / r[2]) ** 2)
+        return k0 * (k0 - 1.0) / np.maximum(k1, 1e-9)
+    return fn
+
+
+def sd_eye_socket(side):
+    """The socket the eyeball sits in (the eyeball plus a 0.2 mm gap)."""
+    c = EYE[side]["centre"]
+    m = EYEBALL_R.max() + 0.003
+    return S.Prim(eyeball_fn(side, 0.0002), c - m, c + m)
+
+
+def sd_eye_opening(side):
+    """The opening between the eyelids, seen from the front: everything in front of the eyeball
+    inside the almond is cleared so the eyeball shows."""
+    c = EYE[side]["centre"]
+
+    def fn(x, y, z):
+        a, b = eye_local(side, x, z)
+        return np.maximum(eye_opening_field(a, b), y - c[1])
+    x0, x1 = sorted((side * (EYE_X - 0.02), side * (EYE_X + 0.02)))
+    return S.Prim(fn, np.array([x0, -0.18, EYE_Z - 0.016]), np.array([x1, c[1], EYE_Z + 0.016]))
+
+
+def sd_eyelids(side):
+    """The upper and lower eyelid: skin over the eyeball outside the opening, thicker above."""
+    ball = eyeball_fn(side)
+    c = EYE[side]["centre"]
+
+    def fn(x, y, z):
+        a, b = eye_local(side, x, z)
+        f = eye_opening_field(a, b)
+        d0 = ball(x, y, z)
+        t = LID_T[0] + (LID_T[1] - LID_T[0]) * smoothstep(-0.4 * EYE_B, 0.4 * EYE_B, b)
+        shell = np.maximum(d0 - t, 0.0002 - d0)
+        return np.maximum(shell, -f)
+    m = EYEBALL_R.max() + 0.004
+    return S.Prim(fn, c - m, c + m)
+
+
+def lash_line_points(side):
+    """The upper eyelid's edge from the wing tip over the top to the inner corner (front-view a, b)."""
+    a, b = eye_outline(0.0007, 40, -0.08, math.pi + 0.05)
+    ac = EYE_A * 1.05
+    wa = np.array([ac + 0.0034, ac + 0.0018])
+    wb = np.array([0.0021, 0.0010])
+    return np.concatenate([wa, a]), np.concatenate([wb, b])
+
+
+def carve_eyes(clay):
+    """Socket, opening, eyelids and lash-line ridge for both eyes (the face is read before cutting)."""
+    for side in (1, -1):
+        eyeball_setup(clay, side)
+    for side in (1, -1):
+        clay.sub(sd_eye_opening(side), blend=0.0010)
+        clay.sub(sd_eye_socket(side), blend=0.0004)
+        clay.add(sd_eyelids(side), blend=0.0009)
+        a, b = lash_line_points(side)
+        X, Z = eye_world2d(side, a, b)
+        Y = face_y(EYE[side]["hm"], X, Z) - 0.001
+        n = len(a)
+        radii = np.interp(np.arange(n), [0, 2, 12, 30, n - 1], [0.0004, 0.0009, 0.0011, 0.0009, 0.0005])
+        clay.stroke(np.stack([X, Y, Z], 1), radii, 0.00045, op="add", blend=0.0005, n=60)
+
+
+def eyelid_marks(P):
+    """Masks of the lash line (upper eyelid edge and its wing) and the lower eyelid line on the face."""
+    lash = np.zeros(len(P), dtype=np.float32)
+    lower = np.zeros(len(P), dtype=np.float32)
+    for side, e in EYE.items():
+        sel = np.nonzero((np.abs(P[:, 0] - side * EYE_X) < 0.024) & (np.abs(P[:, 2] - EYE_Z) < 0.019)
+                         & (P[:, 1] < -0.09))[0]
+        if not len(sel):
+            continue
+        Ps = P[sel]
+        a, b = eye_local(side, Ps[:, 0], Ps[:, 2])
+        f = eye_opening_field(a, b)
+        front = (Ps[:, 1] < face_y(e["hm"], Ps[:, 0], Ps[:, 2]) + 0.0045).astype(np.float32)
+        up_w = smoothstep(-0.30 * EYE_B, 0.10 * EYE_B, b)
+        w_up = 0.0012 + 0.0007 * smoothstep(-EYE_A, EYE_A, a)
+        m = smoothstep(w_up + 0.00025, w_up - 0.00025, f) * up_w
+        ac = EYE_A * 1.05
+        wing = np.array([(ac - 0.0012, 0.0004), (ac + 0.0016, 0.0012), (ac + 0.0036, 0.0023)])
+        m = np.maximum(m, stroke_mask(np.stack([a, b], 1), wing, 0.0009, 0.0004, soft=0.00015, taper_end=0.45))
+        lo = smoothstep(0.0008, 0.0005, f) * (1.0 - up_w)
+        lash[sel] = np.maximum(lash[sel], m * front)
+        lower[sel] = np.maximum(lower[sel], lo * front)
+    return lash, lower
 
 
 # ----------------------------------------------------------------------------------------- #
@@ -704,11 +894,6 @@ def tail_pattern(P, side_seed):
     blaze_u = smoothstep(0.010, -0.010, (s_u - s) + jag) * (au < 0.80)
     cream = np.maximum(np.maximum(np.maximum(blaze, blaze_u), curls), tip) * on_tail
     tip = tip * on_tail
-    for a0, b0, ra, rb in TAIL_TUFTS:
-        dd = S.sd_cone(a0, b0, ra, rb)(Pn[:, 0], Pn[:, 1], Pn[:, 2])
-        tm = smoothstep(0.005, 0.002, dd)          # the tufts and their blended fillets are cream
-        cream = np.maximum(cream, tm)
-        tip = np.maximum(tip, tm)
     under = smoothstep(1.6, 2.9, aphi) * on_tail
     for arr, vals in zip(out, (cream, tip, under, on_tail, s)):
         arr[near] = vals
@@ -824,8 +1009,8 @@ def body_color(P, Nn):
             tuftc = lerp(C_EAR_TUFT, C_EAR_RIMTAN, np.clip(-nz[idx], 0, 1) * 0.5)
             col[idx] = lerp(col[idx], tuftc, tm)
     # mouth line
-    for side in (1, -1, 0):
-        d, _ = polyline_dist(P, MOUTH_S[side] if side in MOUTH_S else mouth_line(side or 1))
+    for side in (1, -1):          # review 1: no philtrum line, only the smile
+        d, _ = polyline_dist(P, MOUTH_S[side] if side in MOUTH_S else mouth_line(side))
         col = lerp(col, C_MOUTH, smoothstep(0.0010, 0.0005, d) * (Y < -0.11))
     # fur streaks along the flow
     tail_w = 1.0 - 0.4 * on_tail

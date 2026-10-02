@@ -63,16 +63,6 @@
         "scenario-blender-sculpting",
         "scenario-blender-texturing-shading"
       ],
-      "done": {
-        "at": "2026-10-02T01:29:52+00:00",
-        "build": 9,
-        "triangles": 43728,
-        "dimensions_m": [
-          0.153,
-          0.452,
-          0.312
-        ]
-      },
       "reviews": [
         {
           "round": 1,
