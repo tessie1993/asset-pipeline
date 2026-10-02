@@ -202,29 +202,51 @@ def ear_image():
     return new_image("AF_ears", W, H, img)
 
 
+EAR_TUFT = (5, 0.0088, 0.0024)   # locks per ear, root half-width, root half-thickness (pre-scale)
+
+
+def bowl_point(B, a, f, w, L, u, t, lift):
+    """A point on the ear's inner bowl surface at (u across -1..1, t along) raised by lift along the bowl
+    normal (the same surface build_ear lofts)."""
+    t = float(t)
+    c = B + a * L * t - f * 0.010 * math.sin(math.pi * t) * 0.7
+    D = 0.027 * (1 - t) ** 0.6
+    x = u * ear_hw(u, t)
+    return c + w * x - f * (D * (1 - u * u)) + f * lift
+
+
 def build_ear_tufts(side, mat, rng):
-    """The ear tufts: cream fur locks at the inner base of the ear, fanning up out of the bowl (4-5, each different)."""
+    """The ear tuft: a soft fan of cream fur locks growing from the inner base of the bowl (front drawing: a
+    fern-like fan rising up and out; side drawing: 4-5 locks fanning up in the bowl). Each lock is a clump of
+    hair, full and round at the root, overlapping its neighbours there, bending once and drawn to a soft
+    rounded point; the locks lie on the bowl (their path follows its surface), their roots sunk into it.
+    Cycle 6 (user: "Smoothen model"): were 5 thin flat blades with needle tips and gaps: a crown of spikes."""
     B, a, f, w, L = ear_shape(side)
     objs = []
-    for k in range(5):
-        t0 = 0.02 + 0.03 * k + rng.uniform(-0.006, 0.006)
-        x0 = -0.017 + 0.007 * k + rng.uniform(-0.002, 0.002)
-        root = B + a * L * t0 + w * x0 - f * 0.011
-        ang = math.radians(-14 + 12 * k + rng.uniform(-5, 5))
-        d = a * math.cos(ang) + w * math.sin(ang)
-        ln = 0.024 + 0.008 * math.sin(k * 1.2) + rng.uniform(0, 0.007)
-        p1 = root + d * ln * 0.4 + f * 0.004
-        p2 = root + d * ln * 0.75 + f * 0.006
-        p3 = root + d * ln + f * 0.004 - w * 0.002
-        P = np.array(S.bezier(root, p1, p2, p3, 14))
-        tt = np.linspace(0, 1, 14)
-        width = 0.0085 * np.sin(np.clip(tt, 0.02, 1) * math.pi * 0.5 + 0.25) * (1 - tt ** 1.6) + 1e-5
-        width[-1] = 0
-        th = 0.0016 * (1 - tt) + 1e-5
-        th[-1] = 0
-        o, _ = sweep(f"ear_tuft_{side}_{k}", P, th, width, 8, mat, hint=np.tile(f, (14, 1)), uv_rect=(0, 0, 1, 1))
+    count, W, TH = EAR_TUFT
+    n = 20
+    tt = np.linspace(0, 1, n)
+    for k in range(count):
+        q = k / (count - 1)                                   # 0 inner .. 1 outer lock of the fan
+        u0 = -0.40 + 0.34 * q + rng.uniform(-0.02, 0.02)      # roots close together: they overlap
+        t0 = 0.035 + 0.035 * q + rng.uniform(-0.004, 0.004)
+        ln = (0.34 + 0.08 * math.sin(math.pi * q) + rng.uniform(-0.015, 0.015))   # length as a fraction of the ear
+        spread = -0.42 + 0.50 * q                             # fan: inner locks lean in toward the skull, outer ones run up the ear
+        bend = 0.06 + 0.06 * q
+        P = []
+        for s_ in tt:
+            u = u0 + spread * s_ + bend * s_ * s_
+            t = t0 + ln * s_ * (1 - 0.25 * q * s_)
+            lift = -0.0012 + 0.0042 * math.sin(math.pi * min(s_ / 0.7, 1.0) * 0.5) + 0.0006 * s_
+            P.append(bowl_point(B, a, f, w, L, max(-0.95, min(0.95, u)), t, lift))
+        P = np.array(P)
+        # full at the root, widest a quarter along, a rounded point (no needle): width ~ (1 - t^2.2)^0.6
+        width = W * (0.8 + 0.2 * np.sin(np.clip(tt / 0.25, 0, 1) * math.pi / 2)) * (1 - tt ** 2.2) ** 0.6
+        width *= 0.9 + 0.2 * rng.random()
+        th = TH * (1 - tt ** 1.8) ** 0.5 + 1e-5
+        width[-1] = th[-1] = 0.0
+        o, _ = sweep(f"ear_tuft_{side}_{k}", P, th, width, 12, mat, hint=np.tile(f, (n, 1)), uv_rect=(0, 0, 1, 1))
         o["keep_uv"] = True
+        o.data.shade_smooth()
         objs.append(o)
     return objs
-
-

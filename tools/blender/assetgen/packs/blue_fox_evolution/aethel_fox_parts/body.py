@@ -33,9 +33,15 @@ def leg_defs():
 
 HEAD = {   # (centre, radii) ellipsoids and (a, b, ra, rb) cones of the head clay, before the 0.50 m scale
     "neck": ([(0, -0.106, 0.205), (0, -0.131, 0.262), (0, -0.137, 0.301)], [0.044, 0.037, 0.033]),   # was top (0,-0.147,0.313) r 0.037: filled under the jaw
-    "cranium": ((0, -0.152, 0.340), (0.055, 0.051, 0.050)),   # crown 0.390, rounder (was (0,-0.154,0.334) r (0.062,0.052,0.042))
+    # cycle 7 (user: "Make cheeks less puffy. More fox face"): the braincase lower, flatter and set back
+    # (crown 0.379, was 0.390; its sides behind the forehead so they no longer bulge out round in front of the
+    # ears: the side drawing's skull is a compact wedge behind the stop); was ((0,-0.152,0.340), (0.055,0.051,0.050))
+    "cranium": ((0, -0.143, 0.337), (0.054, 0.046, 0.042)),
     "brow": ((0, -0.176, 0.334), (0.040, 0.030, 0.024)),       # as built before cycle 4 (taller bulged over the eye bed)
-    "cheek": ((0.038, -0.170, 0.311), (0.032, 0.030, 0.021)),  # was (0.04,-0.172,0.305) r (0.035,0.034,0.029): jowls
+    # cheekbone: the flat side of a fox's face, from under the ear down to the cheek ruff, behind the eye's
+    # outer corner: thin front to back so it reads as a plane facing forward-out, not a round cheek ball
+    # (cycle 7; was the puffy cheek ((0.038,-0.170,0.311), (0.032,0.030,0.021)) bulging forward under the eye)
+    "cheekbone": ((0.038, -0.168, 0.316), (0.024, 0.014, 0.020)),
     # (centre, radii) along the snout: a narrow bridge on top (it runs between the eyes' inner corners, which
     # sit on the snout's upper edge) over a broad, deep lower part that tapers to the nose: in section a
     # trapezoid, wide below, so the wedge is broad at the cheeks without bulging under the eyes
@@ -46,6 +52,39 @@ HEAD = {   # (centre, radii) ellipsoids and (a, b, ra, rb) cones of the head cla
     "jaw": [((0, -0.186, 0.2895), (0.027, 0.020, 0.0120)), ((0, -0.205, 0.2875), (0.019, 0.015, 0.0095)),
             ((0, -0.219, 0.2850), (0.0115, 0.0095, 0.0070))],   # the last one is the chin
 }
+
+
+CHEEK_FUR = [   # (root, tip, root radius, tip radius) of the +X cheek ruff's two fur wedges
+    # cycle 7 (user: "Make cheeks less puffy. More fox face"): a fox's face from the front is a downward
+    # triangle whose top corners are the cheek ruff: fur that flares from the side of the face just under the
+    # ear and the eye out to two points between the eye and the nose (front drawing, measured on the full-
+    # resolution crop with the irises aligned: upper point ~13 mm, lower ~21 mm under the iris; side drawing:
+    # 9-17 mm under the eye, at the back of the cheek; kept a little wider than the iris-scaled drawing, whose
+    # eyes sit further apart, so the flare reads at the build's proportions). Each is a
+    # broad-rooted cone flattened front to back (CHEEK_FLAT), so from the front its edges run straight from
+    # the face to the point (the triangle) and the cheek reads as a flat fur plane, never a round ball
+    # (was lower (0.042,-0.150,0.303)->(0.079,-0.129,0.291) r 0.0135, upper (0.044,-0.143,0.311)->
+    # (0.071,-0.121,0.307) r 0.0115: small horns at the mouth's height under round cheek balls)
+    ((0.034, -0.172, 0.296), (0.071, -0.146, 0.3050), 0.017, 0.0026),   # lower wedge: its underside runs in to the jaw
+    ((0.040, -0.165, 0.330), (0.076, -0.142, 0.3180), 0.019, 0.0024),   # upper wedge: from under the ear to the outer point
+]
+CHEEK_FLAT = 1.3      # flattening of the cheek ruff wedges across their axis (horizontal, forward-outward)
+CHEEK_BLEND = 0.010   # the wedges' roots overlap (no notch at the roots), the two points stay apart
+LEG_JOINT_BLEND = 0.004   # smooth blend between a leg's segments (was 0: a crease at every joint)
+
+
+def flat_across(prim, a, b, k):
+    """The primitive squeezed k times thinner across the axis a -> b, along the horizontal direction
+    perpendicular to it, about the plane through a (distance scaled to stay conservative): a fur wedge that
+    is broad seen from the front and thin seen from above, its length kept."""
+    d = np.array([b[0] - a[0], b[1] - a[1], 0.0])
+    n = np.array([-d[1], d[0], 0.0]) / np.linalg.norm(d)
+    c = np.asarray(a, float)
+
+    def fn(x, y, z):
+        t = (x - c[0]) * n[0] + (y - c[1]) * n[1]
+        return prim.fn(x + (k - 1) * t * n[0], y + (k - 1) * t * n[1], z) / k
+    return S.Prim(fn, prim.lo - 0.01, prim.hi + 0.01)
 
 
 def body_clay():
@@ -59,12 +98,17 @@ def body_clay():
     clay.add(E((0, 0.047, 0.198), (0.050, 0.058, 0.048)), blend=0.028)       # pelvis / rump (top 0.246, back end Y 0.105)
     clay.add(E((0.034, -0.096, 0.198), (0.024, 0.04, 0.048), rot=(12, 0, 0)), blend=0.02, mirror=True)  # shoulders
     clay.add(E((0, -0.142, 0.165), (0.042, 0.030, 0.055)), blend=0.03)       # chest ruff mound (front -0.172)
+    # brisket: the breastbone's front runs down between the front legs, so the cream bib reaches its V point
+    # low between them (front drawing) on a smooth surface (cycle 6: replaces the chest spike cones)
+    clay.add(E((0, -0.140, 0.133), (0.024, 0.021, 0.030)), blend=0.022)
     # --- neck and head (nose Y -0.24 Z 0.30, eye Z 0.318, crown Z 0.36, back of skull Y -0.10)
     clay.add(T(*HEAD["neck"]), blend=0.022)   # neck: joins the skull behind the jaw, so the throat stays under the jaw's rear
     hd = HEAD
     clay.add(E(*hd["cranium"]), blend=0.02)      # cranium: rounder and higher (front: the forehead rises well above the brows)
+    if "crown" in hd:   # the flat top of the braincase between the ears (cycle 7)
+        clay.add(E(*hd["crown"]), blend=0.014)
     clay.add(E(*hd["brow"]), blend=0.015)        # brow / frontal plane
-    clay.add(E(*hd["cheek"]), blend=0.016, mirror=True)   # cheeks: under the eyes, not hanging jowls
+    clay.add(E(*hd["cheekbone"]), blend=0.016, mirror=True)   # cheekbones: flat sides of the face (cycle 7)
     # snout: a fox's wedge, broad and deep where it meets the cheeks under the eyes, wider than tall, tapering
     # evenly to the small nose, its bridge a straight slope from below the eyes (user, cycle 4: "snout too
     # narrow, make a more fox shaped snout"); then the lower jaw under it and the soft rounded chin
@@ -84,33 +128,22 @@ def body_clay():
         for a_, b_ in zip(mp[:-1], mp[1:]):
             clay.sub(C(a_, b_, 0.0009, 0.0009), blend=0.0008)
     rng = random.Random(7)
+    # cheek fur: in both drawings the cheeks flare out behind the jaw into one soft, full ruff with two
+    # rounded points (front: to x +-0.08 at the mouth's height; side: behind the jaw, pointing back and
+    # down). Built as two broad soft wedges with rounded tips and wide blends, so the outline is one
+    # smooth scalloped curve (cycle 6, user: "Smoothen model ... too literal copy": the four thin
+    # needle cones read as torn, blocky spikes)
     for s in (1, -1):
-        # cheek tufts: 4 pointed locks sweeping back and out (front view to x +-0.08, z 0.27-0.30)
-        cheek = [((0.045, -0.15, 0.308), (0.083, -0.128, 0.296), 0.012),
-                 ((0.045, -0.15, 0.300), (0.080, -0.128, 0.286), 0.011),
-                 ((0.043, -0.15, 0.296), (0.068, -0.135, 0.283), 0.010),
-                 ((0.045, -0.14, 0.313), (0.074, -0.118, 0.312), 0.010)]
-        for a, b, r in cheek:
-            j = 1.0 + (rng.random() - 0.5) * 0.2
-            bb = (a[0] + (b[0] - a[0]) * j, b[1] + rng.uniform(-0.004, 0.004), b[2] + rng.uniform(-0.004, 0.004))
-            clay.add(C((s * a[0], a[1], a[2]), (s * bb[0], bb[1], bb[2]), r, 0.0012), blend=0.006)
-        # (no nape locks: the side view's neck is smooth behind the ears)
-        # elbow tufts at the back of the front legs (side view z 0.10-0.13)
-        clay.add(C((s * 0.034, -0.10, 0.14), (s * 0.036, -0.082, 0.112 + rng.uniform(-0.004, 0.004)), 0.0095, 0.0012), blend=0.006)
-        # belly fringe: small locks swept back along the chest-belly edge (serrated, not bumps)
-        for k in range(2):
-            y = -0.075 + k * 0.035 + rng.uniform(-0.005, 0.005)
-            clay.add(C((s * 0.03, y, 0.152), (s * 0.031, y + 0.024, 0.141 + rng.uniform(-0.004, 0.003)), 0.0065, 0.001), blend=0.006)
-        # ruff locks along the chest side, swept down and back
-        for z, l in [(0.20, 0.024), (0.178, 0.028), (0.155, 0.026)]:
-            clay.add(C((s * 0.038, -0.150, z), (s * (0.050 + rng.uniform(0, 0.006)), -0.150 + rng.uniform(-0.004, 0.006), z - l), 0.0085, 0.0012), blend=0.006)
-    # chest ruff spikes: V point at Z 0.105 between the front legs (front view)
-    for x, z0, z1, r in [(0.0, 0.15, 0.104, 0.015), (0.017, 0.152, 0.116, 0.012), (-0.018, 0.153, 0.118, 0.0115),
-                         (0.033, 0.16, 0.13, 0.010), (-0.032, 0.161, 0.128, 0.0105)]:
-        clay.add(C((x, -0.160, z0), (x * 1.05, -0.152, z1), r, 0.0012), blend=0.006)
+        for a, b, r1, r2 in CHEEK_FUR:
+            a_, b_ = (s * a[0], a[1], a[2]), (s * b[0], b[1], b[2])
+            clay.add(flat_across(C(a_, b_, r1, r2), a_, b_, CHEEK_FLAT), blend=CHEEK_BLEND)
+    # (no nape locks, elbow tufts, belly fringe, chest-side ruff locks or chest spikes: the drawings paint
+    # that fur as strokes on smooth forms; as geometry they were spikes on the chest and belly. The chest
+    # is the smooth ruff mound above; its cream bib ends in a painted V (cream_field). Cycle 6, user:
+    # "Remove spikes in belly")
     # --- legs, thighs, paws with toes and creases
     for key, (pts, rad) in leg_defs().items():
-        clay.add(T(pts, rad), blend=0.008)
+        clay.add(T(pts, rad, LEG_JOINT_BLEND), blend=0.008)
         sx = 1 if key.endswith("1") and not key.endswith("-1") else -1
         if key.startswith("h"):
             clay.add(E((sx * 0.038, pts[0][1] - 0.004, 0.172), (0.026, 0.05, 0.058), rot=(-25, 0, 0)), blend=0.025)
@@ -297,19 +330,62 @@ def fur_material(name, marks, decal, cream):
 
 
 # ============================================================================ BODY ATTRIBUTES AND CREAM
-CREAM_NOISE = (0.0005, 0.0)   # edge waviness of the cream marking: broad, fine (cycle 4: the drawing's colour
-                              # boundaries are clean vector curves; the noise read as a ragged edge)
+CREAM_NOISE = (0.0, 0.0)   # edge waviness of the cream marking: broad, fine (cycle 6: none; the drawing's colour
+                           # boundaries are clean painted curves)
 THROAT_WC = [0.0, 0.010, 0.032, 0.044, 0.046, 0.042, 0.034, 0.032]   # (cycle 4: throat narrower up to the jaw, blue neck sides)
-HEAD_CREAM_Z = 0.292   # below this the head's cream is limited to the jaw front (neckcut in cream_field)   # half-width of the throat / chest cream at the Z knots below
+HEAD_CREAM_Z = 0.292   # below this the head's cream is limited to the jaw front (neckcut in cream_field)
+CREAM_ROUND = 0.006    # corner rounding of the cream regions (smooth max / min), metres
+
+
+def smooth_profile(xk, yk, sigma=0.35):
+    """A smooth curve through the knots (xk, yk): the polyline resampled densely and Gaussian
+    smoothed (sigma in units of the mean knot spacing), so a boundary built from a few knots has no
+    kinks at them (cycle 6: linear interpolation put a corner at every knot)."""
+    xk, yk = np.asarray(xk, float), np.asarray(yk, float)
+    xs = np.linspace(xk[0], xk[-1], 400)
+    ys = np.interp(xs, xk, yk)
+    sg = sigma * (xk[-1] - xk[0]) / (len(xk) - 1) / (xs[1] - xs[0])
+    k = int(3 * sg) + 1
+    w = np.exp(-0.5 * (np.arange(-k, k + 1) / sg) ** 2)
+    w /= w.sum()
+    pad = np.concatenate([np.full(k, ys[0]), ys, np.full(k, ys[-1])])
+    ys = np.convolve(pad, w, mode="valid")
+    return lambda x: float(np.interp(x, xs, ys))
+
+
+def smax(*v, k=None):
+    """Smooth maximum (polynomial): rounded corners where two boundaries meet."""
+    k = CREAM_ROUND if k is None else k
+    out = v[0]
+    for b in v[1:]:
+        h = max(k - abs(out - b), 0.0) / k
+        out = max(out, b) + h * h * k * 0.25
+    return out
+
+
+def smin(*v, k=None):
+    return -smax(*[-a for a in v], k=k)
+
+
+# cycle 7: the cream 4-5 mm higher under the eyes and up to the cheek ruff's points (front and side drawings:
+# a thin blue band under the eye, the lower cheeks and the ruff cream); was 0.307/0.313/0.313/0.307/0.298/0.286/0.273
+HEAD_ZB = smooth_profile([-0.25, -0.225, -0.205, -0.185, -0.165, -0.145, -0.125, -0.105, -0.09],
+                         [0.295, 0.299, 0.310, 0.317, 0.318, 0.317, 0.307, 0.292, 0.276])
+HEAD_ZB_OUTER = 0.004   # outer cheeks: cream a little higher toward the eye's outer corner (was 0.006)
+CHEST_YB = smooth_profile([0.10, 0.13, 0.16, 0.20, 0.24, 0.28, 0.30], [-0.157, -0.147, -0.136, -0.124, -0.115, -0.105, -0.10])
+CHEST_WC = smooth_profile([0.104, 0.115, 0.14, 0.18, 0.22, 0.26, 0.29, 0.30], THROAT_WC, sigma=0.25)
+# the belly's cream top in the side view: one smooth line from behind the elbow, rising a little with
+# the tuck-up toward the stifle (side drawing), instead of a flat cut at Z 0.152
+BELLY_ZT = smooth_profile([-0.12, -0.08, -0.04, 0.0, 0.03, 0.05], [0.150, 0.151, 0.153, 0.157, 0.160, 0.158])
 
 
 def cream_field(p):
+    """Cream regions of the body, every boundary a smooth curve with rounded corners (cycle 6)."""
     x, y, z = p.x, p.y, p.z
     nz = CREAM_NOISE[0] * noise.noise(Vector((x * 90, y * 90, z * 90))) + CREAM_NOISE[1] * noise.noise(Vector((x * 260, y * 260, z * 260)))
     # head: below a line from the nose under the eye back to the cheek tufts
-    zb = float(np.interp(y, [-0.25, -0.225, -0.205, -0.185, -0.165, -0.145, -0.125, -0.105, -0.09],
-                         [0.295, 0.299, 0.307, 0.313, 0.313, 0.307, 0.298, 0.286, 0.273]))   # (cycle 4: front lower with the nose)   # cheeks cream up to just under the eyes (front drawing)
-    zb += 0.006 * float(smoothstep(abs(x), 0.036, 0.056))      # outer cheeks: cream up to the eye's outer corner
+    zb = HEAD_ZB(y)
+    zb += HEAD_ZB_OUTER * float(smoothstep(abs(x), 0.036, 0.056))      # outer cheeks: cream up to the eye's outer corner
     # the head's cream stops at the jaw: under the cheeks only the front of the jaw is cream, the sides of
     # the neck stay blue (front and side drawings); the throat strip comes from the chest part below
     below = min(1.0, max(0.0, (HEAD_CREAM_Z - z) / 0.004))
@@ -318,15 +394,14 @@ def cream_field(p):
     wb = 0.004 + 0.012 * min(1.0, max(0.0, (y + 0.24) / 0.05))
     bridge = max(abs(x) - wb, 0.2965 - z, y + 0.20)
     head = max(head, -bridge)
-    # throat and chest front: cream in front of the boundary, within the bib, V point at Z 0.105
-    yb = float(np.interp(z, [0.10, 0.13, 0.16, 0.20, 0.24, 0.28, 0.30], [-0.157, -0.147, -0.136, -0.124, -0.115, -0.105, -0.10]))   # follows the chest (moved back 0.018)
-    wc = float(np.interp(z, [0.104, 0.115, 0.14, 0.18, 0.22, 0.26, 0.29, 0.30], THROAT_WC))
-    chest = max(y - yb, abs(x) - wc, 0.104 - z, z - 0.30)
+    # throat and chest front: cream in front of the boundary, within the bib, ending below in the painted
+    # V between the front legs (front drawing), every side a smooth curve
+    chest = smax(y - CHEST_YB(z), abs(x) - CHEST_WC(z), 0.104 - z, z - 0.30)
     # belly underside and inner thighs
-    belly = max(z - 0.152, 0.11 - z, y - 0.045, -0.115 - y, abs(x) - 0.032)
+    belly = smax(z - BELLY_ZT(y), 0.11 - z, y - 0.045, -0.115 - y, abs(x) - 0.032, k=0.008)
     # patch under the tail
-    patch = max(abs(x) - 0.019, 0.118 - z, z - 0.195, 0.068 - y)
-    return min(head, chest, belly, patch) + nz
+    patch = smax(abs(x) - 0.019, 0.118 - z, z - 0.195, 0.068 - y, k=0.004)
+    return min(head, smin(chest, belly, k=0.010), patch) + nz
 
 
 def body_attributes(obj):
@@ -344,3 +419,43 @@ def body_attributes(obj):
     set_attr(obj, "pxf", (x - FRONT_X0) / MARK_SPAN)
 
 
+
+
+# ============================================================================ SURFACE RELAX
+RELAX = (10, 0.50, -0.53)   # Taubin passes, lambda, mu (cycle 6: smooths the remesh's quad-scale lumps and the
+                            # clay's small creases without shrinking the forms)
+
+
+def relax_weight(co):
+    """How much each vertex may be relaxed: 0 on the approved face (eye beds, stop, snout, nose, mouth,
+    jaw: built and judged at mm precision) and on the toes and their creases, 1 elsewhere, soft between."""
+    x, y, z = co[:, 0], co[:, 1], co[:, 2]
+    face = smoothstep(-y, 0.165, 0.185) * smoothstep(z, 0.268, 0.282)       # muzzle, eyes, stop, jaw front
+    toes = 1.0 - smoothstep(z, 0.022, 0.034)
+    return np.clip(1.0 - np.maximum(face, toes), 0.0, 1.0)
+
+
+def relax_surface(obj, passes=None, lam=None, mu=None):
+    """Taubin (lambda | mu) smoothing of the body mesh, weighted by relax_weight: a low-pass filter on the
+    surface that removes bumps a few faces wide (remesh noise, small blend creases) and keeps the volume
+    and the large forms (a plain Laplacian smooth would shrink the thin legs)."""
+    passes, lam0, mu0 = RELAX if passes is None else (passes, lam, mu)
+    me = obj.data
+    n = len(me.vertices)
+    co = np.empty(n * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    ed = np.empty(len(me.edges) * 2, np.int64)
+    me.edges.foreach_get("vertices", ed)
+    ed = ed.reshape(-1, 2)
+    deg = np.bincount(ed.ravel(), minlength=n).astype(float)
+    w = relax_weight(co)[:, None]
+    for _ in range(passes):
+        for f in (lam0, mu0):
+            acc = np.zeros_like(co)
+            np.add.at(acc, ed[:, 0], co[ed[:, 1]])
+            np.add.at(acc, ed[:, 1], co[ed[:, 0]])
+            avg = acc / np.maximum(deg, 1)[:, None]
+            co = co + f * w * (avg - co)
+    me.vertices.foreach_set("co", co.ravel())
+    me.update()

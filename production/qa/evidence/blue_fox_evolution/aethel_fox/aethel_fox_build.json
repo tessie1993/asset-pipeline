@@ -1,14 +1,14 @@
 {
- "build": 5,
+ "build": 7,
  "final": false,
- "at": "2026-10-02T07:30:13+00:00",
+ "at": "2026-10-02T09:22:07+00:00",
  "samples": 16,
  "resolution": 768,
  "report": {
-  "triangles": 118660,
+  "triangles": 115138,
   "dimensions_m": [
    0.223,
-   0.614,
+   0.612,
    0.5
   ],
   "materials": [
@@ -30,11 +30,11 @@
   ],
   "texture_sources": [],
   "glb": "assets/models/blue_fox_evolution/aethel_fox.glb",
-  "glb_bytes": 4920976
+  "glb_bytes": 4788100
  },
  "checks": {
   "parts": {
-   "parts": 107,
+   "parts": 90,
    "floating": [],
    "no_material": [],
    "flat_colour": []
@@ -44,7 +44,7 @@
    "open_edges": 0,
    "loose_vertices": 0,
    "degenerate_faces": 16,
-   "mirror_error": 0.005
+   "mirror_error": 0.0052
   }
  },
  "bake": null,

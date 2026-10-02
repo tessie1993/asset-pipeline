@@ -11,6 +11,8 @@ ROOT = Path("/home/user/asset-pipeline")
 OUT = ROOT / ".scratch/assetgen/work/blue_fox_evolution/aethel_fox/parts/out"
 CROPS = Path(__file__).resolve().parent if (Path(__file__).resolve().parent / "t_front_eyes.png").exists() else ROOT / ".scratch/assetgen/work/blue_fox_evolution/aethel_fox/crops"
 name = sys.argv[1]
+if "--outdir" in sys.argv:
+    _i = sys.argv.index("--outdir"); OUT = Path(sys.argv[_i + 1]).resolve(); del sys.argv[_i:_i + 2]
 boxes = []
 a = sys.argv[2:]
 while a:

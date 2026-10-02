@@ -39,9 +39,9 @@ def tail_material(col_img, emi_img):
     sv = nt.ramp(strk, [(0.3, (0.93, 0.94, 0.96, 1)), (0.5, (1, 1, 1, 1)), (0.7, (1.05, 1.04, 1.03, 1))])
     col = nt.mix(1.0, col, sv, "MULTIPLY")
     # root dark and bluer, tip light
-    rt = nt.ramp(ft, [(0.0, (0.62, 0.68, 0.82, 1)), (0.25, (0.86, 0.89, 0.95, 1)), (0.6, (1, 1, 1, 1)), (1.0, (1.12, 1.11, 1.08, 1))])
+    rt = nt.ramp(ft, [(0.0, (0.86, 0.89, 0.95, 1)), (0.3, (0.95, 0.96, 0.98, 1)), (0.6, (1, 1, 1, 1)), (1.0, (1.08, 1.07, 1.05, 1))])
     col = nt.mix(1.0, col, rt, "MULTIPLY")
-    edge = nt.maprange(nt.math("ABSOLUTE", fw), 0.55, 1.0, 1.0, 0.82)
+    edge = nt.maprange(nt.math("ABSOLUTE", fw), 0.55, 1.0, 1.0, 0.94)
     st = nt.maprange(strand, 0.35, 0.65, 0.9, 1.08)
     shade = nt.math("MULTIPLY", nt.math("MULTIPLY", edge, st), nt.maprange(groove, 0.0, 0.5, 0.93, 1.0))
     col = nt.mix(1.0, col, nt.combine(shade, shade, shade), "MULTIPLY")
@@ -52,7 +52,7 @@ def tail_material(col_img, emi_img):
     emis = nt.ramp(glow, [(0.0, "#000000"), (0.3, "#3fb4ea"), (1.0, "#b8f2ff")])
     ao = nt.node("ShaderNodeAmbientOcclusion")
     ao.inputs["Distance"].default_value = 0.02
-    col = nt.mix(nt.maprange(ao.outputs["AO"], 0.95, 0.45, 0.0, 0.5), col, lin("#3e4c78"))
+    col = nt.mix(nt.maprange(ao.outputs["AO"], 0.95, 0.45, 0.0, 0.25), col, lin("#5a6c98"))
     rough = nt.math("ADD", nt.math("MULTIPLY", strand, 0.14), nt.maprange(ft, 0.0, 1.0, 0.82, 0.66))
     height = nt.math("ADD", nt.math("MULTIPLY", groove, 0.6), nt.math("MULTIPLY", strand, 0.4))
     set_bsdf(nt, bsdf, base=col, rough=rough, emis_col=emis, emis_str=1.4, normal=nt.bump(height, 0.35, 0.0012))
@@ -78,12 +78,43 @@ TAIL_RB = [0.028, 0.044, 0.068, 0.0722, 0.0684, 0.066, 0.0640, 0.0600, 0.055, 0.
 TAIL_RF = [0.024, 0.031, 0.062, 0.0808, 0.0882, 0.074, 0.054, 0.0394, 0.031, 0.024, 0.016, 0.0]
 TAIL_RU = [0.03, 0.06, 0.0835, 0.0942, 0.0965, 0.08, 0.07, 0.0536, 0.036, 0.024, 0.014, 0.0]
 TAIL_CREAM_W = (0.8, 0.6, 0.45)   # cream crest: weight of facing back (Y), facing up (Z), threshold
-TAIL_LIFT = (0.003, 0.010)          # tip lift range of the layered locks
-TAIL_WIDTH_K = 1.12                # width factor of the layered locks
-TAIL_EXTRA_LOCKS = [(0.80, 0.97, 1.35, 0.22, 0.032)]   # the second point under the curled tip
+TAIL_LIFT = (0.0, 0.004)          # tip lift range of the layered locks
+TAIL_WIDTH_K = 1.0                 # width factor of the layered locks
+TAIL_EXTRA_LOCKS = [(0.80, 0.97, 1.35, 0.06, 0.040)]   # the second point under the curled tip
 TAIL_LOCK_CREAM = (0.62, 0.25)
 TAIL_FLAMES = (11, 0.016, 0.026)    # cream flame strokes of the atlas: count, widest width range (m)
 TAIL_ZONE_U0 = 0.48               # the cream crest starts this far along the tail       # a lock turns cream past this much atlas cream (threshold, ramp)              # extra edge locks (s0, s1, a0, lift, width)
+
+
+# The tail's centre line (Y, Z at X 0) as one smooth cubic B-spline with 7 control points (cycle 6, user:
+# "Smoothen model ... too literal copy" and "Don't use masks"): the earlier 12-knot Catmull-Rom path was fitted
+# to the side view's silhouette rows and carried their wobble (a back-and-forth at Z 0.32-0.39 and a kink over
+# the curl). Read from the full-resolution side drawing: the plume rises from the rump, swells forward over its
+# lower half, sweeps up and back over the top in one arc and runs down and back into the cream tip.
+TAIL_CTRL = [(0.11, 0.199), (0.1214, 0.2387), (0.1372, 0.2899), (0.1192, 0.4326), (0.2604, 0.4340),
+             (0.2833, 0.3495), (0.328, 0.348)]
+TAIL_RADIUS_SMOOTH = 9.0   # Gaussian smoothing of the radius profiles, in path samples (was 4: bumps at the knots)
+
+
+def bspline(ctrl, n):
+    """Clamped uniform cubic B-spline through the control polygon ctrl, n samples (de Boor)."""
+    k = 3
+    m = len(ctrl)
+    kn = np.concatenate([np.zeros(k), np.linspace(0, 1, m - k + 1), np.ones(k)])
+    u = np.clip(np.linspace(0, 1, n), 0, 1 - 1e-12)
+    B = np.zeros((n, len(kn) - 1))
+    for i in range(len(kn) - 1):
+        B[:, i] = (kn[i] <= u) & (u < kn[i + 1])
+    for d in range(1, k + 1):
+        Bn = np.zeros((n, len(kn) - 1 - d))
+        for i in range(len(kn) - 1 - d):
+            a = (u - kn[i]) / (kn[i + d] - kn[i]) if kn[i + d] > kn[i] else 0.0
+            b = (kn[i + d + 1] - u) / (kn[i + d + 1] - kn[i + 1]) if kn[i + d + 1] > kn[i + 1] else 0.0
+            Bn[:, i] = a * B[:, i] + b * B[:, i + 1]
+        B = Bn
+    out = B @ ctrl
+    out[-1] = ctrl[-1]
+    return out
 
 
 def tail_path():
@@ -93,8 +124,10 @@ def tail_path():
     back to Y 0.23, the upper part bending back into a thick curl and tapering to the cream tip at
     Y 0.335 Z 0.34. Radii: ru across (X), rb toward +B (back / down / inside of the curl), rf toward
     -B (front / up). Profiles smoothed so the surface has no rings at the knots."""
-    cps = np.array([(0.1100, 0.1990), (0.1180, 0.2380), (0.1320, 0.2750), (0.1320, 0.3160), (0.1260, 0.3570), (0.1400, 0.3940), (0.1720, 0.4220), (0.2090, 0.4230), (0.2350, 0.4140), (0.2510, 0.3920), (0.2850, 0.3700), (0.3280, 0.3480)])   # (cycle 2: tip end raised 0.02)
-    P2 = catmull(cps, 16)
+    D = bspline(np.array(TAIL_CTRL), 2000)      # dense, then even arc-length samples (even rings along the tail)
+    dl = np.r_[0, np.cumsum(np.linalg.norm(np.diff(D, axis=0), axis=1))]
+    se = np.linspace(0, dl[-1], 177)
+    P2 = np.stack([np.interp(se, dl, D[:, 0]), np.interp(se, dl, D[:, 1])], 1)
     P = np.stack([np.zeros(len(P2)), P2[:, 0], P2[:, 1]], 1)
     tt = np.linspace(0, 1, len(P))
     tk = [0, 0.06, 0.14, 0.25, 0.36, 0.47, 0.58, 0.68, 0.78, 0.88, 0.95, 1.0]
@@ -103,7 +136,7 @@ def tail_path():
     rb = np.interp(tt, tk, TAIL_RB)
     rf = np.interp(tt, tk, TAIL_RF)
     ru = np.interp(tt, tk, TAIL_RU)
-    ru, rb, rf = (np.maximum(smooth1d(r, 4.0), 0.0) for r in (ru, rb, rf))
+    ru, rb, rf = (np.maximum(smooth1d(r, TAIL_RADIUS_SMOOTH), 0.0) for r in (ru, rb, rf))
     ru[-1] = rb[-1] = rf[-1] = 0.0
     return P, ru, rb, rf
 
@@ -278,9 +311,9 @@ def tail_images(grid, flick_n):
 
 
 TAIL_TIP_CURL = 14.0     # past the end the tip's centre line bends up (Z += k * over^2): the hook
-TAIL_ROOT_RHO = 0.90     # lock roots lie at this fraction of the fur radius
-TAIL_UNDER = 0.92        # underfur radius as a fraction of the fur radius
-TAIL_UNDER_T = 0.12      # root-to-tip shading value of the underfur (0 dark root .. 1 light tip)
+TAIL_ROOT_RHO = 0.95     # lock roots lie at this fraction of the fur radius
+TAIL_UNDER = 0.97        # underfur radius as a fraction of the fur radius
+TAIL_UNDER_T = 0.55      # root-to-tip shading value of the underfur (0 dark root .. 1 light tip)
 TAIL_KEEP_LAYERS = (0, 1, 2, 3, 4, 5)   # which lock layers are built (5 = the edge locks)
 
 
@@ -320,19 +353,29 @@ class TailBody:
         return np.sqrt((ru * np.cos(a)) ** 2 + (rv * np.sin(a)) ** 2)
 
 
+# Cycle 6 (user: "Smoothen model"; the tail is fur made of locks that read as smooth, flowing locks without
+# gaps): fewer, broader locks (8-9 per layer, was 10-13) that lie flush on the underfur, their side edges sunk
+# into it (TAIL_EDGE_SINK) so no shelf, slit or dark seam shows between them; edge locks lower and fewer.
+TAIL_LAYERS = [  # s0 range, s1 range, count, width range (m), twist
+    ((0.00, 0.05), (0.30, 0.42), 8, (0.084, 0.104), 0.30),
+    ((0.13, 0.22), (0.47, 0.60), 9, (0.084, 0.104), 0.26),
+    ((0.34, 0.44), (0.68, 0.80), 8, (0.076, 0.094), 0.22),
+    ((0.55, 0.64), (0.86, 0.96), 7, (0.064, 0.080), 0.18),
+    ((0.72, 0.80), (1.00, 1.035), 4, (0.056, 0.070), 0.12),
+]
+TAIL_EDGE_LOCKS = [(0.04, 0.34, 1.45, 0.05, 0.050), (0.12, 0.42, 1.70, 0.06, 0.048),   # lower back edge
+                   (0.52, 0.78, -1.45, 0.05, 0.046), (0.60, 0.86, -1.80, 0.045, 0.042),   # top of the cream crown
+                   (0.70, 1.02, 1.6, 0.04, 0.040)]                                         # under the curled tip
+TAIL_EDGE_SINK = 0.07     # how far (fraction of the fur radius) a lock's side edges sink under its middle
+
+
 def tail_fur_lock_specs(rng):
     """The guard-hair locks of the tail, layered root to tip (each layer's roots lie under the
     locks of the layer before, the way fur grows toward the tip): (s0, s1, a0, twist, sway, width,
     thickness, tip lift, tip hook). Layers interleave like bricks; every lock its own length, width,
     twist and lift."""
     specs = []
-    layers = [  # s0 range, s1 range, count, width range (m), twist
-        ((0.00, 0.05), (0.30, 0.42), 12, (0.060, 0.078), 0.35),
-        ((0.13, 0.22), (0.47, 0.60), 13, (0.062, 0.080), 0.30),
-        ((0.34, 0.44), (0.68, 0.80), 12, (0.054, 0.072), 0.25),
-        ((0.55, 0.64), (0.86, 0.96), 10, (0.044, 0.060), 0.20),
-        ((0.72, 0.80), (1.00, 1.045), 4, (0.045, 0.060), 0.15),
-    ]
+    layers = TAIL_LAYERS
     for li, ((a0_, a1_), (b0_, b1_), cnt, (w0, w1), tw) in enumerate(layers):
         for k in range(cnt):
             a0 = 2 * math.pi * (k + 0.5 * (li % 2) + rng.uniform(-0.25, 0.25)) / cnt
@@ -346,12 +389,9 @@ def tail_fur_lock_specs(rng):
                               lift=rng.uniform(*TAIL_LIFT), hook=rng.uniform(-0.2, 0.2), layer=li))
     # locks that stand out of the outline: three on the lower back edge behind the rump (side
     # drawing's points), three along the top edge of the cream crown, one under the curled tip
-    for s0, s1, a0, lift, w in [(0.04, 0.33, 1.45, 0.16, 0.040), (0.10, 0.40, 1.75, 0.2, 0.038),
-                                (0.17, 0.46, 1.25, 0.15, 0.036), (0.50, 0.74, -1.35, 0.12, 0.034),
-                                (0.56, 0.80, -1.65, 0.13, 0.032), (0.62, 0.86, -1.95, 0.10, 0.03),
-                                (0.70, 1.02, 1.6, 0.08, 0.03)] + list(TAIL_EXTRA_LOCKS):
+    for s0, s1, a0, lift, w in list(TAIL_EDGE_LOCKS) + list(TAIL_EXTRA_LOCKS):
         specs.append(dict(s0=s0, s1=s1, a0=a0, twist=0.15, sway=rng.uniform(-0.1, 0.1), s_flow=0.12, width=w,
-                          thick=0.008, lift=lift, hook=rng.uniform(-0.2, 0.2), layer=5))
+                          thick=0.008, lift=lift, hook=rng.uniform(-0.1, 0.1), layer=5))
     return specs
 
 
@@ -364,8 +404,8 @@ def build_tail_fur_lock(name, body, sp, lock_id, mat, n=22, K=10, cream=None):
     t = np.linspace(0, 1, n)
     s = sp["s0"] + (sp["s1"] - sp["s0"]) * t
     a = (sp["a0"] + sp["twist"] * t + sp["sway"] * np.sin(math.pi * t) + sp["s_flow"] * np.sin(2 * math.pi * t)
-         + sp["hook"] * np.clip((t - 0.8) / 0.2, 0, 1) ** 2)
-    rho = TAIL_ROOT_RHO + 0.11 * t ** 0.9 + sp["lift"] * np.clip((t - 0.72) / 0.28, 0, 1) ** 2
+         + 0.5 * sp["hook"] * np.clip((t - 0.8) / 0.2, 0, 1) ** 2)
+    rho = TAIL_ROOT_RHO + 0.05 * t ** 0.9 + sp["lift"] * np.clip((t - 0.72) / 0.28, 0, 1) ** 2
     # a clump of hair: full from the root, widest a third of the way, then drawn to a point
     w = sp["width"] * (0.7 + 0.3 * np.sin(np.clip(t / 0.35, 0, 1) * math.pi / 2)) * np.clip(1 - t, 0, 1) ** 0.9
     th = sp["thick"] * (0.75 + 0.25 * np.clip(t / 0.3, 0, 1)) * np.clip(1 - t, 0, 1) ** 0.5
@@ -376,7 +416,10 @@ def build_tail_fur_lock(name, body, sp, lock_id, mat, n=22, K=10, cream=None):
     # section: across the lock in angle (half-width / local radius), out of the fur in radius;
     # the upper face domed, the underside flatter (a clump of hair lies flat on the hair below)
     da = (0.5 * w / r_loc)[:, None] * cph[None, :]
-    dr = (th / r_loc)[:, None] * np.where(sph > 0, 0.5 * sph, 0.25 * sph)[None, :]
+    # domed on top, flatter below, the side edges sunk into the underfur so neighbouring locks meet
+    # without a shelf or a slit (the sink fades out toward the free tip, where the lock lifts off)
+    sink = TAIL_EDGE_SINK * (1.0 - 0.5 * np.clip((t - 0.75) / 0.25, 0, 1))   # tips stay laid down (cycle 6)
+    dr = (th / r_loc)[:, None] * np.where(sph > 0, 0.5 * sph, 0.25 * sph)[None, :] - sink[:, None] * (cph ** 2)[None, :]
     S_ = np.repeat(s[:, None], K, 1)
     A_ = a[:, None] + da
     R_ = rho[:, None] + dr
