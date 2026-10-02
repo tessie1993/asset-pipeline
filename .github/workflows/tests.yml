@@ -28,3 +28,8 @@ jobs:
 
       - name: Run asset pipeline tests
         run: python -W error::ResourceWarning -m unittest discover -s tests/tools/assetgen -p "*_test.py"
+
+      - name: Check the hook scripts and the project settings
+        run: |
+          for script in .claude/hooks/*.sh; do bash -n "$script"; done
+          jq -e . .claude/settings.json > /dev/null

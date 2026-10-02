@@ -2,12 +2,14 @@
 
 Run: python3 -m unittest discover -s tests/tools/assetgen -p "*_test.py"
 """
+import io
 import json
 import struct
 import sys
 import tempfile
 import unittest
 import zlib
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from string import Template
 
@@ -58,6 +60,23 @@ kit.lathe
 
 ### Build plan
 body first
+"""
+
+# A builder's review of its build and its Handoff, as builder_guide.md sections 6 and 7 describe.
+REVIEW_AND_HANDOFF = """
+## Cycle 1
+### What matches
+the outline in view 1
+### Needs improving
+1. the rim is 8 % too thin in view 1
+
+## Handoff
+### Understanding
+a turned vessel with a rolled rim
+### Next step: part tasks
+1. rim: from 4 mm to 4.3 mm thick, view 1
+### Standing rules
+- one render cycle per builder
 """
 
 
@@ -298,10 +317,72 @@ class PackTestCase(unittest.TestCase):
         self.assertIn('kit.run(build, origin="back")', text)
         self.assertIn("decide what the reference's detail needs", text)
         self.assertIn("none recorded yet", text)
-        self.assertIn(f"after {pack.BUILDS_PER_BUILDER} builds", text)
+        self.assertIn(f"{pack.BUILDS_PER_BUILDER} cycle build per builder", text)
+        self.assertIn(str(self.root / pack.GUIDES_DIR / "builder_guide.md"), text)
+        self.assertIn("SET-UP", text)  # no Handoff yet: the full first-build brief
         notes.write_text("kept")
         pack.brief(self.root, "demo", "object_a")
         self.assertEqual(notes.read_text(), "kept")
+
+    def test_brief_prints_only_the_handoff_and_the_paths_once_the_notes_have_one(self) -> None:
+        self._skip_pack()
+        pack.brief(self.root, "demo", "object_a")
+        notes = pack.notes_path(self.root, "demo", "object_a")
+        notes.write_text(notes.read_text().replace("### What it is\n", "### What it is\na turned vessel\n")
+                         + REVIEW_AND_HANDOFF)
+        evidence = pack.evidence_dir(self.root, "demo", "object_a")
+        pack.build_report_path(self.root, "demo", "object_a").write_text(json.dumps({"build": 1}))
+        (evidence / "object_a_ref_view_1.png").write_bytes(b"png")
+        text = pack.brief(self.root, "demo", "object_a")
+        self.assertNotIn("$", text)
+        for left_out in ("SET-UP", "## Analysis", "### What it is", "## Cycle 1", "the outline in view 1", "<!--"):
+            self.assertNotIn(left_out, text)
+        self.assertIn("## Handoff\n### Understanding\na turned vessel with a rolled rim", text)
+        self.assertTrue(text.endswith("- one render cycle per builder"))
+        for path in (evidence / "object_a_ref_view_1.png", evidence / "object_a_compare.png", notes,
+                     self.root / pack.GUIDES_DIR / "builder_guide.md", pack.generator_path(self.root, "demo", "object_a"),
+                     pack.parts_dir(self.root, "demo", "object_a"), pack.pack_dir(self.root, "demo") / "source.png"):
+            self.assertIn(str(path), text)
+        self.assertIn(f"Builds so far: 1 (the standard is {pack.BUILD_CYCLES})", text)
+        self.assertIn('subagent_type: "asset-part-builder"', text)
+
+    def test_the_handoff_is_the_last_filled_one_and_never_the_templates_skeleton(self) -> None:
+        template = Template((pack.TEMPLATES / "builder_notes.md").read_text()).substitute(id="x", name="x")
+        self.assertIn("## Handoff", template)  # its format, inside a comment
+        self.assertIsNone(pack.handoff(template))
+        self.assertIsNone(pack.handoff(FILLED_ANALYSIS + "\n## Handoff\n### Understanding\n<!-- later -->\n"))
+        self.assertIsNone(pack.handoff(FILLED_ANALYSIS + "\n## Handoffs\nnot the section\n"))
+        old = "## Handoff\n### Next step: part tasks\n1. an older step\n"
+        new = "## Handoff (build 3)\n### Next step: part tasks\n1. the current step\n"
+        text = FILLED_ANALYSIS + old + "\n## Cycle 3\nthe review\n" + new + "\n## Report\nall checks pass\n"
+        self.assertEqual(pack.handoff(text), new.strip())
+        self.assertEqual(pack.cycles_written(text + "\n## Cycle 4\n<!-- not written yet -->\n"), 1)
+        self.assertEqual(pack.cycles_written(template), 0)
+
+    def test_job_card_is_written_from_the_template_once_with_the_parts_paths(self) -> None:
+        self._skip_pack()
+        card = pack.job_card(self.root, "demo", "object_a", "rim")
+        self.assertEqual(card, self.root / ".scratch/assetgen/work/demo/object_a/parts/rim/job.md")
+        text = card.read_text()
+        self.assertNotIn("$", text)
+        self.assertIn("- `tools/blender/assetgen/packs/demo/object_a_parts/rim.py`", text)
+        self.assertIn("- `.scratch/assetgen/work/demo/object_a/parts/rim/`", text)
+        self.assertIn("--python .scratch/assetgen/work/demo/object_a/parts/harness.py -- --part rim", text)
+        for heading in ("Part", "What it is", "Comparison", "What needs doing, and why", "Reference crops",
+                        "Keep fitting", "You may write", "Test", "Done when"):
+            self.assertIsNotNone(pack.section(text, heading, level=2), heading)
+        card.write_text("filled in by the lead")
+        pack.job_card(self.root, "demo", "object_a", "rim")
+        self.assertEqual(card.read_text(), "filled in by the lead")
+        for bad in ("Rim", "two parts", pack.SHARED_PART):
+            with self.assertRaises(pack.PackError):
+                pack.job_card(self.root, "demo", "object_a", bad)
+        with self.assertRaises(pack.PackError):
+            pack.job_card(self.root, "demo", "object_b", "rim")
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(pack.main(["job-card", "demo", "object_a", "lid"], root=self.root), 0)
+        self.assertTrue(output.getvalue().strip().endswith("parts/lid/job.md"))
 
     def test_brief_needs_a_style_and_a_reference(self) -> None:
         pack.init(self.root, "demo", self.image)
@@ -348,30 +429,19 @@ class PackTestCase(unittest.TestCase):
         sheet = self.root / "sheet.png"
         sheet.write_bytes(png_bytes(30, 20))
         pack.flow_record(self.root, "demo", "object_a", [sheet], None)
-        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "build")
+        row = pack.status(self.root, "demo")[0]
+        self.assertEqual((row["next"], row["cycles"]), ("build", "-"))
         with self.assertRaises(pack.PackError):
             pack.accept(self.root, "demo", "object_a")
+        pack.brief(self.root, "demo", "object_a")
+        notes = pack.notes_path(self.root, "demo", "object_a")
+        notes.write_text(notes.read_text() + REVIEW_AND_HANDOFF.replace("## Handoff", "## Cycle 2\nthe roof 0.04 lighter\n\n## Handoff"))
+        row = pack.status(self.root, "demo")[0]
+        self.assertEqual((row["next"], row["cycles"]), ("build", 2))  # the next builder continues from the Handoff
         manifest = pack.load(self.root, "demo")
         pack.find_object(manifest, "object_a")["done"] = {"build": 2}
         pack.save(self.root, manifest)
-        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "critic")
-        with self.assertRaises(pack.PackError):  # the critic has not written its review yet
-            pack.reviewed(self.root, "demo", "object_a", "REFINE")
-        review = pack.review_path(self.root, "demo", "object_a", 1)
-        review.parent.mkdir(parents=True, exist_ok=True)
-        review.write_text("REFINE demo object_a\n## Verdicts\n")
-        pack.reviewed(self.root, "demo", "object_a", "REFINE")
-        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "refine")
-        self.assertEqual(pack.status(self.root, "demo")[0]["critic"], "1:REFINE")
-        pack.reopen(self.root, "demo", "object_a")
-        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "build")
-        manifest = pack.load(self.root, "demo")
-        pack.find_object(manifest, "object_a")["done"] = {"build": 4}
-        pack.save(self.root, manifest)
-        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "critic")  # a new build: round 2
-        pack.review_path(self.root, "demo", "object_a", 2).write_text("ACCEPT demo object_a\n")
-        pack.reviewed(self.root, "demo", "object_a", "ACCEPT")
-        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "review")
+        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "review")  # a builder's done goes to the user
         pack.accept(self.root, "demo", "object_a")
         self.assertEqual(pack.status(self.root, "demo")[0]["next"], "godot")
         shot = pack.evidence_dir(self.root, "demo", "object_a") / "object_a_godot_1.png"
@@ -380,40 +450,52 @@ class PackTestCase(unittest.TestCase):
         self.assertEqual(pack.status(self.root, "demo")[0]["next"], "ok")
         pack.reopen(self.root, "demo", "object_a")
         self.assertEqual(pack.status(self.root, "demo")[0]["next"], "build")
+        self.assertEqual(set(pack.status(self.root, "demo")[0]), {"id", *pack.STATUS_COLUMNS})
 
-    def test_critic_rounds_end_with_the_user_after_the_last_refine(self) -> None:
-        self._skip_pack()
-        for number in range(1, pack.CRITIC_ROUNDS + 1):
-            manifest = pack.load(self.root, "demo")
-            pack.find_object(manifest, "object_a")["done"] = {"build": number}
-            pack.save(self.root, manifest)
-            self.assertEqual(pack.status(self.root, "demo")[0]["next"], "critic")
-            review = pack.review_path(self.root, "demo", "object_a", number)
-            review.parent.mkdir(parents=True, exist_ok=True)
-            review.write_text("REFINE demo object_a\n")
-            pack.reviewed(self.root, "demo", "object_a", "REFINE")
-        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "review")
-        with self.assertRaises(pack.PackError):
-            pack.critic_brief(self.root, "demo", "object_a")
-
-    def test_critic_brief_names_the_review_file_and_the_previous_review(self) -> None:
+    def test_old_pack_files_with_reviews_still_load_and_go_to_the_users_review(self) -> None:
         self._skip_pack()
         manifest = pack.load(self.root, "demo")
-        pack.find_object(manifest, "object_a")["done"] = {"build": 5}
+        entry = pack.find_object(manifest, "object_a")
+        entry["done"] = {"build": 4}
+        entry["reviews"] = [  # written by the review rounds this pipeline had before builders reviewed themselves
+            {"round": 1, "build": 3, "route": "REFINE", "review": "object_a_review_1.md", "at": "2026-01-01T00:00:00+00:00"},
+            {"round": 2, "build": 4, "route": "REQUEST-INPUT", "review": "object_a_review_2.md", "at": "2026-01-02T00:00:00+00:00"}]
         pack.save(self.root, manifest)
-        text = pack.critic_brief(self.root, "demo", "object_a")
-        self.assertNotIn("$", text)
-        self.assertIn("object_a_review_1.md", text)
-        self.assertIn("first review round", text)
-        pack.review_path(self.root, "demo", "object_a", 1).parent.mkdir(parents=True, exist_ok=True)
-        pack.review_path(self.root, "demo", "object_a", 1).write_text("REFINE demo object_a\n")
-        pack.reviewed(self.root, "demo", "object_a", "REFINE")
-        manifest = pack.load(self.root, "demo")
-        pack.find_object(manifest, "object_a")["done"] = {"build": 7}
-        pack.save(self.root, manifest)
-        text = pack.critic_brief(self.root, "demo", "object_a")
-        self.assertIn("object_a_review_2.md", text)
-        self.assertIn("object_a_review_1.md", text)
+        row = pack.status(self.root, "demo")[0]
+        self.assertEqual((row["next"], row["done"], row["cycles"]), ("review", True, "-"))
+        output = io.StringIO()
+        with redirect_stdout(output):
+            self.assertEqual(pack.main(["status", "demo"], root=self.root), 0)
+        self.assertIn("review", output.getvalue().splitlines()[1])
+        pack.accept(self.root, "demo", "object_a")
+        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "godot")
+        pack.reopen(self.root, "demo", "object_a")
+        self.assertEqual(pack.status(self.root, "demo")[0]["next"], "build")
+        self.assertIn("reviews", pack.find_object(pack.load(self.root, "demo"), "object_a"))  # kept, ignored
+
+    def test_the_old_review_commands_are_gone(self) -> None:
+        # History: the separate critic agent and its commands were removed; builders review their own builds.
+        for argv in (["critic-brief", "demo", "object_a"], ["reviewed", "demo", "object_a", "ACCEPT"]):
+            with self.assertRaises(SystemExit), redirect_stderr(io.StringIO()):
+                pack._parser().parse_args(argv)
+        self.assertFalse((pack.TEMPLATES / "critic_brief.md").exists())
+        self.assertFalse((REPO / ".claude" / "agents" / "asset-critic.md").exists())
+
+    def test_the_guides_agents_and_hooks_the_pipeline_names_exist(self) -> None:
+        for name in ("builder_guide.md", "part_builder_guide.md", "blender_tools_guide.md"):
+            self.assertTrue((REPO / pack.GUIDES_DIR / name).is_file(), name)
+        part_builder = (REPO / ".claude" / "agents" / "asset-part-builder.md").read_text()
+        self.assertIn("\nmodel: sonnet\n", part_builder)
+        self.assertIn("name: asset-part-builder", part_builder)
+        settings = json.loads((REPO / ".claude" / "settings.json").read_text())
+        commands = [hook["command"] for groups in settings["hooks"].values() for group in groups for hook in group["hooks"]]
+        for script in ("assetgen-guard.sh", "install-tools.sh", "builder-tools-context.sh", "builder-tools-hint.sh"):
+            self.assertTrue(any(script in command for command in commands), script)
+            self.assertTrue((REPO / ".claude" / "hooks" / script).is_file(), script)
+        matchers = [group["matcher"] for group in settings["hooks"]["SubagentStart"]]
+        self.assertIn("asset-builder|asset-part-builder", matchers)
+        for template in ("builder_brief.md", "builder_followup.md", "builder_notes.md", "job_card.md"):
+            self.assertTrue((pack.TEMPLATES / template).is_file(), template)
 
     def test_search_words_match_whole_words(self) -> None:
         self.assertEqual(pack._matched("furniture wood table", ["fur"]), 0)
@@ -490,6 +572,13 @@ class PackTestCase(unittest.TestCase):
     def test_finish_keeps_models_textures_and_renders_and_deletes_the_helpers_and_notes(self) -> None:
         self._skip_pack()
         self._outputs_and_helpers()
+        parts = pack.parts_dir(self.root, "demo", "object_a")  # a lead split the generator into part modules
+        parts.mkdir(parents=True)
+        for name in ("common.py", "rim.py"):
+            (parts / name).write_text("# part module")
+        card = pack.job_card(self.root, "demo", "object_a", "rim")
+        (card.parent / "analysis.md").write_text("# the part builder's analysis")
+        (pack.parts_work_dir(self.root, "demo", "object_a") / "harness.py").write_text("# the lead's harness")
         notes = pack.notes_path(self.root, "demo", "object_a")
         notes.write_text(FILLED_ANALYSIS + "\n## Report\nall checks pass\n")
         pack.done(self.root, "demo", "object_a")
@@ -513,8 +602,11 @@ class PackTestCase(unittest.TestCase):
                      pack.evidence_dir(self.root, "demo", "object_a") / "object_a_compare.png",
                      pack.evidence_dir(self.root, "demo", "object_a") / "object_a_ref_view_1.png",
                      pack.pack_dir(self.root, "demo") / "scribble.md",
-                     pack.work_dir(self.root, "demo", "object_a"), self.root / pack.BAKE_DIR / "demo"):
+                     pack.work_dir(self.root, "demo", "object_a"), self.root / pack.BAKE_DIR / "demo",
+                     parts, card, pack.parts_work_dir(self.root, "demo", "object_a")):
             self.assertFalse(gone.exists(), gone)
+        self.assertIn("tools/blender/assetgen/packs/demo/object_a_parts/", result["removed"])
+        self.assertIn(".scratch/assetgen/work/demo/object_a/parts/", result["removed"])
         self.assertFalse((self.root / pack.GENERATORS_DIR / "demo").exists())
         self.assertTrue((pack.pack_dir(self.root, "demo") / "pack.json").exists())
         row = pack.status(self.root, "demo")[0]
