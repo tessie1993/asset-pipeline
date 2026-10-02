@@ -147,20 +147,6 @@
         "scenario-blender-sculpting",
         "scenario-blender-texturing-shading"
       ]
-    },
-    {
-      "id": "lumina_warden",
-      "number": 3,
-      "name": "Lumina Warden",
-      "where": "the whole image: a six-view turnaround study (front, front 3/4, side, back 3/4, back, top), about 100 cm",
-      "details": "four-legged fox standing on all four legs; light blue fur with lighter swirl markings on the face, body, legs and tails; cream muzzle, cheeks, chest and belly; darker blue lower legs and paws; very large upright ears with dark indigo inner surfaces holding light spirals and dots, cream ear tufts; blue eyes with dark lids; small dark nose and a smiling mouth line; silver branch-shaped collar across the chest with a faceted blue crystal pendant giving off blue light; feather-like fur tufts on the shoulders in lavender, cyan and mint; several large curling fur tails with blue and cream bands, dark blue undersides with small light points joined in constellation lines",
-      "mount": "floor",
-      "references": [
-        "references/lumina_warden_1.jpg"
-      ],
-      "views": [],
-      "budget": null,
-      "budget_why": null
     }
   ],
   "style": "the same art style as the reference image"
