@@ -1,0 +1,6 @@
+BUILT blue_fox {"triangles": 80698, "dimensions_m": [0.154, 0.465, 0.312], "materials": ["M_blue_fox"], "texture_sources": [], "glb": "assets/models/blue_fox_evolution/blue_fox.glb", "glb_bytes": 39524156}
+IMPORT clean (no error or warning names assets/models/blue_fox_evolution/blue_fox.glb)
+GODOT_MODEL {"loaded":true,"name":"blue_fox","size_m":[0.154,0.312,0.465],"surfaces":[{"albedo_color":"ffffff","albedo_texture":true,"emission":true,"material":"M_blue_fox","normal_texture":true,"roughness_texture":true,"transparent":false,"type":"StandardMaterial3D"}],"triangles":80698}
+SHOT production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_godot_1.png
+SHOT production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_godot_2.png
+SHOT production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_godot_3.png

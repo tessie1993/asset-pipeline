@@ -549,16 +549,156 @@ def hr(*r):
     return tuple(np.array(r, dtype=float) * HS)
 FRONT_X, HIND_X = 0.0200, 0.0265       # paw X: the front and back views draw the paws closer than the shoulders/hips
 
-# the mouth: a soft smile line 33 mm wide, a slight rise in the middle, 1.5 mm dips, corners turned up
-MOUTH = [h(0.0, -0.1405, 0.1727), h(0.0040, -0.1392, 0.1714), h(0.0080, -0.1354, 0.1713),
-         h(0.0115, -0.1302, 0.1729), h(0.0145, -0.1245, 0.1750)]
-
-
 MOUTH_S = {}     # surface points of the carved mouth lines (filled by body_clay, painted by body_color)
 
 
-def mouth_line(side):
-    return np.array([(side * p[0], p[1], p[2]) for p in MOUTH])
+def mouth_line(side, n=28):
+    """The smile as a smooth curve (Catmull-Rom through MOUTH, the mirrored second point as the phantom before the
+    centre so both halves meet with one tangent: a soft wave, no kink under the nose)."""
+    P = np.array([(side * p[0], p[1], p[2]) for p in MOUTH])
+    ph0 = P[1] * np.array([-1, 1, 1])
+    ph1 = P[-1] + (P[-1] - P[-2])
+    Q = np.vstack([ph0, P, ph1])
+    out = []
+    for i in range(1, len(Q) - 2):
+        p0, p1, p2, p3 = Q[i - 1], Q[i], Q[i + 1], Q[i + 2]
+        for t in np.linspace(0, 1, n // (len(Q) - 3), endpoint=False):
+            out.append(0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t
+                              + (-p0 + 3 * p1 - 3 * p2 + p3) * t ** 3))
+    out.append(P[-1])
+    return np.array(out)
+
+
+# ----------------------------------------------------------------------------------------- #
+# the snout: rostrum + upper lips, lower jaw, nose leather
+# ----------------------------------------------------------------------------------------- #
+# A fox's snout is the long narrow rostrum of the skull under short fur: the nasal bones make a straight
+# bridge from the stop (between the eyes' inner corners, just below their height) down to the nose; the
+# maxillae slope out and down to the upper lips, so a cross-section is a rounded trapezoid, narrow on top
+# and widest at the lip line; the upper lips hang a little over the narrow lower jaw (mandible), whose small
+# chin sits behind and below the nose; the nose leather (rhinarium) caps the tip, its top continuing the
+# bridge. This style keeps that build, shortened a little and rounded: a straight bridge, a tapering wedge
+# seen from above, a dark rounded-triangle nose at the very tip, a smile running from under the nose back to
+# below the eye's inner corner, a small cream chin. Measured (Cycle 14) on view 2 (0.307 mm/px) relative to
+# the near eye's inner corner (X 0.015, Y -0.1405, Z 0.201) and on view 1 (0.448 mm/px).
+# the root is as wide as the eyes' inner corners (X 0.015 at Y -0.1405): the face there carries the eyes
+SN_Y = np.array([-0.120, -0.130, -0.140, -0.150, -0.161, -0.168, -0.174])   # stations, back -> tip
+SN_ZT = np.array([0.2080, 0.2060, 0.2045, 0.2020, 0.1975, 0.1945, 0.1918])  # bridge top (midline)
+SN_ZB = np.array([0.1810, 0.1800, 0.1790, 0.1777, 0.1776, 0.1780, 0.1800])  # lower edge of the upper lips
+SN_WT = np.array([0.0190, 0.0175, 0.0155, 0.0110, 0.0074, 0.0060, 0.0050])  # half width where the top rounds
+SN_WB = np.array([0.0230, 0.0215, 0.0195, 0.0158, 0.0112, 0.0086, 0.0064])  # half width at the lip line
+# front of the clay snout by height: inside the nose leather at its height, then the upper lip (philtrum)
+# leaning back under the nose to the mouth (view 2: nose bottom Y -0.171 Z 0.184, mouth start -0.167 Z 0.178)
+SN_TIP_Z = np.array([0.1760, 0.1785, 0.1840, 0.1900])
+SN_TIP_Y = np.array([-0.1655, -0.1672, -0.1702, -0.1738])
+JAW_Y = np.array([-0.112, -0.128, -0.140, -0.150, -0.158, -0.1645])
+JAW_ZB = np.array([0.1580, 0.1625, 0.1655, 0.1680, 0.1710, 0.1745])         # underside of the lower jaw
+JAW_W = np.array([0.0190, 0.0162, 0.0135, 0.0110, 0.0090, 0.0066])          # its half width
+JAW_TIP = -0.1660         # front of the chin
+# nose leather: front view 13.0 x 8.2 mm rounded triangle, top 0.1912 at the front, its top following the bridge
+NOSE_FRONT, NOSE_TOP, NOSE_HW, NOSE_H = -0.1764, 0.1916, 0.0080, 0.0086
+NOSE_DEPTH = 0.0070       # the pad's top runs 7 mm back before it dives under the bridge fur
+# the mouth: from under the nose back to the corners below the eyes' inner corners, lowest 10 mm out, corners up
+MOUTH = [(0.0, -0.1656, 0.1771), (0.0052, -0.1622, 0.1772), (0.0105, -0.1580, 0.1774), (0.0150, -0.1500, 0.1780),
+         (0.0177, -0.1440, 0.1797)]
+
+
+def sd_trapezoid2(px, pz, r1, r2, he):
+    """Exact 2D distance to an isosceles trapezoid centred at 0: half width r1 at the bottom (z = -he), r2 at
+    the top (z = he) (Inigo Quilez)."""
+    px = np.abs(px)
+    k1x, k1z = r2, he
+    k2x, k2z = r2 - r1, 2.0 * he
+    cax = px - np.minimum(px, np.where(pz < 0.0, r1, r2))
+    caz = np.abs(pz) - he
+    t = np.clip(((k1x - px) * k2x + (k1z - pz) * k2z) / (k2x * k2x + k2z * k2z), 0.0, 1.0)
+    cbx, cbz = px - k1x + k2x * t, pz - k1z + k2z * t
+    s = np.where((cbx < 0.0) & (caz < 0.0), -1.0, 1.0)
+    return s * np.sqrt(np.minimum(cax * cax + caz * caz, cbx * cbx + cbz * cbz))
+
+
+def _section_sd(x, z, zt, zb, wt, wb, rr, bulge=0.0):
+    """Rounded-trapezoid cross-section (narrow top wt, wide bottom wb, from zb to zt), rounded by rr, its sides
+    swelling out by `bulge` at mid height (cheek-side muscle and fur over the bone, never flat planes)."""
+    he = np.maximum(0.5 * (zt - zb) - rr, 1e-4)
+    zc = 0.5 * (zt + zb)
+    s = np.clip((z - zc) / np.maximum(0.5 * (zt - zb), 1e-4), -1, 1)
+    return sd_trapezoid2(x, z - zc, np.maximum(wb - rr, 1e-4), np.maximum(wt - rr, 1e-4), he) - rr \
+        - bulge * (1 - s * s)
+
+
+def sd_muzzle():
+    """The rostrum with the upper lips: rounded-trapezoid sections along Y, rounded front under the nose."""
+    def fn(x, y, z):
+        yc = np.clip(y, SN_Y[-1], SN_Y[0])
+        yi = -yc        # np.interp needs increasing x
+        Yi = -SN_Y
+        zt, zb = np.interp(yi, Yi, SN_ZT), np.interp(yi, Yi, SN_ZB)
+        wt, wb = np.interp(yi, Yi, SN_WT), np.interp(yi, Yi, SN_WB)
+        rr = np.minimum(np.minimum(0.0075, 0.95 * wt), 0.45 * (zt - zb))
+        d = _section_sd(x, z, zt, zb, wt, wb, rr, bulge=0.0015)
+        d = S.smax(d, np.interp(z, SN_TIP_Z, SN_TIP_Y) - y, 0.0040)            # the tip, rounded
+        return S.smax(d, y - SN_Y[0], 0.004)
+    return S.Prim(fn, np.array([-0.028, SN_TIP_Y[-1] - 0.003, 0.170]), np.array([0.028, SN_Y[0] + 0.002, 0.214]))
+
+
+def sd_jaw():
+    """The lower jaw: a narrow rounded wedge under the upper lips ending in a small chin behind the nose."""
+    def fn(x, y, z):
+        yc = np.clip(y, JAW_Y[-1], JAW_Y[0])
+        yi, Yi = -yc, -JAW_Y
+        zb = np.interp(yi, Yi, JAW_ZB)
+        zt = np.interp(yi, -SN_Y, SN_ZB) + 0.0035          # tucked under the upper lips
+        w = np.interp(yi, Yi, JAW_W)
+        rr = np.minimum(0.0045, 0.8 * w)
+        d = _section_sd(x, z, zt, zb, 0.85 * w, w, rr, bulge=0.0008)
+        d = S.smax(d, JAW_TIP - y, 0.0050)
+        return S.smax(d, y - JAW_Y[0], 0.010)
+    return S.Prim(fn, np.array([-0.024, JAW_TIP - 0.002, 0.152]), np.array([0.024, JAW_Y[0] + 0.002, 0.188]))
+
+
+def nose_top(y):
+    return NOSE_TOP + 0.45 * (y - NOSE_FRONT)
+
+
+def sd_nose():
+    """Nose leather: a rounded triangle seen from the front (wide top, point down toward the lip), its top
+    following the bridge, its front domed and leaning back toward the bottom."""
+    def tri(px, pz):
+        # isosceles triangle, top edge at pz = 0 (half width NOSE_HW), apex at pz = -NOSE_H; rounded by rn
+        rn = 0.0024
+        hw, hh = NOSE_HW - 1.7 * rn, NOSE_H - 2.4 * rn
+        return sd_trapezoid2(px, pz + rn + 0.5 * hh, 0.0002, hw, 0.5 * hh) - rn
+
+    def fn(x, y, z):
+        zt = nose_top(y) + 0.0004 - 0.0010 * np.clip(x / NOSE_HW, -1, 1) ** 2    # domed across, like the bridge
+        d2 = tri(x, z - zt)
+        yf = NOSE_FRONT + 0.0030 * np.clip((zt - z) / NOSE_H, 0, 1.2) ** 1.5 + 0.0040 * (x / NOSE_HW) ** 2
+        d = S.smax(d2, yf - y, 0.0034)
+        # the back of the pad dives under the fur: its top falls away behind NOSE_DEPTH
+        d = S.smax(d, (y - (NOSE_FRONT + NOSE_DEPTH)) * 0.6 + (z - zt) * 0.8, 0.002)
+        return S.smax(d, y - (NOSE_FRONT + 0.0110), 0.001)
+    return S.Prim(fn, np.array([-0.009, NOSE_FRONT - 0.002, NOSE_TOP - NOSE_H - 0.003]),
+                  np.array([0.009, NOSE_FRONT + 0.011, NOSE_TOP + 0.007]))
+
+
+def build_nose(clay):
+    """The nose leather as its own mesh (moist dark leather), meshed from its SDF at 0.2 mm."""
+    nc = S.Clay((-0.010, NOSE_FRONT - 0.003, NOSE_TOP - NOSE_H - 0.004), (0.010, NOSE_FRONT + 0.012, NOSE_TOP + 0.008),
+                voxel=0.0002, far=0.003)
+    nc.add(sd_nose())
+    nose = nc.to_object("nose")
+    kit.clean(nose)
+    decimate(nose, 1600)
+    nose.data.shade_smooth()
+    nose["keep_shading"] = True
+    # nose_t: 0 low / under, 1 the lit top (a soft highlight band on top, as the reference paints it)
+    kit.attribute(nose, "nose_t", lambda p: max(0.0, min(1.0, 1.0 - (nose_top(p.y) - p.z) / 0.0045)) * 0.85
+                  + 0.15 * max(0.0, min(1.0, (p.y - NOSE_FRONT) / 0.004)))
+    nose.data.materials.append(ramp_material("M_nose", "nose_t",
+                                             [(0.0, "#36292c"), (0.55, "#4e3b3e"), (0.92, "#7a6a6c")],
+                                             rough=0.34, rough_var=0.06, bump=0.00012, noise_scale=900))
+    return nose
 
 
 # ----------------------------------------------------------------------------------------- #
@@ -566,7 +706,7 @@ def mouth_line(side):
 # ----------------------------------------------------------------------------------------- #
 
 def body_clay():
-    clay = S.Clay((-0.082, -0.172, -0.004), (0.082, 0.302, 0.312), voxel=VOXEL, far=0.022)
+    clay = S.Clay((-0.082, -0.184, -0.004), (0.082, 0.302, 0.312), voxel=VOXEL, far=0.022)
     E, C, T, R = S.sd_ellipsoid, S.sd_cone, S.sd_tube, S.sd_sphere
 
     # torso: chest, ribcage, loin, hips, belly keel (side view landmarks)
@@ -583,8 +723,8 @@ def body_clay():
     # head: cranium, brow mass, muzzle, lower jaw, cheeks
     clay.add(E(h(0, -0.078, 0.201), hr(0.038, 0.043, 0.035)), blend=0.012)
     clay.add(E(h(0, -0.108, 0.207), hr(0.029, 0.023, 0.021)), blend=0.011)
-    clay.add(C(h(0, -0.104, 0.188), h(0, -0.141, 0.1825), 0.0205 * HSR, 0.0105 * HSR), blend=0.009)
-    clay.add(C(h(0, -0.102, 0.172), h(0, -0.134, 0.1740), 0.0175 * HSR, 0.0085 * HSR), blend=0.008)
+    clay.add(sd_muzzle(), blend=0.009)     # Cycle 14: the rostrum and upper lips (was a round cone)
+    clay.add(sd_jaw(), blend=0.012)        # Cycle 14: the lower jaw with its small chin (was a round cone)
     clay.add(E(h(0.027, -0.090, 0.181), hr(0.025, 0.026, 0.020)), blend=0.012, mirror=True)
     # cheek ruff: three fluffy pointed tufts per side, out and back (front view: fluff to |X| 0.06)
     for side in (1, -1):
@@ -594,8 +734,9 @@ def body_clay():
                            ((0.027, -0.072, 0.172), (0.052, -0.058, 0.167), 0.0110),
                            ((0.024, -0.072, 0.163), (0.042, -0.059, 0.156), 0.0090)):
             j = rng.uniform(-0.0025, 0.0025)
-            clay.add(C(h(side * a[0], a[1], a[2]), h(side * (b[0] + j), b[1] + j * 0.5, b[2] + j), r0 * HSR, 0.0010),
-                     blend=0.006)
+            # Cycle 14+: soft fur tufts, not spikes (view 2): rounded tips, softer blend
+            clay.add(C(h(side * a[0], a[1], a[2]), h(side * (b[0] + j), b[1] + j * 0.5, b[2] + j), r0 * HSR, 0.0028),
+                     blend=0.009)
 
     # ears with their inner fur tufts
     for side in (1, -1):
@@ -640,7 +781,8 @@ def body_clay():
             for dx in (-0.0034, 0.0034):
                 clay.sub(E((x0 + dx, y0 - 0.016, 0.011), (0.0006, 0.0065, 0.0055)), blend=0.0008)
     for side in (1, -1):
-        S_, _ = clay.stroke(mouth_line(side), 0.0010, 0.0005, op="sub", blend=0.0006)
+        # the centre is shallow: the two lip halves meet in a soft wave, not a notch
+        S_, _ = clay.stroke(mouth_line(side), 0.0010, [0.0002, 0.0004, 0.0005, 0.0005, 0.0005], op="sub", blend=0.0006)
         MOUTH_S[side] = np.asarray(S_)
 
     clay.intersect(S.sd_halfspace((0, 0, 0), (0, 0, -1)))   # flat soles on the ground
@@ -701,7 +843,7 @@ EYE = {}                                  # per side: the face's height map over
 # L(a); the inner side is a near-vertical edge at a = -EYE_AIN; the outer corner is a point 2 mm up.
 EYE_AOUT, EYE_AIN = 0.0115, 0.0112
 _EA = np.array([-0.0112, -0.0100, -0.0087, -0.0061, -0.0035, -0.0009, 0.0017, 0.0043, 0.0069, 0.0095, 0.0115])
-_EU = np.array([0.0005, 0.0015, 0.0040, 0.0070, 0.0088, 0.0096, 0.0096, 0.0088, 0.0069, 0.0040, 0.0019])
+_EU = np.array([0.0005, 0.0015, 0.0040, 0.0070, 0.0088, 0.0096, 0.0096, 0.0088, 0.0069, 0.0040, 0.0019]) * np.array([1.0, 1.0, 1.06, 1.10, 1.12, 1.12, 1.12, 1.12, 1.10, 1.06, 1.0])
 _EL = np.array([-0.0065, -0.0075, -0.0083, -0.0092, -0.0096, -0.0096, -0.0095, -0.0089, -0.0065, -0.0013, 0.0019])
 EYE_A, EYE_B = 0.5 * (EYE_AOUT + EYE_AIN), 0.0096
 
@@ -1179,8 +1321,10 @@ def tail_pattern(P, side_seed, split=False):
     # cream and the spiral; the spiral sits at s 0.54, phi 1.1, its outer arm sweeping down (phi ~1.9) and back
     # toward the base along the lower side as a tapered band ending near s 0.33
     tongue = -0.12 * np.maximum(0.0, np.cos(aphi * 9.0 + 0.6)) ** 6 * (aphi < 0.50)
-    s_b = np.interp(aphi, [0.0, 0.20, 0.35, 0.50, 0.65, 0.90, 1.20, 1.50, 1.80],
-                    [0.42, 0.46, 0.56, 0.70, 0.83, 0.86, 0.86, 0.88, 0.90]) + tongue
+    # Cycle 15: back toward the build-12 boundary (view 2 reference: the top cream band from s ~0.4 is about a third of
+    # the tail's depth, phi 0-0.65; Cycles 13-14 pushed it to s 0.56-0.83 there and the band read thin)
+    s_b = np.interp(aphi, [0.0, 0.20, 0.45, 0.65, 0.85, 1.20, 1.50, 1.80],
+                    [0.40, 0.42, 0.46, 0.55, 0.72, 0.86, 0.88, 0.90]) + tongue
     blaze = smoothstep(0.010, -0.010, (s_b - s) + jag) * (aphi < 1.95)
     Q = np.stack([phi * 0.045, s * L], 1)          # chart: angle x 45 mm around, arc length along
     curls = np.zeros(len(Pn), dtype=np.float32)
@@ -1308,6 +1452,11 @@ def body_color(P, Nn):
     # Cycle 12: 8 mm lower under the eyes: the front close-up showed the cream touching the eye's lower edge
     # (reference: the lower lid line, then a ~3 mm blue skin band, then cream)
     zb = 0.1835 + 0.0030 * np.clip(np.abs(X) / 0.02, 0, 1) + 0.26 * np.clip(Y + 0.108, 0, 0.034)
+    # Cycle 14: on the snout the cream climbs the sides to just under the bridge (view 2: the blue is only the
+    # bridge's top band, the cream reaches the nose's top at the tip and ~0.196 halfway)
+    zc = np.interp(-Y, [0.145, 0.157, 0.170, 0.180], [0.1962, 0.1956, 0.1920, 0.1905])
+    wm = smoothstep(-0.141, -0.152, Y) * smoothstep(0.024, 0.016, np.abs(X))
+    zb = zb + (zc - zb) * wm
     yhead = 0.066 - 0.008 * smoothstep(0.170, 0.180, Z) * smoothstep(0.015, 0.03, np.abs(X))
     head_cream = smoothstep(0.0006, -0.0006, Z - zb + jag) * smoothstep(0.0006, -0.0006, Y + yhead + jag_c)
     head_cream *= (Z > 0.160)
@@ -1593,22 +1742,7 @@ def build():
         eye.data.materials.append(image_material(f"M_{nm}", *ims, bump_dist=0.0001))
         parts.append(eye)
 
-    # nose: a small moist leathery pad, a rounded triangle wider at the top (front view 12.6 x 8.2 mm)
-    sn = surface_along(clay, h(0, -0.125, 0.1810), (0, -1, 0))
-    nc = sn + np.array([0, 0.0016, 0.0004])
-    bm = uv_sphere("nose", 32, 16)
-    for v in bm.verts:
-        x, y, z = v.co
-        wide = 1.0 + 0.22 * z
-        v.co = Vector((nc[0] + x * 0.0062 * wide, nc[1] + y * 0.0042, nc[2] + z * 0.0040))
-    nose = kit.mesh_object("nose", bm)
-    kit.attribute(nose, "nose_t", lambda p: (p.z - nc[2]) / 0.0040 * 0.5 + 0.5 + 0.25 * (nc[1] - p.y) / 0.0042)
-    nose.data.materials.append(ramp_material("M_nose", "nose_t",
-                                             [(0.0, "#2e2628"), (0.55, "#3e3436"), (0.95, "#6f6062")],
-                                             rough=0.36, rough_var=0.06, bump=0.00015, noise_scale=900))
-    nose.data.shade_smooth()
-    nose["keep_shading"] = True
-    parts.append(nose)
+    parts.append(build_nose(clay))     # Cycle 14: nose leather at the tip of the bridge
 
     parts += collar(clay)
     return parts
@@ -1706,10 +1840,13 @@ def collar(clay):
                                       (0.0046, 0.0047), (0.0018, 0.0053)], mat=gem_mat, segments=40,
                     cap_bottom=True, cap_top=True)
     gem.matrix_world = Matrix.Translation(Vector(tuple(pc))) @ rot
-    kit.attribute(gem, "gem_r", lambda p: (Vector(tuple(pc)) - p).length / 0.0083)
+    # Cycle 15: radial distance from the gem's axis (the 3D distance from the base put the dome's top at 0.64 of the
+    # ramp, so the light centre never showed and the gem read navy)
+    fv, pv = Vector(tuple(face)), Vector(tuple(pc))
+    kit.attribute(gem, "gem_r", lambda p: ((p - pv) - fv * (p - pv).dot(fv)).length / 0.0083)
     # the cabochon's catch light, as this style paints it (reference: a large soft white spot upper-centre on the dome)
     hl = Vector(tuple(pc + face * 0.0049 + upv * 0.0030 + np.array([0.0012, 0.0, 0.0])))
-    kit.attribute(gem, "gem_hl", lambda p: (p - hl).length / 0.0024)
+    kit.attribute(gem, "gem_hl", lambda p: (p - hl).length / 0.0030)
     bc = pc + upv * (0.0042 + 0.0121 - 0.0010)
     ring = np.array([bc + 0.0042 * math.cos(a) * upv + 0.0026 * math.sin(a) * face
                      for a in np.linspace(0, 2 * math.pi, 25)[:-1]])
@@ -1784,8 +1921,8 @@ def silver_material():
     nz.inputs["Detail"].default_value = 4.0
     links.new(tc.outputs["Object"], nz.inputs["Vector"])
     rp = node(tree, "ShaderNodeValToRGB")
-    rp.color_ramp.elements[0].color = (*srgb("#9fa1a9"), 1)
-    rp.color_ramp.elements[1].color = (*srgb("#e3e4ea"), 1)
+    rp.color_ramp.elements[0].color = (*srgb("#b9bcc5"), 1)    # Cycle 15: the reference bezel is a bright
+    rp.color_ramp.elements[1].color = (*srgb("#f0f1f5"), 1)    # light-grey ring (#c8ccd4-#f2f3f6), not dark chrome
     links.new(nz.outputs["Fac"], rp.inputs["Fac"])
     links.new(rp.outputs["Color"], bsdf.inputs["Base Color"])
     mr = node(tree, "ShaderNodeMapRange")
@@ -1793,7 +1930,8 @@ def silver_material():
     mr.inputs["To Max"].default_value = 0.46     # (the mirror-like 0.18-0.36 reflected the dark studio and read dark)
     links.new(nz.outputs["Fac"], mr.inputs["Value"])
     links.new(mr.outputs["Result"], bsdf.inputs["Roughness"])
-    bsdf.inputs["Metallic"].default_value = 1.0
+    bsdf.inputs["Metallic"].default_value = 0.25    # Cycle 15: full metal mirrored the dark studio and read dark;
+    # the reference paints the bezel as light polished silver (light grey body, white glints, dark outline)
     sc = node(tree, "ShaderNodeMapping")
     sc.inputs["Scale"].default_value = (1.0, 1.0, 40.0)
     links.new(tc.outputs["Object"], sc.inputs["Vector"])
@@ -1813,9 +1951,9 @@ def gem_material():
     at = node(tree, "ShaderNodeAttribute", attribute_name="gem_r")
     rp = node(tree, "ShaderNodeValToRGB")
     els = rp.color_ramp.elements
-    els[0].position, els[0].color = 0.0, (*srgb("#8fb0f0"), 1)      # Cycle 12: brighter (view 1 gem read navy)
-    els[1].position, els[1].color = 1.0, (*srgb("#142a80"), 1)
-    for pos, hx in ((0.30, "#4d74dc"), (0.70, "#2c4cc0")):
+    els[0].position, els[0].color = 0.0, (*srgb("#9fc0ff"), 1)      # Cycle 15: the reference's bright centre
+    els[1].position, els[1].color = 1.0, (*srgb("#1a2f96"), 1)
+    for pos, hx in ((0.30, "#5a86f0"), (0.68, "#2f55d0")):
         e = els.new(pos)
         e.color = (*srgb(hx), 1)
     links.new(at.outputs["Fac"], rp.inputs["Fac"])
@@ -1839,6 +1977,10 @@ def gem_material():
     links.new(mix.outputs[2], hl_mix.inputs[6])
     hl_mix.inputs[7].default_value = (*srgb("#f4f8ff"), 1)
     links.new(hl_mix.outputs[2], bsdf.inputs["Base Color"])
+    # Cycle 15: the style paints the cabochon lit from within (bright centre, saturated rim): a soft emission of its
+    # own colour, baked into the emission texture
+    links.new(hl_mix.outputs[2], bsdf.inputs["Emission Color"])
+    bsdf.inputs["Emission Strength"].default_value = 0.45
     mr = node(tree, "ShaderNodeMapRange")
     mr.inputs["To Min"].default_value = 0.03
     mr.inputs["To Max"].default_value = 0.08
