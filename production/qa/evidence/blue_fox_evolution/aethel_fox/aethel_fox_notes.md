@@ -14,6 +14,70 @@ The Handoff's Understanding section (kept and updated) carries the analysis of w
 
 ## Analysis
 
+### What it is
+Aethel Fox, the phase-2 evolution of a stylised blue fox (source.jpg, top right panel, "approx. 50 cm",
+scale 1/6), drawn in anime / painted game-art style: soft cel shading, thin navy ink outlines, painted fur
+strokes. A slim young fox standing square on four long legs, head up, front -Y. One furred body over a
+skeleton (skull, neck, ribcage, pelvis, legs, paws with toes); short smooth fur on the body, locks only at
+the cheek tufts, chest ruff, elbow tufts and belly fringe; a large fox brush tail of long fur curling up and
+back with a cream tip; tall ears with indigo / tan bowls and painted spirals; grey almond eyes; a braided
+leather cord with a silver bezel, a deep-blue cabochon and silver-white antler branches over the shoulders;
+glowing cyan swirl markings on the flanks and tail. Alive and groomed: nothing worn or dirty.
+(Restored by the final-build builder from the Handoff's Understanding and the reference; the original text
+was lost in cycle 4, see the recovery note.)
+
+### Views
+- View 1 (az 0, el -8): front. Only it shows the face straight on (eye pair, nose, smiling mouth, cream
+  muzzle and chest V), the pendant and both antler branches spread, the ear bowls' tan with blue spirals.
+- View 2 (az 62, el 6): side three-quarter, the main view. Only it shows the tail's full S-curve with cream
+  flames and glow dots, the profile of the snout and jaw, the leg layout and the flank markings; the near
+  ear bowl is indigo with a cyan spiral (conflict with view 1's tan bowl, settled by colouring the bowl's
+  outer half indigo and the inner half tan).
+- View 3 (az 180, el 20): back. Only it shows the tail as an egg covering the back with cream cap and
+  swirls, the tan patch under the tail, the backs of the ears. The side drawing's curled cream tip must show
+  from behind lower than the back drawing's cap: the side view wins.
+- Unseen: underside and soles (inferred: navy pads, cream belly). Camera: --lens 135 (drawings are near
+  orthographic).
+
+### Size and proportions
+0.223 x 0.614 x 0.500 m (W x D x H; the source's "approx. 50 cm" is the height to the tail top).
+Key ratios (reference view 1 aspect 0.416, view 2 1.115, view 3 0.475): ear height : head height ~1.3;
+leg (elbow to ground) : body height ~0.45; tail top 0.48-0.485 m pre-scale is the tallest point; head
+width with cheek tufts ~0.17 m; eye opening front 166 x 117 px in the 0.12 m eye frame.
+
+### Close observation
+Front: cream muzzle blending into the cheeks under soft blue; two cream brow ovals; faint glow V on the
+forehead; eyes grey with a dark limbal ring and one white catch light, thin navy upper lid running on into a
+rising wing; small dark brown-grey triangular nose; the smile line. Colours (cv reference): blue #88a8c1 /
+#5c7496 (shadow, lower legs), cream #c3c9c9, tan #a49489 (ear bowls, under tail), ink #3a3f50. Side: tail
+locks are broad smooth S-bands, cream share ~0.45, cyan glow swirls and dots on its lower third; flank
+swirls glow cyan-white; lower legs darker navy; paws with toe creases. Back: tail egg cream on top, blue
+with cream swirls lower, tan patch under it. Boundaries are soft blends (fur) except the ink outlines.
+
+### Materials and shaders
+S1 fur blue (M_fur: painted atlas, darker navy lower legs, soft sheen, glow swirl emission); S2 fur cream
+(M_fur_cream); S3 ear outer / inner (indigo, tan, painted spirals, cyan glow); S4 ear tufts cream; S5 eye
+(sclera warm grey-white, grey iris, dark ring, pupil, glossy cornea); S6 eyelid lines navy / grey-navy;
+S7 nose dark brown-grey #3a2e30 with a lighter top; S8 mouth line; S9 cord brown leather; S10 silver
+(bail, bezel); S11 gem deep blue cabochon (glossy, transmission look baked to colour); S12 antler
+silver-white; S13 tail fur (atlas with cream flames, glow). The final build bakes base colour, roughness,
+metallic, AO, normal and emission.
+
+### Details and nuances
+Cheek tufts, chest ruff spikes, elbow tufts, belly fringe as fur locks; toe lobes with creases; the stop
+between the eyes; the smiling mouth and chin; ear tufts (5 per ear, each different); tail locks each with
+their own width, length, twist and lift; glow dots on the tail; braided cord's three strands; antler tines
+each with their own length and curl, sides differing.
+
+### Skills, add-ons and tools
+scenario-blender-sculpting (SDF clay body), scenario-blender-retopology (kit.quad_remesh), scenario-blender-hair
+(tail and tuft locks as mesh), scenario-blender-texturing-shading (painted atlases, glow), scenario-blender-uv-baking
+(the final bake); kit functions; cv.py compare / closeup / sample for every check.
+
+### Build plan
+Generator aethel_fox.py with part modules (body, face, ears, collar, tail); 120,000 triangle budget (build 5:
+118,660); texture 4096. This builder: no change; final build (--final) of the approved build 5 generator.
+
 ### Parts inventory
 | # | part | count | size (m) | position and orientation | shape and how to model it (technique, skill) | geometry detail (what is modelled: bevels, creases, folds, holes, relief) | nuances (imperfections, asymmetry, how each copy differs) |
 |---|---|---|---|---|---|---|---|

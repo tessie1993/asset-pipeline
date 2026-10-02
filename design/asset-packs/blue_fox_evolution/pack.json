@@ -137,72 +137,16 @@
     {
       "id": "lumina_warden",
       "number": 3,
-      "name": "Lumina Warden (Phase 3)",
-      "where": "bottom row 'Lumina Warden (Phase 3 Evolution) - Model Turnaround Study': front view at left, side view (main focus) in the centre, back view at right; sheet scale 1/4, approx. 100 cm",
-      "details": "four-legged fox standing on all four legs; blue fur with glowing cyan spiral markings on the face, body and legs; cream muzzle, cheeks and thick chest ruff; very large pointed ears with dark indigo star-speckled inner surfaces, glowing cyan spirals and cream ear tufts, a pale blue glow around the ears; bright blue eyes; small black nose; darker blue lower legs and paws; ornate silver filigree collar across the chest with a diamond-shaped glowing blue crystal; feather-like fur tufts on the shoulders in lavender, cyan and mint iridescent colours; several large curling tails fanning out behind, banded in blue and cream spirals, with dark indigo star-speckled areas and a glowing constellation of white star dots joined by thin lines on the side tail",
+      "name": "Lumina Warden",
+      "where": "the whole image: a six-view turnaround study (front, front 3/4, side, back 3/4, back, top), about 100 cm",
+      "details": "four-legged fox standing on all four legs; light blue fur with lighter swirl markings on the face, body, legs and tails; cream muzzle, cheeks, chest and belly; darker blue lower legs and paws; very large upright ears with dark indigo inner surfaces holding light spirals and dots, cream ear tufts; blue eyes with dark lids; small dark nose and a smiling mouth line; silver branch-shaped collar across the chest with a faceted blue crystal pendant giving off blue light; feather-like fur tufts on the shoulders in lavender, cyan and mint; several large curling fur tails with blue and cream bands, dark blue undersides with small light points joined in constellation lines",
       "mount": "floor",
       "references": [
-        "source.jpg"
+        "references/lumina_warden_1.jpg"
       ],
-      "views": [
-        {
-          "ref": 1,
-          "image": "source.jpg",
-          "azimuth": 0.0,
-          "elevation": 5.0,
-          "box": [
-            160,
-            2090,
-            1150,
-            3636
-          ]
-        },
-        {
-          "ref": 1,
-          "image": "source.jpg",
-          "azimuth": 90.0,
-          "elevation": 5.0,
-          "box": [
-            1290,
-            2280,
-            2990,
-            3655
-          ]
-        },
-        {
-          "ref": 1,
-          "image": "source.jpg",
-          "azimuth": 180.0,
-          "elevation": 0.0,
-          "box": [
-            3018,
-            2235,
-            4016,
-            3638
-          ]
-        }
-      ],
-      "budget": 200000,
-      "budget_why": "user asked to double the poly budget (was 100000, mid poly) and to spend it intelligently on details: flowing tail locks and spiral lobes, ear fans and tufts, hocks and toes, filigree collar, shoulder feathers, face",
-      "camera": {
-        "ortho": true
-      },
-      "skills": [
-        "blender-image-to-3d",
-        "scenario-blender-expert",
-        "scenario-blender-retopology",
-        "scenario-blender-sculpting",
-        "scenario-blender-texturing-shading"
-      ],
-      "reviews": [
-        {
-          "round": 1,
-          "build": 9,
-          "route": "REFINE",
-          "review": "/home/user/asset-pipeline/production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_review_1.md",
-          "at": "2026-10-02T01:14:29+00:00"
-        }
-      ]
+      "views": [],
+      "budget": null,
+      "budget_why": null
     }
   ],
   "style": "the same art style as the reference image"
