@@ -2,7 +2,6 @@
 name: blender-toolkit
 description: Automate Blender tasks like creating 3D shapes, managing materials, and retargeting Mixamo animations with real-time control.
 source: https://github.com/Dev-GOM/claude-code-marketplace/tree/main/plugins/blender-toolkit/skills
-disable-model-invocation: true
 ---
 
 ## ⚠️ Installation Check (READ THIS FIRST)

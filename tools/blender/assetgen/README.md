@@ -1,22 +1,19 @@
 # Asset generators (image-to-assets pipeline)
 
 The whole pipeline, step by step, is the skill `.claude/skills/image-to-assets/SKILL.md`; a builder
-gets its task from `python3 tools/assetgen/pack.py brief <pack> <id>` (the first-build brief, or the
-previous builder's Handoff), and the method from the guides in
-`.claude/skills/image-to-assets/references/`. This page is the contract for the Blender part: how
-one generator turns one object's reference into a detailed, Godot-ready model. Nothing in the pipeline assumes what an object is, what it is made of, how big it is, what
+gets its task from `python3 tools/assetgen/pack.py brief <pack> <id>`. This page is the contract
+for the Blender part: how one generator turns one object's reference into a detailed, Godot-ready
+model. Nothing in the pipeline assumes what an object is, what it is made of, how big it is, what
 style it has or from which angles it is seen: all of that comes from the image, the user's answers
 and the builder's own analysis of the reference.
 
 | What | Where |
 |---|---|
-| Pack manifest: objects, art style, reference images, recorded views and camera, budget, skills, done and accepted | `design/asset-packs/<pack>/pack.json` |
-| Source image; Google Flow images (`flow/NN_<id>_<k>.<ext>`, one per side) or the user's references (`references/`) | `design/asset-packs/<pack>/` |
+| Pack manifest: objects, art style, reference images, recorded views and camera, budget, skills, critic reviews | `design/asset-packs/<pack>/pack.json` |
+| Source image; Canva images (`canva/NN_<id>.png`) or the user's references (`references/`) | `design/asset-packs/<pack>/` |
 | Generators, one per object | `tools/blender/assetgen/packs/<pack>/<id>.py` |
-| Part modules, once a lead builder has split the generator | `tools/blender/assetgen/packs/<pack>/<id>_parts/<part>.py`, `common.py` |
-| Job cards and the test harness of the part builders | `.scratch/assetgen/work/<pack>/<id>/parts/` (`base.blend`, `harness.py`, `<part>/job.md`) |
 | Models for Godot (baked textures inside) | `assets/models/<pack>/<id>.glb` |
-| Notes (analysis, each cycle's review, the Handoff, the report), renders, CV reports, compare sheets, Godot shots | `production/qa/evidence/<pack>/<id>/` |
+| Notes, renders, CV reports, compare sheets, critic reviews, Godot shots | `production/qa/evidence/<pack>/<id>/` |
 | Baked texture files (the .glb carries them) | `.scratch/assetgen/bake/<pack>/<id>/` |
 | The user's download (outside the repository) | `<export folder>/<pack>/` and `<pack>.zip` |
 
@@ -52,22 +49,18 @@ blender -b --factory-startup --python tools/blender/assetgen/packs/<pack>/<id>.p
 - A **cycle build** (no flags) runs the structure checks, exports the `.glb`, renders every
   recorded view at 16 samples and 768 px, lit and in clay (one grey material: the shape alone),
   and runs the CV compare. The renders show the live shaders.
-- `--views N` renders one or a few views. The pipeline's builders do not use it for a cycle's build:
-  each builder makes one full build per render cycle and its comparison needs every view; quick
-  checks of one part go through the lead's test harness instead.
+- `--views N` renders one or a few views: the quickest check while shaping one part.
 - `--final` **bakes** every shader into textures, then renders the baked model at 32 samples and
   1280 px plus an 8-view turnaround: what you see is what Godot gets. `--bake` bakes in a cycle
   build too. `kit.run(build, texture=4096)` (or `--texture`) for an object seen up close.
 - Each rendering build is numbered (`<id>_build.json`, with the checks and the bake); `cv.py
-  compare` reports on it and the build gate hook waits for the builder's review, `## Cycle <n>`, in
-  its notes before the next build. One render cycle per builder: a builder makes one cycle build
-  (plus the final build); a build that rendered nothing does not count.
+  compare` reports on it and the build gate hook waits for `## Cycle <n>` in the builder's notes
+  before the next build.
 
 Renders have a transparent background (the outline is the alpha), a neutral studio (Poly Haven HDRI
-plus white key, fill, rim and bounce lights, each aimed at the asset) and an exposure of -1.3, at
-which a lit surface's median brightness matches its material colour on average (spheres in 8
-colours, L 0.34 to 0.79: mean difference -0.005, at most 0.046; dark colours render a little
-lighter, light ones a little darker).
+plus key, fill, rim and bounce lights) and an exposure of -1.5, at which a lit surface's median
+brightness matches its material colour (measured on spheres and boxes, colours L 0.34 to 0.79,
+mostly within about 0.04).
 
 ## Structure checks, every build
 
@@ -144,11 +137,11 @@ import their scripts with `kit.skill(...)`:
 | `scenario-blender-retopology` | QuadriFlow, voxel remesh, loops, low-poly preparation (`bx_retopo`) |
 | `scenario-blender-geometry-nodes` | scattering, arrays, repeated detail (`bx_gn`) |
 | `scenario-blender-hair` | fur and hair, hair cards for games (`bx_hair`) |
+| `scenario-blender-lighting-rendering` | judging renders like a lighter |
 
 Scripts that render with Workbench or EEVEE need a display: `xvfb-run -a blender -b ...`. The
-other skills in `.claude/skills/` (lighting and render set-ups, camera videos, product shots, AI
-image-to-3D, Blender GUI tools) are marked `disable-model-invocation: true`: `pack.py skills-list`
-leaves them out and builders never use them, so they cannot change the kit's renders or the model.
+older `kevinbadi` skills drive Blender over the blender-mcp socket or EEVEE; only their method
+carries over headless.
 
 Installed add-ons (`kit.enable_addon("<id>")`): `extra_mesh_objects` (rocks, round cubes, gears,
 gems), `ivygen`, `looptools`, `mmgpy` (adaptive remeshing), `proceduraltiles` (tile and brick node
@@ -165,12 +158,6 @@ Read `blender-5.2-notes.md` before writing bpy: the Blender 5.2 names memory get
   `build()` that returns the mesh objects, and `kit.run(build)` (`kit.run(build, origin="back")`
   for things that hang on a wall). `python3 tools/assetgen/pack.py kit-api` lists the kit's
   functions with their docstrings; plain `bmesh`/`bpy`, the skills' scripts and add-ons are fine too.
-- A lead builder may split it into part modules: `<id>_parts/<part>.py` (one build function per
-  part, named by what the part is) and `<id>_parts/common.py` (shared dimensions, anchors, attach
-  surfaces and materials). `<id>.py` puts its own folder on `sys.path`
-  (`sys.path.insert(0, str(Path(__file__).resolve().parent))`), imports the modules, builds them in
-  order and still ends with `kit.run(build)`. Part builders change only their own module and test
-  it with the lead's harness, never with the full build.
 - Metres; +Z up; the front faces **-Y** (Godot +Z). The kit applies modifiers and transforms, adds
   world-space UVs (1 UV unit = 1 m; set `obj["keep_uv"] = True` to keep your own), joins
   everything into one mesh named `<id>`, puts the origin at the bottom centre (or the back) and, in
@@ -187,8 +174,7 @@ Read `blender-5.2-notes.md` before writing bpy: the Blender 5.2 names memory get
 From `pack.py run-start` to `pack.py run-end` the hooks (`.claude/hooks/assetgen-guard.sh`, logic
 in `tools/assetgen/guard.py`) allow changes only in the run pack's own folders and `.scratch/`;
 any pipeline file changed anyway is restored from the run-start snapshot, stray files are moved to
-`.scratch/assetgen/quarantine/`, git is locked, a part builder writes only its job card's files and
-runs Blender only on the lead's test harness, Google Flow gets only the exact `pack.py flow-call`
-set-up and never generates on its own. If the kit cannot do something, the builder writes the
-helper inside its own generator; if the pipeline itself is wrong, the builder reports it and the
-orchestrator tells the user.
+`.scratch/assetgen/quarantine/`, git is locked, the critic never starts Blender and writes only its
+review, and Canva gets only the exact `pack.py prompt`. If the kit cannot do something, the
+builder writes the helper inside its own generator; if the pipeline itself is wrong, the builder
+reports it and the orchestrator tells the user.

@@ -1,7 +1,6 @@
 ---
 name: slow-zoom
 description: Cinematic slow push-in zoom toward a hero detail on the product. Creates a reveal effect.
-disable-model-invocation: true
 ---
 
 ## Slow Zoom Camera Animation

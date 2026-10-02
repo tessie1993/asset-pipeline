@@ -1,7 +1,6 @@
 ---
 name: blender-threejs-export
 description: Export the current Blender scene as a GLB and generate a ready-to-use Three.js HTML viewer with orbit controls, lighting, and auto-rotation. Trigger when asked to export for web, create a Three.js viewer, make a 3D model interactive for a website, or export from Blender for the web.
-disable-model-invocation: true
 ---
 
 # Blender Three.js Export

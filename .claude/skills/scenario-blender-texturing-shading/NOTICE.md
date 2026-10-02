@@ -11,5 +11,3 @@ In this repository's container, Workbench and EEVEE renders (`bx_review` review 
 `*_review` helpers) need a display: run those scripts as `xvfb-run -a blender -b ...`. Live-session
 tools (`bx_gui`, the MCP bridge) are not available headless; the pipeline's own builds render with
 Cycles.
-
-- Edited for the image-to-assets pipeline (2026-10-01): removed or scoped defaults that conflict with its rules (no projection, no low poly, no asking, style from the user).

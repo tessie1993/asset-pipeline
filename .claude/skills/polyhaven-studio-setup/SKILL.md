@@ -1,7 +1,6 @@
 ---
 name: polyhaven-studio-setup
 description: Set up a professional product photography studio in Blender using PolyHaven HDRIs and PBR ground materials. Trigger when asked to create a studio setup, add HDRI lighting, set up product photography, or create a showroom scene.
-disable-model-invocation: true
 ---
 
 # PolyHaven Studio Setup

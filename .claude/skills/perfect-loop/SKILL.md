@@ -1,7 +1,6 @@
 ---
 name: perfect-loop
 description: Seamless looping 360-degree turntable. First and last frames match perfectly for infinite loop playback.
-disable-model-invocation: true
 ---
 
 ## Perfect Loop Camera Animation
