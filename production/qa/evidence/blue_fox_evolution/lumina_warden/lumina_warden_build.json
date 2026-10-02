@@ -1,15 +1,15 @@
 {
- "build": 10,
+ "build": 11,
  "final": false,
- "at": "2026-10-02T02:03:46+00:00",
+ "at": "2026-10-02T03:08:06+00:00",
  "samples": 16,
  "resolution": 768,
  "report": {
-  "triangles": 185728,
+  "triangles": 222768,
   "dimensions_m": [
-   0.722,
-   1.242,
-   1.013
+   0.748,
+   1.265,
+   1.027
   ],
   "materials": [
    "M_fur",
@@ -17,22 +17,23 @@
    "M_ear_outer",
    "M_ear_inner",
    "M_cream_tuft",
-   "M_eye",
+   "M_eye_L",
    "M_liner",
+   "M_eye_R",
    "M_nose",
    "M_gem",
    "M_silver",
-   "M_feather",
-   "M_tail",
-   "M_star"
+   "M_shoulder_fur",
+   "M_tail_fur",
+   "M_constellation_star"
   ],
   "texture_sources": [],
   "glb": "assets/models/blue_fox_evolution/lumina_warden.glb",
-  "glb_bytes": 8849276
+  "glb_bytes": 11406632
  },
  "checks": {
   "parts": {
-   "parts": 93,
+   "parts": 75,
    "floating": [],
    "no_material": [],
    "flat_colour": []
@@ -41,8 +42,8 @@
    "non_manifold_edges": 0,
    "open_edges": 0,
    "loose_vertices": 0,
-   "degenerate_faces": 0,
-   "mirror_error": 0.0159
+   "degenerate_faces": 1236,
+   "mirror_error": 0.0144
   }
  },
  "bake": null,

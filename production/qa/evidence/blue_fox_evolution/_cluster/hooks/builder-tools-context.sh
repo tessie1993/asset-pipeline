@@ -1,0 +1,20 @@
+#!/bin/bash
+# SubagentStart hook: hand every asset builder the guides to the Blender tools and add-ons and the
+# generic observe/compare method, so it knows what it can grab before it builds anything.
+GUIDES="/tmp/claude-0/-home-user-asset-pipeline/2396fed5-5999-5364-b5d1-d9749bebc958/scratchpad"
+input="$(cat)"
+agent="$(printf '%s' "$input" | jq -r '.agent_type // .subagent_type // empty' 2>/dev/null)"
+echo "$(date -u +%FT%TZ) SubagentStart agent=${agent:-?}" >> "$GUIDES/hooks/builder-tools.log"
+table="$(sed -n '/^## 1\. Which tool for which job/,/^## 2\./p' "$GUIDES/blender_tools_guide.md" 2>/dev/null | sed '$d')"
+context="TOOLS AND ADD-ONS (given to every builder by a hook):
+- Read $GUIDES/blender_tools_guide.md (every installed Blender add-on, its operators, which run headless, the UI-only ones and their alternatives, command-line tools, skills) and $GUIDES/builder_guide.md (understand the object, part inventory, detail amount, materials incl. translucency, wear, the comparison, the Handoff).
+- Think about what you see, then build that (builder_guide.md section 1): decide what each mark in the reference shows (one solid surface or a mass of many small things such as strands, fibres, leaves or feathers; form shading, a marking or a glow; an outline, a crease or a seam) and build the thing it shows, so it reads as that from every view and up close.
+- Understand the thing you are making, conceptually, and let it choose the approach (builder_guide.md section 1): every part is a thing with a nature (an eye, wood, a body, a tree root, fur, cloth). Know what it is made of and how it is built inside, how it grows or is made, what it does and how it behaves, how it looks in life and in this art style, how it ages; that decides the construction method and tool, the sub-parts, the topology and the materials. A part built with an approach that does not fit what it is cannot be fixed by reshaping: change the approach.
+- Compare to the reference often, part by part (builder_guide.md section 6): crop each part from the reference views before you start it; after every change render it quickly from the same angles and put it next to the reference crop; after the build run cv.py compare and cv.py closeup for each changed part and its neighbours. For every difference, understand why: why the reference looks like that (from what the thing is and how it is built, behaves and is drawn) and why the build differs (the cause in the build, not the symptom); the fix follows from the cause.
+- Multitask (blender_tools_guide.md section 6): start Blender builds and renders in the background (Bash run_in_background, with timeout) and keep working while they run (study and write the next part, crop and measure the reference); send independent tool calls together; use all the cores: while the 1-minute load (/proc/loadavg) is below nproc, start another background Blender job (other views, parameter variants, a bake beside previews, the next part's test) instead of waiting, but not far above nproc; never let two jobs write the same file.
+- Lead and part builders (builder_guide.md section 8): the builder that reads the Handoff is the lead; it splits the generator into part modules, writes one job card per part and gives each to its own part builder on Sonnet 5.5 (Agent, general-purpose, model sonnet, background; prompt: read part_builder_guide.md and the job card), 2 to 4 at the same time; each part builder does one job, reports and ends, and rework is a new job for a new part builder; the lead judges each part against the reference itself and does the one full build, the full compare and the Handoff.
+- Enable an add-on inside the generator: kit.enable_addon(\"bl_ext.blender_org.<id>\", with_preferences=True) (the pipeline's own extensions: bl_ext.user_default.<id>). Check each operator returns {'FINISHED'} and that the mesh changed as intended.
+- BlendKit (logged in, Free plan): plugins/blendkit/headless.py; search with is_free:true and check asset[\"license\"].
+
+$table"
+jq -n --arg c "$context" '{hookSpecificOutput: {hookEventName: "SubagentStart", additionalContext: $c}}'

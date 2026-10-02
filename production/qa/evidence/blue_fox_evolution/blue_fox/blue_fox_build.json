@@ -1,26 +1,33 @@
 {
- "build": 9,
- "final": true,
- "at": "2026-10-02T01:29:22+00:00",
- "samples": 32,
- "resolution": 1280,
+ "build": 11,
+ "final": false,
+ "at": "2026-10-02T03:10:15+00:00",
+ "samples": 16,
+ "resolution": 768,
  "report": {
-  "triangles": 43728,
+  "triangles": 80088,
   "dimensions_m": [
    0.153,
-   0.452,
+   0.45,
    0.312
   ],
   "materials": [
-   "M_blue_fox"
+   "M_body_fur",
+   "M_tail_fur",
+   "M_eyeball_left",
+   "M_eyeball_right",
+   "M_nose",
+   "M_collar_leather",
+   "M_pendant_silver",
+   "M_pendant_gem"
   ],
   "texture_sources": [],
   "glb": "assets/models/blue_fox_evolution/blue_fox.glb",
-  "glb_bytes": 39627680
+  "glb_bytes": 15326712
  },
  "checks": {
   "parts": {
-   "parts": 9,
+   "parts": 10,
    "floating": [],
    "no_material": [],
    "flat_colour": []
@@ -30,30 +37,10 @@
    "open_edges": 0,
    "loose_vertices": 0,
    "degenerate_faces": 0,
-   "mirror_error": 0.0012
+   "mirror_error": 0.0017
   }
  },
- "bake": {
-  "baked": true,
-  "resolution": 4096,
-  "atlas": "smart_project",
-  "maps": [
-   "base_color",
-   "normal",
-   "orm"
-  ],
-  "alpha": false,
-  "emission": false,
-  "averaged_shader_mixes": [],
-  "coverage": 0.222,
-  "kept_materials": [],
-  "seconds": 241.6,
-  "files": [
-   "/home/user/asset-pipeline/.scratch/assetgen/bake/blue_fox_evolution/blue_fox/blue_fox_basecolor.png",
-   "/home/user/asset-pipeline/.scratch/assetgen/bake/blue_fox_evolution/blue_fox/blue_fox_orm.png",
-   "/home/user/asset-pipeline/.scratch/assetgen/bake/blue_fox_evolution/blue_fox/blue_fox_normal.png"
-  ]
- },
+ "bake": null,
  "texture": 4096,
  "views": [
   {
@@ -78,48 +65,7 @@
    "clay": "production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_clay_3.png"
   }
  ],
- "turnaround": [
-  {
-   "azimuth": 0.0,
-   "elevation": 2.0,
-   "file": "production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_turn_1.png"
-  },
-  {
-   "azimuth": 45.0,
-   "elevation": 2.0,
-   "file": "production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_turn_2.png"
-  },
-  {
-   "azimuth": 90.0,
-   "elevation": 2.0,
-   "file": "production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_turn_3.png"
-  },
-  {
-   "azimuth": 135.0,
-   "elevation": 2.0,
-   "file": "production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_turn_4.png"
-  },
-  {
-   "azimuth": 180.0,
-   "elevation": 2.0,
-   "file": "production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_turn_5.png"
-  },
-  {
-   "azimuth": 225.0,
-   "elevation": 2.0,
-   "file": "production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_turn_6.png"
-  },
-  {
-   "azimuth": 270.0,
-   "elevation": 2.0,
-   "file": "production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_turn_7.png"
-  },
-  {
-   "azimuth": 315.0,
-   "elevation": 2.0,
-   "file": "production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_turn_8.png"
-  }
- ],
+ "turnaround": [],
  "camera": {
   "lens": 200.0
  }

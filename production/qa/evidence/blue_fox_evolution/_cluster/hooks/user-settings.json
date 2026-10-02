@@ -1,0 +1,20 @@
+{
+  "hooks": {
+    "SubagentStart": [
+      {
+        "matcher": "asset-builder",
+        "hooks": [
+          { "type": "command", "command": "bash /tmp/claude-0/-home-user-asset-pipeline/2396fed5-5999-5364-b5d1-d9749bebc958/scratchpad/hooks/builder-tools-context.sh", "timeout": 10 }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "bash /tmp/claude-0/-home-user-asset-pipeline/2396fed5-5999-5364-b5d1-d9749bebc958/scratchpad/hooks/builder-tools-hint.sh", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

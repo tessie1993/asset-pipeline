@@ -291,182 +291,257 @@ Differs, cause, fix:
 - Clay row: a horizontal shading line across the tail mid-height: check the flute ripple / frames.
 - Head front: face reads flat, eyes small; later cycle (forms after the silhouette).
 
+## Cycle 2
+Build 2 (this run's first kit build) = the cycle-2 code of the previous builder plus this run's fixes.
+Eye study before the build (exp_eye.py on dbg2.blend: eye variants rebuilt on the finished body, front and
+side close-ups next to the target crops; exp/e1_*, e2_*):
+- Spacing measured on the crops (dark eyelid components, 0.12 m box): ref eye x 0.0174..0.0518, render
+  0.0214..0.0556 -> 3.5 mm too far out (not 28 %). EYE_X 0.031 -> 0.0278 (constant; the clay eye seat
+  follows it). Brow ovals measured ref +-0.0216 vs render +-0.0228: left as they are.
+- EYE_TURN (0.10 / 0.25 / 0.55 / 0.9) changes almost nothing: the lens follows the face. The face at the
+  eye already faces az ~33-39 deg. The drawing's eye: the opening faces ~40 deg outward (front 60x53 px,
+  side 59x41 px give cos(62-phi)/cos(phi) = 1.27 -> phi ~ 42 deg) while the eyeball looks forward (iris
+  round from the front, squashed from the side). So the opening is intrinsically long: W/H ~1.5 ->
+  EYE_BT/BB 0.0112/0.0088 -> 0.0102/0.0082; iris painted toward the nose IRIS_C x -0.0028 -> -0.0036.
+- Opening shape: pointed tear duct (corner sharpness exponent 0.75 inner, 0.35 outer); the upper
+  eyelid's top carried long and high toward the outer corner (front drawing: steep rise at the duct, a
+  long nearly straight top line into the wing; ours was a round dome sloping down outward = worried look).
+- Wing longer (to 1.60 EYE_A, 0.70 EYE_BT), upper eyelid line thicker (peak 1.8 mm).
+- Lens bed: face + clip(fit - face, 0, 0.6 mm) + 0.4 mm (never more than 1 mm over the face: no goggle
+  rim), dome 1.6 -> 1.2 mm. Cornea roughness 0.08 -> 0.24 and the second catch light 0.45 -> 0.15 (the
+  light streak across the pupil was the sun's reflection on a mirror cornea).
+- Stop / bridge between the eyes added to the clay (ellipsoid (0, -0.199, 0.326), r 0.012 x 0.011 x
+  0.017): the far eye showed fully over the muzzle in the side view; the drawing hides it but its lashes.
+- Cheek cream raised to just under the eyes (cream_field zb +4..6 mm at y -0.225..-0.165); the blue
+  bridge V down to the nose stays.
+- Side-view face strokes moved 0.008 back (+Y), off the outer eye corner.
+Tail study (exp_tail.py: tail rebuilt on dbg2.blend, rendered with the kit camera; tail_cmp.py: same
+normalisation as cv compare): with broader locks (root rho 0.90, underfur 0.92), S flow per lock
+(s_flow 0.18-0.32 x sin 2 pi t), lift 0.005-0.02, tip locks 4 x 0.045-0.06 m: side overlap (fox only)
+0.782 (build 1: 0.739), back 0.757, back w/h -10 %; the tip was a long thin spike, and from the back it
+ran down the middle as a cream streak. Then: tip radii fatter (rb/rf/ru at tk 0.78-0.95), plume ru +8-10 %
+(tk 0.06-0.58), tip locks s1 1.00-1.045, tip curl up 14 x over^2.
+Build 2 result: CV overlap front 0.72, side 0.57 (clean, fox only: 0.813, build 1 0.739), back 0.75;
+w/h +11 %, -5 % (clean +3.6 %), -8 %. CHECK: floating none, no material none, flat colour none,
+non-manifold 0, open 0, degenerate faces 16 (lock tips / eye rim, harmless), mirror 0.005. 117,870 tris
+(budget 120,000). 0.223 x 0.619 x 0.500 m, scale x1.039.
+Matches (keep): side eye (cv closeup view 2 box 0 .12 .25 .38) now an almond with the iris at the front,
+dark upper eyelid running into a long rising wing, thin lower line, catch light; the far eye no longer
+shows over the bridge. Tail reads as fur (overlapping locks, tips in the outline); side outline close.
+Differs, cause, fix:
+- Front: tail shows beside and over the body (extra middle-left 30 %, middle-right 28 %, top-centre
+  44 %): the X widening (+10 %) of the plume. Reverted ru; the top-centre is the drawing conflict (tail).
+- Tail tip: a long thin cream spike reaching past the drawing's tip (extra top-right 15 % in the side)
+  and, from the back, a cream 'beard' down the middle of the egg (the tip hangs toward the back camera).
+  Fix: the last two path points raised 0.01 / 0.02, the tip locks shorter, curl up.
+- Tail side: the lower plume is a column with a vertical front edge and a cuff where layer 1 starts;
+  the drawing's plume bulges forward at mid-height. Fix: rf at tk 0.06 / 0.14 0.039/0.061 -> 0.047/0.071.
+- Tail pattern: cream flames are stripes chopped across locks. Fix: cream locks (fur_cream attribute:
+  where a lock's middle line meets cream in the atlas it is cream from there to its tip).
+- Side: ear tip too low (ref ear tip / tail top 0.95, mine 0.925) and back: ears too upright. Fix: ear tip
+  Z 0.445 -> 0.458, X 0.100 -> 0.104, base / tip 0.005 forward.
+- cv.py closeup of view 1 is unusable (the front render's box includes the tail top, so the face sits
+  lower): use close.py shots for the front eyes.
+
+## Cycle 3
+Build 3 (changes after build 2): tail tip raised (last path points (0.285, 0.370), (0.328, 0.348)), tip
+radii fatter, lower plume fuller in front (rf tk 0.06 / 0.14 = 0.047 / 0.071), X widening reverted, tip
+locks s1 1.00-1.045, curl 14; cream locks (fur_cream, threshold 0.45..0.75 of the atlas cream); ears tip
+Z 0.458, X 0.104, 0.005 forward; eye EYE_BT/BB 0.0108/0.0084 (0.0102 read too narrow/sleepy from the front
+in the debug close-up exp/b3c_eyes.png), wing rise flatter (0.13..0.43 EYE_BT), cheek cream +6 mm at
+|x| > 0.036..0.056.
+CV: overlap front 0.75 (was 0.72), side 0.54 (clean, fox only 0.819; build 2 0.813), back 0.76; w/h +7 %,
+-6 % (clean +2.2 %), -13 %. CHECK clean (degenerate faces 16, mirror 0.0051). 117,868 tris. 0.223 x
+0.613 x 0.500 m.
+Matches (keep): side eye almond with the iris in the front corner and a long wing (closeup view 2 box
+0 .12 .25 .38); tail made of locks with whole cream flame locks; front no longer shows the tail beside
+the body as much (extra middle 26 / 23 %).
+Differs, cause, fix (all go to the Handoff's part tasks):
+- Back w/h -13 %: ears upright and narrow from behind (ref ears splay to the egg's width, magenta
+  top-left 27 % / top-right 25 %); the cream tip still hangs down the middle of the egg as a 'beard'
+  (the tip comes toward the back camera and the tip locks droop).
+- Side ear: the near ear shows its thin blue back edge; the drawing shows the inner bowl (indigo with a
+  cyan spiral and cream tuft) turned toward the viewer, the ear broad (base ~0.055) and tilted forward.
+- Tail side: the lower plume still a column with a cuff where layer 1 starts; tip a straight cream point
+  1.2 x the drawing's length, no hook and no second point under the curl.
+- Side body: extra (yellow) in front of the chest and front legs, missing (magenta) behind the hind legs
+  and over the head / ear: chest 0.006 too far forward, hind legs 0.01 forward, head 0.008 low (cycle 1,
+  still open).
+- Front: the throat / chest bib is one large cream mass bulging between the collar beams; the drawing's
+  cream throat is narrower with blue sides of the neck; top-centre extra 37 % is the tail over the head
+  (drawing conflict).
+- Front eyes after EYE_BT 0.0108 and the flatter wing: not judged in a close-up yet (kit front render too
+  small; use close.py shot [0,-8,0,-0.205,0.345,0.12] on a debug blend).
+
 ## Handoff
-State: build 1 is the last kit build (its CV and compare are in the evidence folder). Since then the
-generator holds UNBUILT changes (cycle 2 work, stopped by the user before the kit build): the eyes,
-eyelids, brow markings, under-eye strokes and the whole tail were rebuilt; a debug build of them ran
-(119,090 triangles, budget 120,000) and close-ups were rendered from it, but no kit build, no CV
-compare. The user ended this run to commit. Note: the generator already had un-noted edits after
-build 1 (02:10, mostly the eye / face work of the previous builder and the 120k budget); they are
-kept and included in the numbers below.
+State: build 3 is the last kit build (CV, compare, renders in the evidence folder); the generator is
+exactly what build 3 built (copy: .scratch/assetgen/work/blue_fox_evolution/aethel_fox/snap_gen.py;
+debug blend of it: work/dbg2.blend, built by work/dbg2.py). Cycles 2 and 3 in the notes hold the details.
+The generator is still one file (not yet split into part modules: builder_guide.md section 8 step 1 is
+the next lead's first job).
 
 ### 1. Understanding
 - What it is: Aethel Fox, phase-2 evolution of a stylised blue fox (anime / painted game art: soft
-  cel shading, thin navy ink outlines, painted fur strokes). A slim young fox standing square on
-  long legs, head up, front -Y, 0.50 m to the tail top. Alive, groomed, nothing worn or dirty;
-  variation comes from fur strokes, soft shadows, glowing markings.
-- How it is made (as a creature): one furred body over a skeleton (skull, neck, ribcage, pelvis,
-  four legs with paws and toes); fur is short and smooth on the body (painted strokes, no locks
-  except cheek tufts, chest ruff, elbow tufts, belly fringe); long fur only on the tail.
-- The eye (what it is): an eyeball (warm grey-white sclera, big iris with a dark limbal ring and
-  radial fibres, a pupil, a glossy cornea whose reflection is the white catch light) in a socket,
-  wrapped by upper and lower eyelids; the tear duct sits in the low inner corner. The drawing keeps:
-  a large opening (front 60 x 53 px, side 59 x 41 px), long axis rising ~20 deg from the low pointed
-  tear duct to the higher outer corner, a thick dark upper eyelid line carried on into a rising
-  wing, a thin lower eyelid line, a big grey iris toward the nose (dark slate top under the lid,
-  light below with a pale crescent), dark pupil, one white catch light upper-inner. Approach: a domed
-  lens (eyeball surface) on a bed measured on the finished body mesh, eyelid lines as flat swept
-  lines lying on top, iris painted from the lens UVs.
-- The tail (what it is): a fox's brush: a thin tail bone under skin, buried in long fur; dense,
-  darker underfur close to the bone; long guard hairs growing from the bone toward the tip, clumping
-  into locks that overlap like shingles (locks rooted nearer the base cover the roots of later
-  ones), parting where the tail bends; tips lighter, roots darker; the outline is made of lock tips;
-  the end is a cream tag. Painted style: broad soft S-flowing locks, cream flame locks curling at
-  their ends, pointed tips flicking off the outline, glowing cyan swirls and dots on the lower third.
-  Approach: underfur mass + layered mesh guard-hair locks (NOT one smooth shell). The user: "The tail
-  is fur."
+  cel shading, thin navy ink outlines, painted fur strokes). A slim young fox standing square on long
+  legs, head up, front -Y, 0.50 m to the tail top. Alive, groomed, nothing worn or dirty; variation
+  comes from fur strokes, soft shadows, glowing markings.
+- How it is made (as a creature): one furred body over a skeleton (skull, neck, ribcage, pelvis, four
+  legs with paws and toes); fur short and smooth on the body (painted strokes; locks only at the cheek
+  tufts, chest ruff, elbow tufts, belly fringe); long fur only on the tail.
+- The eye: an eyeball (warm grey-white sclera, big grey iris with a dark limbal ring, a pupil, a
+  glossy cornea whose reflection is one white catch light) in a socket, wrapped by eyelids; the tear
+  duct in the low inner corner. The drawing's eye OPENING faces ~40 deg outward (front 60x53 px, side
+  59x41 px: cos(62-phi)/cos(phi) = 1.27 -> phi ~42) while the EYEBALL looks forward (iris round from
+  the front, squashed and in the front corner from the side): so the opening is long (intrinsic W/H
+  ~1.5) and its outer half wraps back around the side of the head, the iris painted toward the nose.
+  Built as a domed lens lying on the finished body mesh (EyeBed: ray casts, quadratic fit, never more
+  than 1 mm over the face), eyelid lines as flat swept lines on top, iris from the lens UVs.
+- The tail: a fox's brush: underfur round a thin bone, long guard hairs clumped into locks that
+  overlap like shingles root to tip, tips lighter, outline made of lock tips, cream tag at the end.
+  Painted style: broad S-flowing locks, cream flame locks curling at their ends, glowing cyan swirls and
+  dots on the lower third. Built as tail_underfur + ~60 mesh locks in 5 layers + 7 edge locks; cream
+  flames are whole cream locks (fur_cream sampled from the atlas). User: "The tail is fur."
+- The ear: a tall thin cartilage leaf, furred outside (blue, darker rim), inside an indigo bowl with
+  a cyan/cream spiral painted on and cream fur tufts at its base; it stands from the skull and turns
+  its bowl forward-outward.
 - Collar (unchanged): braided brown leather cord (three twisted strands), silver bail and bezel,
   deep-blue cabochon gem, silver-white antler branches over both shoulders.
 
-### Part inventory (current, names by what each thing is)
-body (torso, neck, head, muzzle, legs, paws with toes, cheek tufts, chest ruff, elbow tufts, belly
-fringe: SDF clay -> quad remesh 16,500); ears + ear tufts (5 cream locks per ear); eyes (eye_left /
-eye_right); eyelids (eyelid_upper_* / eyelid_lower_*); brow markings (shader, 3D oval per side);
-nose; cord (3 strands); bail; bezel + plate; gem; antlers (per side beam + tines, scroll curls,
-drop); tail (tail_underfur + tail_fur_lock_00..60: 54 layer locks + 7 edge locks). Full table in the
-Analysis, section "Parts inventory" (rows 5, 6, 7, 15, 16 updated this cycle).
+### Part inventory (names by what each thing is)
+body (torso, neck, head, muzzle, stop between the eyes, legs, paws with toes, cheek tufts, chest
+ruff, elbow tufts, belly fringe: SDF clay -> quad remesh 16,500); ears + ear tufts (5 cream locks per
+ear); eyes (eye_left / eye_right); eyelids (eyelid_upper_* / eyelid_lower_*); brow markings (shader,
+3D oval per side); nose; cord (3 strands); bail; bezel + plate; gem; antlers (beam, tines, scroll
+curls, drop); tail (tail_underfur + tail_fur_lock_00..56). Triangles (build 3, 117,868 of 120,000):
+body 34.8k, ears 14.6k + tufts 2.1k, eyes 2.1k, eyelids 2.0k, nose 2.7k, cord 11.5k, pendant 5.1k,
+antlers 11.5k, tail 31.4k. Full table: Analysis, "Parts inventory".
 
-### 2. Comparison (latest evidence)
-Kit numbers are still build 1: overlap front 0.73, side 0.53 (clean 0.739), back 0.76; w/h +5 %,
--7 %, -15 %; CHECK all clean; 65,066 tris then (now 119,090 in the debug build).
-Eyes, build 1 (user: "Both eyes are bad"), measured against the front/side crops: the eyes read as
-narrow slits / round buttons: (a) the eye lens lay on the SDF clay but the remeshed body deviates
-from it by 1-2 mm, so body faces cut through the eye edges (torn light-blue shards over the eye);
-(b) the opening was 0.0256 x 0.0178 (ref 0.027 x 0.020-0.024), tilt 12 deg (ref ~20 deg); (c) iris
-only 1.2 mm toward the nose (ref: iris at the inner side, sclera on the outer side), iris colour too
-saturated blue (ref grey #61677b mid, #2a2833 top, #b6b8c4 low; sclera warm #c7c2bd..#dcd7d2);
-(d) the eyelid wing floated off the face and the lower eyelid line covered only the outer 60 %;
-(e) brow markings doubled (front and side decal projections overlapped on the oblique brow);
-(f) glowing arcs under the eyes ("smile" lines): the side-image face strokes and front strokes
-landed under the eyes instead of small pale strokes behind / beyond the outer corner.
-Eyes after the cycle-2 code (debug close-up c2/b2_0, b2_1, BEFORE the last fixes): opening and iris
-now read as anime eyes with eyelid lines all round; remaining then: eyes too big and pushed off the
-face (the quadratic bed was raised by the worst penetration: goggle look in the side view), too
-much white on the outer side in front view, eyelid colour too grey. Fixed in code after that render
-(lens bed = max(fit, face) + 0.4 mm; opening 0.027 x 0.020; iris centre -2.8 mm; dome 1.6 mm;
-eye seat in the clay 1.8 mm instead of 3.5; eyelid #1b1d30..#2c2e44 roughness 0.6; brow centre by a
-front ray on the body, tilt d=(-0.5,0,1)) -> render c2/b3_* (being written when stopped) not yet
-judged.
-Tail, build 1: one smooth swept shell with ripples and painted flames ("tails are wrong. It's fur").
-Cycle-2 tail (c2/b2_2 side, b2_3 back, first version): reads as fur locks now, but locks were thin
-ribbons with gaps, spiky tips like a broom, smooth underfur showing at the root. Fixed in code after
-that render (fewer, broader locks 0.03-0.078 wide, thicker 8-12 mm, lift 0.01-0.04, edge locks
-0.08-0.2, roots at 0.84 of the radius rising to 0.96, sections 10 around) -> not yet judged.
+### 2. Comparison (build 3)
+CV overlap front 0.75, side 0.54 (the kit box holds the small back-view fox too; fox only, work
+clean_cmp.py: 0.819), back 0.76; w/h +7 %, -6 % (clean +2.2 %), -13 %. CHECK clean (16 degenerate
+faces, mirror 0.0051). 0.223 x 0.613 x 0.500 m.
+- Eyes, side (cv.py closeup view 2 box 0 .12 .25 .38; work/exp/b4c_eyes.png bottom row): an almond
+  with the iris in the front corner, white behind, thick upper line into a rising wing: reads right.
+  Still: the drawing's eye is longer and lower (in the same 0.075 m box: ref ~185 x 85 px incl. wing,
+  build ~140 x 120 px); the sclera is peach (#e2cdbd-ish) vs the drawing's light grey #dcd7d2..#c7c2bd.
+- Eyes, front (b4c_eyes.png top row, 0.12 m box): spacing right (centres +-0.035 both); eyes read
+  smaller and "worried": the upper lid peaks over the inner half and slopes down outward, then the
+  wing ticks up; the drawing's top line is high and long toward the outer corner. The lower line is a
+  bold full dark line; the drawing's is thin, grey-navy, fading under the iris. Iris covered more at
+  the top than in the drawing.
+- Face: cream under the eyes rises to the outer cheeks now; the drawing's front muzzle cream is a
+  heart / V with the blue bridge down to the nose: close. Nose sits higher under the eyes in the front
+  drawing than in the side drawing: drawing conflict, leave.
+- Tail, side (closeup view 2 box .45 0 1 .6; exp/b3_close_2_0.45.png): locks, cream flame locks,
+  glowing swirls: reads as fur. Differs: lower plume a column with a vertical front edge and a cuff
+  where layer 1 starts (the drawing's egg bulges forward at mid height, widest at ~0.35 of its
+  height); the tip is one straight cream point ~1.2 x the drawing's length, no hook up at its end and
+  no second point under the curl.
+- Tail, back (closeup view 3 box .05 .1 .95 .75; exp/b3_close_3_0.05.png): egg width about right; a
+  cream 'beard' of tip locks hangs down the middle to the egg's centre (the drawing: cream cap on the
+  top third, blue sides with big cream swirls).
+- Ears: back w/h -13 %: the drawing's ears splay wider (magenta top-left 27 %, top-right 25 %); side:
+  the near ear shows its thin blue back edge, the drawing shows its indigo inner bowl with the spiral
+  turned toward the viewer, ear broader and tipped forward.
+- Body, side overlay: extra in front of the chest and front legs, missing behind the hind legs and over
+  the head: chest ~0.006 too far forward, hind legs ~0.01 forward, head ~0.008 low. Front: the throat /
+  chest cream is one large bulging bib between the antler beams; the drawing's cream throat is narrower
+  with blue neck sides. Front top-centre extra 37 % = the tail over the head (drawing conflict).
 
-### 2b. Comparison of the latest code (c2/b3 close-ups; pairs ref | render in work/eyes/p_*.png)
-Eyes, front (p_front_eyes.png, same 0.12 m box): now anime eyes with eyelid lines all round, iris
-toward the nose, a white catch light, no face shards over the eye, brow markings single ovals.
-Still differs: (a) eye centres ~28 % too far apart (render +-135 px vs ref +-105 px in the 420 px
-pair; check with cv.py closeup after the kit build before moving them: eye_frame X 0.031 -> ~0.026);
-brow markings likewise too far out (+-90 vs +-70 px: brow_frame X 0.0214 -> ~0.018);
-(b) a light streak runs across each pupil (the second catch light / fibre noise reads as a scratch):
-drop hlm2 to 0.2 or move it below the pupil; (c) nose sits only 0.014 below the eye centre in the
-front view vs 0.029 in the front drawing (side drawing: 0.017, model 0.020): a drawing disagreement,
-leave the nose; (d) muzzle cream starts higher than the drawing beside the eyes: fine for now.
-Eyes, side (p_side_eye.png): too round and facing the camera (render h/w ~0.85, ref 0.69 = 59 x 41
-px; ref iris sits in the front corner with the white behind it). Fix: eye normal turned out less
-(eye_frame n + side*0.25 -> side*0.10), EYE_BT 0.0112 -> 0.0102, IRIS_C x -0.0028 -> -0.0040, longer
-rising wing (last three wing points x1.12/1.26/1.40 -> x1.15/1.38/1.60 of EYE_A, y up to 0.6 EYE_BT),
-upper eyelid line thicker over the top (rv peak 0.00145 -> 0.0018). The far eye and its eyelid stick
-out beyond the face profile like goggles (ref: only a lash tip shows): EyeBed.lens_h should follow the
-face (body_h + 0.4 mm) where the face turns away, not the fitted surface; and lower the dome to 1.2
-mm. A cyan side stroke lands on the outer eye corner: move the three side_strokes face strokes 0.008
-back (+Y).
-Tail, side (p_side_tail.png; note the render box is 0.36 m vs the crop's ~0.30 m, so the render is
-drawn ~13 % smaller): reads as fur now (locks overlap, tips break the outline, root dark, tips light).
-Differs: (1) the lower plume is a narrow column and the upper part a hood: the drawing's plume swells
-into a broad teardrop (widest at ~0.35 of its height, width ~0.6 of the height) then necks into the S
-and the curl; raise the underfur to 0.92 of the outline and lock rho to 0.90 -> 1.02, and check the
-side CV outline; (2) locks run straight and parallel: give them the drawing's S flow (twist/sway
-per layer larger, sway sign following the S: lean forward low, sweep back high); (3) the tip is one
-straight spike with a broom end: the drawing's tip is a fat cream curl hooking back, down and up into
-a main point plus a second point under the curl: make the tip-tag locks wider (0.04-0.06), fewer (4),
-and bend their run-on past s = 1 (TailBody.surface over-run: add a curl up at the end, not only the
--Z droop); (4) cream flames are chopped into stripes by the locks: make cream S-locks (whole locks
-cream with curled ends) where the atlas flames are, instead of sampling flames across blue locks.
-Tail, back (p_back_tail.png): the drawing's egg is smooth, wide and full with a cream top and blue
-sides with cream flame swirls; the render shows cream strands hanging down the middle, gaps and lock
-tips poking out at the sides: fewer, broader, better overlapped locks (as above), lock tips lifted less
-on the sides (lift 0.01-0.04 -> 0.005-0.02 except the edge locks).
+### 3. Next step: part tasks (one lead + part builders; copy each into a job card)
+The lead first splits the generator into part modules (builder_guide.md section 8 step 1): suggested
+modules: common.py (NT, sweep, smoothstep, bvh_of, set_attr, materials helpers, scale handling), body.py
+(body_clay, cream_field, body_attributes, fur_material, mark images), face.py (EYE_* constants,
+eye_frame, eye_opening, EyeBed, build_eye, build_eyelids, eye_material, brow_frame / brow_marking,
+build_nose, front/side face strokes), ears.py, collar.py (cord, pendant, antlers), tail.py (tail_path,
+TailBody, specs, locks, tail_images, tail_material). Harnesses exist for two of them: work/exp_eye.py
+(rebuilds the eyes on dbg2.blend with constants as JSON variants, renders front + side close-ups) and
+work/exp_tail.py + work/tail_cmp.py (rebuilds the tail on a debug blend, renders kit views 2 and 3 with
+the kit camera, overlap and overlay like cv compare).
 
-### Exactly what changed in the generator (unbuilt; build and check it)
-tools/blender/assetgen/packs/blue_fox_evolution/aethel_fox.py:
-- EYES section rewritten: EYE_A/BT/BB = 0.0135/0.0112/0.0088, EYE_TILT 20, IRIS_C (-0.0028,
-  0.0004), IRIS_R (0.0082, 0.0097); eye_frame (tilt param); eye_opening() (was almond); class
-  EyeBed (ray casts on the finished body mesh, quadratic fit, lens_h = max(fit, face) + 0.4 mm);
-  build_eye(bed, mat) -> objects eye_left / eye_right (dome 1.6 mm, rim 1.2 mm under);
-  build_eyelids(bed, mat) (was build_liner) -> eyelid_upper_*/eyelid_lower_*; build() makes
-  body_bvh = bvh_of(body) after the cream mark and an EyeBed per side.
-- eye_material rewritten (grey iris ellipse, crescent, fibres, limbal ring, pupil, lid shadow,
-  tear duct, two catch lights; no Coat: it does not reach Godot). M_liner renamed M_eyelid.
-- Clay eye seat depth 0.0035 -> 0.0018.
-- Brow markings: decal brow ovals removed; brow_frame(clay, body_bvh) + brow_marking(nt) (Mapping
-  node in object space, X mirrored); BROW_NODES set to the final scale at the end of build().
-- front_strokes: the under-eye arcs replaced by 3 short pale strokes beyond each outer eye corner;
-  side_strokes: the 2 long cheek strokes replaced by 3 short strokes behind the outer corner.
-- TAIL: tail_flicks removed; class TailBody (path, frames, radii, surface(s, angle, rho), past-tip
-  run-on); tail_fur_lock_specs(rng) (5 layers 12/13/12/11/6 + 7 edge locks); build_tail_fur_lock
-  (n 22 x 10 section, attributes fur_t / fur_w / fur_id, UVs on the tail atlas, REPEAT); build_tail
-  = tail_underfur (0.87 radius, 40 around, every 2nd path sample, fur_t 0.12) + locks;
-  tail_material rewritten (root dark / tip light ramp, strand grooves, lock-edge darkening, per-lock
-  tone, AO, bump).
-- Renames: ear_blades -> build_ear_tufts (ear_tuft_*), M_cream_blade -> M_ear_tuft.
-- Budget trims: body quad remesh 18000 -> 16500, cord 300 -> 240 rings.
-Backup of the generator as of the first cycle-2 debug build:
-.scratch/assetgen/work/blue_fox_evolution/aethel_fox/eyes/gen_c2_backup.py (before the last fixes);
-the current generator = snap_gen.py in the work folder.
+TASK A. Part: eyes and eyelids (with the brow markings and the face cream around them).
+- What it is: see Understanding (the eye). Opening faces ~40 deg out, eyeball looks forward.
+- Comparison: as section 2 "Eyes, side / front" and "Face" (b4c_eyes.png; closeup view 2 box 0 .12
+  .25 .38).
+- What needs doing, and why: (1) longer opening wrapping back around the head: EYE_A 0.0135 -> ~0.016
+  with the outer half following the face (the bed already does) so the side eye gets ~1.3 x longer
+  while the front stays (front width is foreshortened); keep EYE_BT/BB 0.0108/0.0084 or lower BB to
+  0.0078 if the side stays too tall (side h/w target 0.5 incl. wing, front 0.75-0.88). (2) Upper eyelid
+  top high and long toward the outer corner (eye_opening's top boost 0.9 -> ~1.3, or move the arch
+  peak outward), wing as a continuation of the top line (front: short, slightly rising; side: long). (3)
+  Lower eyelid thinner (rv2 0.00028+.. -> ~0.0002) and grey-navy (#4b5068), thicker only at the tear
+  duct. (4) Sclera cooler: ramp toward #dcd7d2..#c7c2bd, less duct warmth; check the lid shadow does
+  not tint it. (5) Iris: less covered at the top in front (IRIS_C y +0.0006 or BT up).
+- Reference crops: work/eyes/t_front_eyes.png (ref_view_1 box 127 291 389 553 = 0.12 m, pairs with
+  close.py shot [0,-8,0,-0.205,0.345,0.12]), work/eyes/t_side_eye.png (ref_view_2 80 355 243 518 =
+  0.075 m, pairs with [62,6,0.01,-0.21,0.345,0.075]), magnified: eyes/ref1_eyes.png, ref2_eye.png;
+  cv.py closeup view 2 box 0 .12 .25 .38 (view 1 closeups are framed differently: use close.py).
+- Keep fitting: eye centre X EYE_X 0.0278 (pre-scale; build scales x1.040), Z ~0.327; eyes on the
+  FINISHED body mesh (EyeBed), never on the clay; the clay eye seat follows EYE_X; the stop between the
+  eyes (clay ellipsoid (0, -0.199, 0.326)); brow ovals +-0.0214; budget eyes + eyelids <= 5k tris.
+- Done when: side close-up eye (incl. wing) within 10 % of the crop's length and height, iris in the
+  front corner; front close-up eye height and width within 10 % of the crop, top line high toward the
+  outer corner (no worried slope), thin lower line, sclera within 0.05 brightness of #d2cdc8; no face
+  faces through the eye; the far eye shows only its lash tip beyond the profile in the side view.
 
-### 3. Next step
-1. Making the eye (first priority): apply the eye fixes listed in 2b (spacing, side-view shape and
-   facing, iris further forward, wing, goggle edge, pupil streak, side stroke), then build (kit) the
-   current generator in the background; open the compare and new close-ups;
-   pair each with the target crops (eyes/pair.py) and judge the eyes first (user's priority):
-   the eye: opening 0.027 x 0.020 at front view 60 x 53 px ref; iris toward the nose with white only
-   as a crescent on the outer side; eyelid lines continuous with the wing attached to the face; no
-   face shards over the eye; eye surface level with the eyelids (side view: no goggle rim). If the
-   eye is still too large in the front view, lower EYE_A first (0.0135 -> 0.0125), then EYE_BT.
-2. The tail is fur (user): check in the side and back close-ups that the locks read as soft broad
-   clumps flowing root to tip, overlapping, outline broken into tips, cream tip curling into 2-3
-   points (ref tail: main hook at the end, a second point under the curl, flicks on the crown top
-   edge and the lower right edge). If locks still look like thin ribbons, raise widths again and
-   lower the count; if the underfur shows between locks, raise layer counts or the root rho (0.84).
-   Check the side CV outline: locks may grow the silhouette 3-6 %: scale the underfur / rho.
-   Then the cream pattern: cream flames should be whole cream locks (consider giving locks whose
-   tips sample cream in the atlas a cream body, making cream S-locks with curled ends).
-3. Then the cycle-1 outline items still open: lower the tail top 0.015-0.02 (height 0.527 -> 0.50
-   before the scale), ears 0.01-0.015 higher and further forward, splay ears more for the back view,
-   widen the tail across X (back w/h -15 %).
+TASK B. Part: tail (underfur, guard-hair locks, painted atlas, cream locks, tip).
+- What it is: see Understanding (the tail). The tail is fur: never a shell.
+- Comparison: section 2 "Tail, side / back" (exp/b3_close_2_0.45.png, exp/b3_close_3_0.05.png; fox-only
+  side overlap 0.819 is held mostly by the tail outline; tail test alone exp/t2_cmp.png: 0.825).
+- What needs doing, and why: (1) lower plume: bulge forward at mid height and lose the cuff: raise rf
+  further at tk 0.14-0.25, spread layer-1 roots (s0 0.13-0.22 -> 0.08-0.24) and give layer 0 longer
+  locks reaching past layer 1's roots. (2) Tip: shorter (path end or tip-lock s1), fatter, hooking up at
+  its end (TailBody.surface over-run TAIL_TIP_CURL) with a second smaller point under the curl (one or
+  two short edge locks at s 0.85-0.95 on the +B side). (3) Back view: no cream beard: the tip locks
+  must not hang toward the back camera (raise / shorten them, or curl them up), the cream cap only on
+  the top third; blue sides keep big cream swirl locks. (4) Cream share: side drawing ~40 % cream; check
+  with cv.py sample on the tail box.
+- Reference crops: work/eyes/t_side_tail.png (ref_view_2 560 10 1200 690), work/eyes/ref2_tailgrid.png
+  (pixel grid), ref_view_3 egg; cv.py closeup view 2 box .45 0 1 .6, view 3 box .05 .1 .95 .75.
+- Keep fitting: root on the rump at path start (0, 0.110, 0.199) pre-scale; tail top 0.4806 pre-scale
+  sets the 0.50 m scale (keep within 0.48-0.485 or the whole fox rescales); tail not wider in X (ru)
+  than build 3 (wider shows beside the body in the front view); budget 31-33k tris.
+- Done when: tail-only kit-camera test (exp_tail.py + tail_cmp.py): side overlap >= 0.83, back >= 0.76
+  with no cream below the egg's top third in the middle; tip length within 10 % of the drawing; side
+  plume's widest point at 0.3-0.4 of its height; reads as locks of fur up close.
+
+TASK C. Part: ears and ear tufts.
+- What it is: see Understanding (the ear).
+- Comparison: section 2 "Ears" (back w/h -13 %; side near ear seen edge-on).
+- What needs doing, and why: splay the ears outward (tip X 0.104 -> ~0.115-0.12) for the back view's
+  width; turn the bowl normal f0 = (side*0.45, -1, 0.1) more outward/forward so the side view (az 62)
+  sees the indigo bowl and spiral; broaden the base (~0.055) as the side drawing; keep the front view's
+  ear outline (front overlap must not drop).
+- Reference crops: ref_view_1 top 30 % (ears), ref_view_2 box 0 0 .35 .35 (cv.py closeup view 2 box 0
+  0 .3 .35), ref_view_3 top 35 % (cv.py closeup view 3 box 0 0 1 .35).
+- Keep fitting: ear base on the skull at (+-0.044, -0.155, 0.341) pre-scale, tufts follow ear_shape;
+  ear tip Z ~0.458 (ear tip / tail top 0.95 in the side drawing); ~16.7k tris.
+- Done when: back w/h within 5 % of 0.475 with the ears; side close-up shows the inner bowl and spiral
+  as the crop; front overlap >= 0.75.
+
+TASK D (lead or a 4th builder). Part: body silhouette and the throat cream.
+- What needs doing, and why: side overlay: chest 0.006 back, hind legs / paws 0.01 back, head and back
+  line 0.008 up (cycle 1 measurements, still open); front: narrower cream throat bib (cream_field
+  chest wc 0.046-0.06 -> ~0.035-0.045) with blue neck sides. Re-check the eye bed after any head move.
+- Reference crops: ref_view_2 whole (side), ref_view_1 box .2 .35 .8 .7 (throat / chest).
+- Done when: fox-only side overlap >= 0.85, front >= 0.78, no regression in Tasks A-C.
 
 ### 4. Do not undo
 Overall stance and leg layout; navy lower legs; cream throat / chest V / muzzle; braided cord,
-pendant (bail, bezel, gem), antlers over the shoulders; flank glow markings; tan patch; the eye
-built on the finished body mesh (EyeBed), never on the clay; eyelid lines on top of the eye's edge;
-the tail as underfur + guard-hair locks (not a shell); the 120k budget split.
+pendant (bail, bezel, gem), antlers over the shoulders; flank glow markings; tan patch; the eye built
+on the finished body mesh (EyeBed), lens <= 1 mm over the face, eyelid lines on top of the eye's edge,
+EYE_X 0.0278, iris toward the nose, the long rising wing, the stop between the eyes; the tail as
+underfur + guard-hair locks (not a shell) with whole cream flame locks; tail X width as build 3; the
+120k budget split.
 
 ### 5. Files
 - Reference views: production/qa/evidence/blue_fox_evolution/aethel_fox/aethel_fox_ref_view_{1,2,3}.png
-- Latest kit compare (build 1): .../aethel_fox_compare.png; renders aethel_fox_view_*.png, clay_*.png
-- Target crops: .scratch/assetgen/work/blue_fox_evolution/aethel_fox/eyes/t_front_eyes.png
-  (ref_view_1 box 127 291 389 553 = 0.12 m square at eye height, pairs with close.py shot
-  [0,-8,0,-0.205,0.345,0.12]), t_side_eye.png (ref_view_2 80 355 243 518 = 0.075 m, pairs with
-  [62,6,0.01,-0.21,0.345,0.075]), t_side_tail.png (ref_view_2 560 10 1200 690), ref1_eyes.png,
-  ref2_eye.png (magnified with pixel grid), ref2_tailgrid.png
-- Close-ups: .../work/.../c2/cur_*.png (before this cycle), b2_*.png (first cycle-2 code), b3_*.png
-  (latest code, if the render finished)
-- Scripts: work/dbg2.py (builds snap_gen.py into dbg2.blend, prints TRIS per part; copy the
-  generator to snap_gen.py first), work/close.py (blender -b <blend> --python close.py -- '[[az,el,
-  cx,cy,cz,size],...]' out), eyes/gridcrop.py (pixel-grid crop), eyes/pair.py (ref crop | render),
-  both run with PYTHONPATH=.scratch/pydeps.
+- Latest kit compare (build 3): .../aethel_fox_compare.png; renders aethel_fox_view_*.png, clay_*.png
+- Work folder (.scratch/assetgen/work/blue_fox_evolution/aethel_fox/): snap_gen.py (= generator),
+  dbg2.py -> dbg2.blend (debug build of snap_gen.py), close.py (close-up shots), exp_eye.py (eye
+  variants), exp_tail.py + tail_cmp.py (tail in kit views), clean_cmp.py (fox-only overlap),
+  eyes/ (target crops t_*.png, magnified ref crops, pair.py, gridcrop.py), exp/ (this run's renders:
+  b4c_eyes.png, b3_close_*.png, t2_cmp.png, e1/e2 eye variants). PYTHONPATH=.scratch/pydeps for cv2.
 
 ### 6. Standing rules
 - builder_guide.md (/tmp/claude-0/-home-user-asset-pipeline/2396fed5-5999-5364-b5d1-d9749bebc958/scratchpad/builder_guide.md)
@@ -479,9 +554,17 @@ the tail as underfur + guard-hair locks (not a shell); the 120k budget split.
 - Name every part by what it is, never by its shape or look (builder_guide.md section 2).
 - Multitask: Blender builds and renders in the background while you keep working; independent steps
   together (blender_tools_guide.md section 6).
+- Use all the cores (user): while the 1-minute load in /proc/loadavg is below nproc, start another
+  background Blender job instead of waiting: one process per view or close-up angle, parameter variants
+  side by side, the next part's test while the full build runs; timeout on every run, do not push the
+  load far above nproc, never let two jobs write the same file (blender_tools_guide.md section 6).
+- Builds render as the kit renders them (user): all views, lit and clay, the kit's own samples and
+  resolution, the bake where planned; look at the full compare (cv.py compare) after every build.
 - Compare to the reference often, part by part, after every change, not only at the end of the
   cycle (builder_guide.md section 6).
 - The user doubled the triangle budget to 120,000: spend it on details (body and paws with toes,
   tail locks, ears, antler scrolls, braided cord, eyes, gem).
 - Work in one render cycle per run when the user asks; end with a Handoff as builder_guide.md
   section 7 describes.
+- Lead and part builders (user): the builder that reads this Handoff leads; it runs 2-4 part builders
+  on Sonnet 5.5 at once (builder_guide.md section 8).
