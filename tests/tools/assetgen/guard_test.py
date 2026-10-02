@@ -4,6 +4,9 @@ Run: python3 -m unittest discover -s tests/tools/assetgen -p "*_test.py"
 """
 import io
 import json
+import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -16,6 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import guard  # noqa: E402
 import pack  # noqa: E402
 from pack_test import FILLED_ANALYSIS, png_bytes  # noqa: E402
+
+REPO = Path(__file__).resolve().parents[3]
 
 GENERATOR = "tools/blender/assetgen/packs/demo/thing.py"
 BUILD = f"cd {{root}} && blender -b --factory-startup --python {GENERATOR} -- 2>&1 | grep -E 'BUILT|CV '"
@@ -126,20 +131,38 @@ class GuardTestCase(unittest.TestCase):
         notes.write_text(notes.read_text() + "\n## Cycle 1\nthe body is too wide; narrow it\n")
         self.assertIsNone(self.bash(BUILD))
 
-    def test_a_builder_hands_off_after_its_build_budget_with_one_final_build_allowed(self) -> None:
+    def test_one_render_cycle_per_builder_with_the_final_build_allowed(self) -> None:
+        self.assertEqual(pack.BUILDS_PER_BUILDER, 1)
         notes = self._set_up_object()
         agent = {"agent_id": "agent-1", "agent_type": "asset-builder"}
         for number in range(1, pack.BUILDS_PER_BUILDER + 1):
             self.assertIsNone(self.bash(BUILD, **agent), number)
             self._record_build(number)
-            notes.write_text(notes.read_text() + f"\n## Cycle {number}\nnotes\n")
-        self.assertIn("HANDOFF demo thing", self.bash(BUILD, **agent))
-        self.assertIsNone(self.bash(FINAL, **agent))
+            notes.write_text(notes.read_text() + f"\n## Cycle {number}\nthe rim 8 % too thin\n")
+        reason = self.bash(BUILD, **agent)
+        self.assertIn("one render cycle per builder", reason)
+        self.assertIn("## Handoff", reason)
+        self.assertIn("HANDOFF demo thing", reason)
+        self.assertIsNone(self.bash(FINAL, **agent))  # nothing left worth improving: the final build
         self._record_build(pack.BUILDS_PER_BUILDER + 1)
         notes.write_text(notes.read_text() + f"\n## Cycle {pack.BUILDS_PER_BUILDER + 1}\nfinal\n")
-        self.assertIn("context budget", self.bash(FINAL, **agent))
+        self.assertIn("one render cycle per builder", self.bash(FINAL, **agent))
         self.assertIsNone(self.bash(BUILD, agent_id="agent-2", agent_type="asset-builder"))  # a fresh builder
         self.assertEqual(pack.status(self.root, "demo")[0]["active"], "0m")
+
+    def test_a_build_that_rendered_nothing_does_not_count(self) -> None:
+        notes = self._set_up_object()
+        agent = {"agent_id": "agent-1", "agent_type": "asset-builder"}
+        self.assertIsNone(self.bash(BUILD, **agent))
+        self.assertIsNone(self.bash(BUILD, **agent))  # the first one crashed before it rendered: try again
+        self._record_build(1)
+        notes.write_text(notes.read_text() + "\n## Cycle 1\nthe roof 0.04 lighter\n")
+        self.assertIn("one render cycle per builder", self.bash(BUILD, **agent))
+        self.assertIsNone(self.bash(FINAL, **agent))
+        self.assertIsNone(self.bash(FINAL, **agent))  # the final build crashed too: again
+        self._record_build(2)
+        notes.write_text(notes.read_text() + "\n## Cycle 2\nfinal\n")
+        self.assertIn("one render cycle per builder", self.bash(FINAL, **agent))
 
     def test_builds_are_recognised_however_they_are_written(self) -> None:
         variants = [f"f={GENERATOR} && blender -b --factory-startup --python $f -- 2>&1 | tail",
@@ -220,12 +243,68 @@ class GuardTestCase(unittest.TestCase):
         self.assertTrue((self.root / "production/qa/evidence/demo/keep.txt").exists())
         self.assertIsNone(guard.post(self.root, {"tool_name": "Read", "tool_input": {}}))
 
-    def test_post_points_a_builder_at_its_cv_compare_after_a_build(self) -> None:
+    def test_post_points_a_builder_at_its_cv_compare_and_review_after_a_build(self) -> None:
         self._set_up_object()
         self._record_build(4)
         message = guard.post(self.root, {"tool_name": "Bash", "tool_input": {"command": BUILD.format(root=self.root)}})
         self.assertIn("Build 4 finished", message)
-        self.assertIn("## Cycle 4", message)
+        self.assertIn("review `## Cycle 4`", message)
+        self.assertIn("Handoff", message)
+
+    # ----------------------------------------------------------------------- part builders
+
+    PART = {"agent_id": "part-1", "agent_type": "asset-part-builder"}
+    LEAD = {"agent_id": "lead-1", "agent_type": "asset-builder"}
+
+    def test_a_part_builder_writes_only_its_job_cards_files(self) -> None:
+        card = pack.job_card(self.root, "demo", "thing", "handle")
+        other_card = pack.job_card(self.root, "demo", "thing", "lid")
+        folder = card.parent
+        parts = self.root / "tools/blender/assetgen/packs/demo/thing_parts"
+        reason = self.pre("Write", file_path=str(parts / "handle.py"), _extra=self.PART)
+        self.assertIn("not in your work folder yet", reason)  # its first write goes to its own folder
+        self.assertIsNone(self.pre("Write", file_path=str(folder / "analysis.md"), _extra=self.PART))
+        self.assertIsNone(self.pre("Edit", file_path=str(parts / "handle.py"), _extra=self.PART))
+        self.assertIsNone(self.bash(f"echo 'pass 2: rim thicker' >> {folder.relative_to(self.root)}/log.md", **self.PART))
+        self.assertIsNone(self.pre("Write", file_path="/tmp/scratch.txt", _extra=self.PART))
+        refused = [card, parts / "lid.py", parts / "common.py", self.root / GENERATOR, other_card.parent / "analysis.md",
+                   folder.parent / "harness.py", pack.notes_path(self.root, "demo", "thing"),
+                   self.root / "production/qa/evidence/demo/thing/thing_compare.png"]
+        for path in refused:
+            self.assertIn("job card", self.pre("Write", file_path=str(path), _extra=self.PART) or "", path)
+        self.assertIn("job card", self.bash(f"cp /tmp/draft.py {GENERATOR}", **self.PART))
+        card.write_text(card.read_text().replace("## You may write\n", "## You may write\n- `tools/blender/assetgen/packs/demo/thing_parts/lid.py`\n"))
+        self.assertIsNone(self.pre("Write", file_path=str(parts / "lid.py"), _extra=self.PART))  # the lead added it
+        second = {"agent_id": "part-2", "agent_type": "asset-part-builder"}
+        self.assertIsNone(self.pre("Write", file_path=str(other_card.parent / "analysis.md"), _extra=second))
+        self.assertIsNotNone(self.pre("Write", file_path=str(parts / "handle.py"), _extra=second))
+        for path in (card, parts / "common.py", self.root / GENERATOR):  # the lead is held to no card
+            self.assertIsNone(self.pre("Write", file_path=str(path), _extra=self.LEAD), path)
+        state = json.loads((self.root / pack.AGENTS_DIR / "part-1.json").read_text())
+        self.assertEqual((state["pack"], state["id"], state["part"]), ("demo", "thing", "handle"))
+
+    def test_a_part_builder_runs_blender_only_on_the_harness(self) -> None:
+        self._set_up_object()
+        harness = ".scratch/assetgen/work/demo/thing/parts/harness.py"
+        allowed = [f"timeout 900 blender -b --factory-startup --python {harness} -- --part handle 2>&1 | tail -20",
+                   "cd .scratch/assetgen/work/demo/thing/parts && xvfb-run -a blender -b base.blend --python=harness.py",
+                   "blender --version", "grep -n blender .scratch/assetgen/work/demo/thing/parts/handle/log.md",
+                   "python3 tools/assetgen/pack.py kit-api | grep lathe", "python3 tools/assetgen/pack.py status demo",
+                   "python3 tools/assetgen/cv.py sample demo thing --view 1 --box 0 0 1 1"]
+        for command in allowed:
+            self.assertIsNone(self.bash(command, **self.PART), command)
+        refused = [BUILD, FINAL, f"f={GENERATOR} && timeout 900 blender -b --python $f --",
+                   "blender -b --python tools/other.py", "blender -b base.blend --python-expr 'import bpy'",
+                   "blender -b --python .scratch/assetgen/work/other/thing/parts/harness.py",
+                   f"blender -b --python {harness} --python-expr 'import bpy'"]
+        for command in refused:
+            self.assertIn("test harness", self.bash(command, **self.PART) or "", command)
+        for command in ("python3 tools/assetgen/pack.py done demo thing",
+                        "cd tools/assetgen && python3 pack.py budget demo thing 900 --why more", "git commit -am x"):
+            self.assertIsNotNone(self.bash(command, **self.PART), command)
+        self.assertIsNone(self.bash(BUILD, **self.LEAD))  # the lead builds the whole
+        pack.run_end(self.root)
+        self.assertIsNone(self.bash(BUILD, **self.PART))  # nothing is checked outside a run
 
     def test_the_hook_entry_point_exits_2_with_the_reason(self) -> None:
         data = json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push"}, "cwd": str(self.root)})
@@ -249,36 +328,50 @@ class GuardTestCase(unittest.TestCase):
         self.assertFalse(any("/.data/" in rel for rel in files))
 
 
-class CriticGuardTestCase(unittest.TestCase):
+@unittest.skipUnless(shutil.which("bash") and shutil.which("jq"), "the builder hooks need bash and jq")
+class BuilderHookScriptsTestCase(unittest.TestCase):
+    """.claude/hooks/builder-tools-context.sh (SubagentStart) and builder-tools-hint.sh (PostToolUse)."""
+
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
-        self.root = Path(self._tmp.name)
-        (self.root / pack.RUN_LOCK).parent.mkdir(parents=True)
-        (self.root / pack.RUN_LOCK).write_text(json.dumps({"pack": "demo"}))
+        self.root = Path(self._tmp.name).resolve()
+        shutil.copytree(REPO / pack.GUIDES_DIR, self.root / pack.GUIDES_DIR)
 
     def tearDown(self) -> None:
         self._tmp.cleanup()
 
-    def _call(self, tool: str, tool_input: dict, agent_type: str = "asset-critic") -> str | None:
-        return guard.pre(self.root, {"tool_name": tool, "tool_input": tool_input, "cwd": str(self.root),
-                                     "agent_type": agent_type, "agent_id": "critic-1"})
+    def run_hook(self, name: str, data: dict) -> str:
+        result = subprocess.run(["bash", str(REPO / ".claude" / "hooks" / name)], input=json.dumps(data),
+                                capture_output=True, text=True, timeout=30, check=True,
+                                env={**os.environ, "CLAUDE_PROJECT_DIR": str(self.root)})
+        return result.stdout
 
-    def test_the_critic_writes_only_its_review(self) -> None:
-        review = self.root / "production/qa/evidence/demo/thing/thing_review_1.md"
-        self.assertIsNone(self._call("Write", {"file_path": str(review)}))
-        notes = self.root / "production/qa/evidence/demo/thing/thing_notes.md"
-        self.assertIn("critic only looks", self._call("Write", {"file_path": str(notes)}))
-        other = self.root / "production/qa/evidence/other/thing/thing_review_1.md"
-        self.assertIn("critic only looks", self._call("Write", {"file_path": str(other)}))
-        self.assertIn("critic only looks", self._call("Bash", {"command": f"echo x > {notes}"}))
-        self.assertIsNone(self._call("Bash", {"command": f"cat > {review} <<'EOF'\nACCEPT demo thing\nEOF"}))
+    def test_every_builder_gets_the_guides_and_the_tools_table(self) -> None:
+        guides = self.root / pack.GUIDES_DIR
+        lead = json.loads(self.run_hook("builder-tools-context.sh", {"agent_type": "asset-builder"}))
+        context = lead["hookSpecificOutput"]["additionalContext"]
+        self.assertEqual(lead["hookSpecificOutput"]["hookEventName"], "SubagentStart")
+        for text in (str(guides / "builder_guide.md"), str(guides / "blender_tools_guide.md"), "Handoff",
+                     "asset-part-builder", "| Job | First choice | Also |"):
+            self.assertIn(text, context)
+        part = json.loads(self.run_hook("builder-tools-context.sh", {"agent_type": "asset-part-builder"}))
+        context = part["hookSpecificOutput"]["additionalContext"]
+        for text in (str(guides / "part_builder_guide.md"), "job card", "| Job | First choice | Also |"):
+            self.assertIn(text, context)
+        log = (self.root / ".scratch" / "assetgen" / "hooks.log").read_text()
+        self.assertIn("SubagentStart agent=asset-builder", log)
+        self.assertIn("SubagentStart agent=asset-part-builder", log)
 
-    def test_the_critic_never_starts_blender(self) -> None:
-        command = "blender -b --factory-startup --python tools/blender/assetgen/packs/demo/thing.py"
-        self.assertIn("critic only looks", self._call("Bash", {"command": command}))
-        self.assertIn("critic only looks", self._call("Bash", {"command": "cd /tmp && /usr/local/bin/blender --version"}))
-        self.assertIsNone(self._call("Bash", {"command": "python3 tools/assetgen/cv.py closeup demo thing --view 1 --box 0 0 1 1"}))
-        self.assertIsNone(self._call("Bash", {"command": "grep blender notes.md"}, agent_type="asset-builder"))
+    def test_a_failed_blender_run_gets_a_hint_and_anything_else_nothing(self) -> None:
+        guide = self.root / pack.GUIDES_DIR / "blender_tools_guide.md"
+        failed = {"tool_name": "Bash", "tool_response": {"stdout": "RuntimeError: Operator bpy.ops.mesh.set_edge_flow.poll() "
+                                                                   "failed, context is incorrect", "stderr": ""}}
+        hint = json.loads(self.run_hook("builder-tools-hint.sh", failed))["hookSpecificOutput"]
+        self.assertEqual(hint["hookEventName"], "PostToolUse")
+        self.assertIn(str(guide), hint["additionalContext"])
+        missing = {"tool_name": "Bash", "tool_response": {"stdout": "", "stderr": "ModuleNotFoundError: No module named 'bl_ext"}}
+        self.assertIn("kit.enable_addon", self.run_hook("builder-tools-hint.sh", missing))
+        self.assertEqual(self.run_hook("builder-tools-hint.sh", {"tool_name": "Bash", "tool_response": {"stdout": "BUILT ok"}}), "")
 
 
 if __name__ == "__main__":

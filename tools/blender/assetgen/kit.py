@@ -514,8 +514,8 @@ def _blendkit_material(mat_name: str, asset_base_id: str) -> bpy.types.Material:
 def mark(obj: bpy.types.Object, field: Callable[[Vector], float], mat: bpy.types.Material) -> int:
     """Give ``mat`` to the part of ``obj``'s surface where ``field`` (a function of a world-space
     point) is below zero, with the edge cut into the mesh exactly where the field crosses zero,
-    so a marking (a face mask, a belly patch, a stripe, a ring) has as smooth an edge as its field,
-    at any mesh density. A ragged edge comes from a field with noise in it
+    so a marking (a painted stripe, a label, a band of rust, a patch of moss, a ring) has as smooth
+    an edge as its field, at any mesh density. A ragged edge comes from a field with noise in it
     (``mathutils.noise.noise(point * scale)``). Returns the number of faces marked.
 
     Call it on the finished shape, before adding modifiers that change the surface. For a soft
@@ -557,7 +557,7 @@ def mark(obj: bpy.types.Object, field: Callable[[Vector], float], mat: bpy.types
 def attribute(obj: bpy.types.Object, name: str, field: Callable[[Vector], float]) -> None:
     """Store ``field`` (a function of a world-space point, any float) per vertex as the float
     attribute ``name``; a shader reads it with an Attribute node (``attribute_name = name``) as a
-    soft mask: where one material blends into another, colour zones, wear, dirt, fur direction.
+    soft mask: where one material blends into another, colour zones, wear, dirt, grain or strand direction.
     It survives joining and is baked with the shader."""
     to_world = obj.matrix_world
     values = [float(field(to_world @ vertex.co)) for vertex in obj.data.vertices]

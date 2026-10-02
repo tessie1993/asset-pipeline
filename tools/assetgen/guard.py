@@ -6,19 +6,24 @@
   they happen (Write/Edit, file-changing shell commands, git); after every tool call any pipeline
   file that changed anyway is restored from the snapshot ``run-start`` took, and any new file
   outside the pack's folders is moved to ``.scratch/assetgen/quarantine/``.
-- **Builders set up, then measure every build**: a Blender build of a pack generator is refused
+- **Builders set up, then review every build**: a Blender build of a pack generator is refused
   until the object's views, CV measurements, skills, budget and notes analysis exist, and again
-  until the CV compare of the previous build is written up in the notes.
-- **Context budget**: a builder makes at most ``BUILDS_PER_BUILDER`` cycle builds (plus one final
-  build); then it hands off through its notes and a fresh builder continues.
+  until the previous build has its CV compare and the builder's own review (``## Cycle <n>``) in
+  the notes.
+- **One render cycle per builder**: a builder makes ``BUILDS_PER_BUILDER`` cycle build (plus the
+  final build); a build that rendered nothing does not count. Then it hands off through the
+  ``## Handoff`` in its notes and a fresh builder continues.
+- **A part builder does its job card and nothing else**: an ``asset-part-builder`` agent writes only
+  in its job card's folder (``.scratch/assetgen/work/<pack>/<id>/parts/<part>/``, which its first
+  write binds it to; never ``job.md``) and the paths the card lists under **You may write**; it runs
+  Blender only on scripts in the lead's harness folder (``.../<id>/parts/``), never the kit's full
+  build of the generator, and runs only the ``pack.py`` commands that read.
 - **No bias added to Flow, no credits spent behind the user's back**: Google Flow's Grid
   Architect is set up only with the exact arguments ``pack.py flow-call`` prints (its prompts, the
   source image as the only reference); Flow's automatic image generation is refused, so only the
   user's own click in Flow generates (and spends credits).
 - **ImageSorcery stays in the evidence**: its tools take and write files only in the run pack's
   evidence folders and ``.scratch`` (its find and detect write masks next to their input).
-- **The critic only looks**: an ``asset-critic`` agent never starts Blender and writes nothing but
-  its review file (``production/qa/evidence/<pack>/<id>/<id>_review_<n>.md``).
 
 The hook scripts in ``.claude/hooks/`` run it; during a run they run the copy in the snapshot, so
 editing this file cannot switch the checks off::
@@ -54,9 +59,20 @@ WRITE_TOOLS = ("Write", "Edit", "MultiEdit", "NotebookEdit")
 FLOW_SETUP = pack.FLOW_TOOL
 FLOW_GENERATE = f"mcp__{pack.FLOW_SERVER}__flow_generate_image"
 SORCERY_TOOLS = "mcp__imagesorcery__"  # ImageSorcery MCP (plugins/imagesorcery/install.sh)
-CRITIC = "asset-critic"
-REVIEW_FILE = re.compile(r"^production/qa/evidence/([a-z][a-z0-9_]*)/([a-z][a-z0-9_]*)/\2_review_[0-9]+\.md$")
-RUNS_BLENDER = re.compile(r"(^|[\s;&|(/])blender(\s|$)")
+PART_BUILDER = "asset-part-builder"
+_WORK = re.escape(pack.WORK_DIR.as_posix())
+# The lead's test harness folder (.scratch/assetgen/work/<pack>/<id>/parts/) and, in it, one folder per
+# part job: the job card's folder, which is the part builder's own work folder.
+HARNESS_AREA = re.compile(rf"^{_WORK}/([a-z][a-z0-9_]*)/([a-z][a-z0-9_]*)/parts/")
+JOB_FOLDER = re.compile(rf"^({_WORK}/([a-z][a-z0-9_]*)/([a-z][a-z0-9_]*)/parts/([a-z][a-z0-9_]*))(?:/|$)")
+JOB_CARD = "job.md"
+# What may stand before ``blender`` on a command line, and what may follow it, in a Blender run.
+BLENDER_WRAPPERS = {"xvfb-run", "nice", "ionice", "taskset", "stdbuf", "timeout", "chrt"}
+BLENDER_ARGS = re.compile(r"^(-b|--background|-P|--python.*|--factory-startup|-noaudio|--version|-v|--help|-h|"
+                          r"-y|--enable-autoexec|-Y|--disable-autoexec|-t|--threads|-d|--debug.*|--log.*|.*\.blend)$")
+BLENDER_INFO = {"--version", "-v", "--help", "-h"}
+# The pack.py commands a part builder may run: they read the pack, never change it.
+PART_BUILDER_PACK_COMMANDS = {"kit-api", "skills-list", "material-search", "status", "--help", "-h"}
 
 GIT_CHANGE = re.compile(r"\bgit\b(\s+-C\s+\S+)?(\s+-c\s+\S+)*\s+(commit|push|add|rm|mv|merge|rebase|reset|checkout|"
                         r"switch|restore|stash|cherry-pick|revert|apply|am|tag|pull|clean|update-index|"
@@ -385,8 +401,10 @@ def _agent_state_path(root: Path, agent_id: str) -> Path:
 
 def gate_build(root: Path, state: dict, pack_name: str, object_id: str, command: str, data: dict,
                final: bool = False) -> str | None:
-    """Refuse a Blender build until the builder's set-up is complete and the previous build's CV
-    compare is written up; cap each builder's builds (context budget). None allows the build."""
+    """Refuse a Blender build until the builder's set-up is complete and the previous build has its
+    CV compare and the builder's review; one render cycle per builder (``BUILDS_PER_BUILDER`` cycle
+    builds plus the final build; an allowed build that rendered nothing is not counted). None allows
+    the build."""
     if pack_name != state["pack"]:
         return f"Refused: the run in progress is pack {state['pack']}; {pack_name} is not being built now."
     try:
@@ -426,20 +444,30 @@ def gate_build(root: Path, state: dict, pack_name: str, object_id: str, command:
                     "if it fails, report the exact error.")
         written_now = f"## Cycle {number}" in command and notes.name in command  # this command writes it first
         if not pack.has_cycle(text, number) and not written_now:
-            return (f"Refused: write `## Cycle {number}` in {notes} first: what the CV lines and the compare image "
-                    f"of build {number} show — what matches and why, what differs and why (its cause in the model), "
-                    "and the fix for each. Then build again.")
+            return (f"Refused: write your review `## Cycle {number}` in {notes} first: what the CV lines, the compare "
+                    f"image and your close-ups of build {number} show, per part and per view: what matches, what "
+                    "differs (measured) and why (why the reference looks like that, why the build differs), and the "
+                    "ranked list of what needs improving. Then build again.")
     agent_id = data.get("agent_id")
     if agent_id:
         path = _agent_state_path(root, agent_id)
         counts = pack.read_json(path) or {"pack": pack_name, "id": object_id, "builds": 0, "final_builds": 0}
+        number = build["build"] if build else 0
+        if counts.get("last_kind") and counts.get("seen_build") == number:
+            counts[counts.pop("last_kind")] -= 1  # the last allowed build rendered nothing: it does not count
         if counts["builds"] >= pack.BUILDS_PER_BUILDER and (not final or counts["final_builds"] >= 1):
-            return (f"Refused: context budget reached ({counts['builds']} builds by this builder). Do not build again. "
-                    f"Write `## Handoff` at the end of {notes}: what is right now (keep it), what is still wrong and "
-                    "why, the next fixes in order, and what worked (skills, tools, settings). Then end with the first "
-                    f"line `HANDOFF {pack_name} {object_id}`: a fresh builder continues from your notes.")
-        counts["builds" if not final or counts["builds"] < pack.BUILDS_PER_BUILDER else "final_builds"] += 1
-        counts.update(pack=pack_name, id=object_id, last_build_at=_now(), agent_type=data.get("agent_type"))
+            return (f"Refused: one render cycle per builder, and this builder's is done ({counts['builds']} cycle build"
+                    f"{'s' if counts['builds'] != 1 else ''}"
+                    f"{', and the final build' if counts['final_builds'] else ''}). Do not build again. Make sure your "
+                    f"review `## Cycle <n>` is in {notes}, then write the `## Handoff` at its end as builder_guide.md "
+                    "section 7 says (understanding, part inventory, comparison, needs improving, the next step as part "
+                    "tasks, do not undo, files to look at, standing rules), replacing the previous one, and end with "
+                    f"the first line `HANDOFF {pack_name} {object_id}`: a fresh builder continues from the Handoff. "
+                    "When your review found nothing worth improving, make the final build (`-- --final`) instead.")
+        kind = "builds" if not final or counts["builds"] < pack.BUILDS_PER_BUILDER else "final_builds"
+        counts[kind] += 1
+        counts.update(pack=pack_name, id=object_id, last_build_at=_now(), agent_type=data.get("agent_type"),
+                      last_kind=kind, seen_build=number)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(counts) + "\n", encoding="utf-8")
     return None
@@ -488,26 +516,117 @@ def check_sorcery(root: Path, state: dict, args: dict) -> str | None:
     return None
 
 
-def _review_file(rel: str | None, pack_name: str) -> bool:
-    match = REVIEW_FILE.match(rel or "")
-    return bool(match) and match.group(1) == pack_name
+def blender_runs(command: str, cwd: Path) -> list[tuple[list[str], Path]]:
+    """``(arguments after blender, directory)`` for every command of ``command`` that starts
+    Blender, directly or under a wrapper such as ``timeout`` or ``xvfb-run`` (``grep blender x``
+    does not start it)."""
+    found = []
+    for args, _, here in _commands(command, cwd):
+        for index, arg in enumerate(args):
+            if os.path.basename(arg) != "blender":
+                continue
+            following = args[index + 1] if index + 1 < len(args) else ""
+            if index == 0 or os.path.basename(args[0]) in BLENDER_WRAPPERS or BLENDER_ARGS.match(following):
+                found.append((args[index + 1:], here))
+                break
+    return found
 
 
-def check_critic(root: Path, state: dict, tool: str, args: dict, cwd: Path) -> str | None:
-    """The critic only looks: no Blender, no file but its review."""
-    only = (f"Refused: the critic only looks. It never starts Blender and writes nothing but its review file "
-            f"(production/qa/evidence/{state['pack']}/<id>/<id>_review_<n>.md); the CV tools it runs write their own images.")
+def _scripts(rest: list[str]) -> list[str]:
+    scripts = []
+    for index, arg in enumerate(rest):
+        if arg in ("--python", "-P") and index + 1 < len(rest):
+            scripts.append(rest[index + 1])
+        elif arg.startswith("--python="):
+            scripts.append(arg.split("=", 1)[1])
+    return scripts
+
+
+def job_folder(rel: str | None) -> str | None:
+    """The job card folder (``.scratch/assetgen/work/<pack>/<id>/parts/<part>``) ``rel`` lies in."""
+    match = JOB_FOLDER.match(rel or "")
+    return match.group(1) if match else None
+
+
+def may_write(root: Path, folder: str) -> list[str]:
+    """The repository paths the job card in ``folder`` lists under **You may write** (in backticks;
+    a folder ends with ``/``)."""
+    try:
+        text = (root / folder / JOB_CARD).read_text(encoding="utf-8")
+    except OSError:
+        return []
+    body = pack.section(re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL), "You may write", level=2) or ""
+    paths = []
+    for token in re.findall(r"`([^`\n]+)`", body):
+        rel = _rel(root, token.strip().rstrip("/"))
+        if rel:
+            paths.append(rel + ("/" if token.strip().endswith("/") else ""))
+    return paths
+
+
+def _part_builder_message(state: dict, what: str) -> str:
+    return (f"Refused: {what} A part builder does exactly its job card: it writes only in its job card's folder "
+            f"(.scratch/assetgen/work/{state['pack']}/<id>/parts/<part>/, never job.md) and the paths the card lists "
+            "under **You may write**, runs Blender only on the lead's test harness (the job card's Test command), "
+            "never the kit's full build, and never changes the pack. If the job needs more, say so in your report.")
+
+
+def part_builder_write(root: Path, state: dict, rel: str, data: dict) -> str | None:
+    """Why the part builder may not change the repository path ``rel`` (None when it may). Its first
+    write into a job card's folder binds it to that folder and card."""
+    path = _agent_state_path(root, data["agent_id"]) if data.get("agent_id") else None
+    bound = (pack.read_json(path) if path else None) or {}
+    folder = bound.get("job")
+    if folder is None:
+        folder = job_folder(rel)
+        match = JOB_FOLDER.match(folder or "")
+        if not match or match.group(2) != state["pack"] or not (root / folder / JOB_CARD).is_file():
+            return _part_builder_message(state, f"{rel} is not in your work folder yet. Write analysis.md in your "
+                                                "job card's folder first (part_builder_guide.md step 1).")
+        if path is not None:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"agent_type": PART_BUILDER, "pack": match.group(2), "id": match.group(3),
+                                        "part": match.group(4), "job": folder, "bound_at": _now()}) + "\n",
+                            encoding="utf-8")
+    if rel == f"{folder}/{JOB_CARD}":
+        return _part_builder_message(state, f"{rel} is the lead's job card.")
+    if _inside(rel, folder):
+        return None
+    for allowed in may_write(root, folder):
+        if rel == allowed.rstrip("/") or (allowed.endswith("/") and _inside(rel, allowed.rstrip("/"))):
+            return None
+    return _part_builder_message(state, f"{rel} is not on your job card's list ({folder}/{JOB_CARD}, You may write).")
+
+
+def check_part_builder(root: Path, state: dict, tool: str, args: dict, cwd: Path, data: dict) -> str | None:
+    """A part builder's call: its job card's files only, Blender only on the harness, pack.py only to read."""
     if tool in WRITE_TOOLS:
-        path = args.get("file_path") or args.get("notebook_path") or ""
-        return None if _review_file(_rel(root, path), state["pack"]) else only
-    if tool == "Bash":
-        command = args.get("command", "")
-        if RUNS_BLENDER.search(HEREDOC.sub("", command)):
-            return only
-        for _, path in changed_paths(command, cwd):
-            rel = _rel(root, path)
-            if rel is not None and not _review_file(rel, state["pack"]) and not _inside(rel, ".scratch"):
-                return only
+        rel = _rel(root, args.get("file_path") or args.get("notebook_path") or "")
+        return part_builder_write(root, state, rel, data) if rel else None
+    if tool != "Bash":
+        return None
+    command = args.get("command", "")
+    for _, path in changed_paths(command, cwd):
+        rel = _rel(root, path)
+        reason = part_builder_write(root, state, rel, data) if rel else None
+        if reason:
+            return reason
+    for rest, here in blender_runs(command, cwd):
+        if not rest or set(rest) <= BLENDER_INFO:
+            continue
+        scripts = [_rel(root, script, here) for script in _scripts(rest)]
+        harness = [HARNESS_AREA.match(rel or "") for rel in scripts]
+        if (not scripts or any(arg.startswith("--python-") for arg in rest)
+                or not all(match and match.group(1) == state["pack"] for match in harness)):
+            return _part_builder_message(state, "Blender runs only on the lead's test harness (a --python script in "
+                                                f".scratch/assetgen/work/{state['pack']}/<id>/parts/).")
+    for argv, _, _ in _commands(command, cwd):
+        tool_index = next((i for i, arg in enumerate(argv) if os.path.basename(arg) == "pack.py"), None)
+        if tool_index is None or not os.path.basename(argv[0]).startswith("python"):
+            continue
+        sub = argv[tool_index + 1] if tool_index + 1 < len(argv) else ""
+        if sub not in PART_BUILDER_PACK_COMMANDS:
+            return _part_builder_message(state, f"`pack.py {sub}` changes the pack; that is the lead's.")
     return None
 
 
@@ -518,8 +637,8 @@ def pre(root: Path, data: dict) -> str | None:
         return None
     tool = data.get("tool_name", "")
     args = data.get("tool_input") or {}
-    if data.get("agent_type") == CRITIC:
-        reason = check_critic(root, state, tool, args, Path(data.get("cwd") or root))
+    if data.get("agent_type") == PART_BUILDER:
+        reason = check_part_builder(root, state, tool, args, Path(data.get("cwd") or root), data)
         if reason:
             return reason
     if tool in WRITE_TOOLS:
@@ -569,8 +688,10 @@ def post(root: Path, data: dict) -> str | None:
             evidence = pack.evidence_dir(root, pack_name, object_id)
             messages.append(f"Build {number} finished. Read its CV lines, open {evidence / (object_id + '_compare.png')} "
                             f"(renders, reference, outline overlay per view), and open a survey "
-                            f"({object_id}_cv_survey_<view>.png) only for views whose CV lines list differences. Then write "
-                            f"`## Cycle {number}` in your notes; the next build is refused until you do.")
+                            f"({object_id}_cv_survey_<view>.png) for views whose CV lines list differences. Then compare "
+                            f"part by part (cv.py closeup, every view) and write your review `## Cycle {number}` in your "
+                            "notes (what matches, what differs and why, what needs improving, ranked), then the Handoff; "
+                            "the next build is refused until the review is there.")
     return "\n".join(messages) or None
 
 

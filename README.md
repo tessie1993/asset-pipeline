@@ -3,15 +3,17 @@
 Image in, assets out. Give Claude Code an image and run `/image-to-assets <image> [<pack name>]
 [skip flow]`: you pick which objects in it become 3D models and in which art style, and you get
 one detailed, Godot-ready `.glb` per object (mid to high poly, every detail modelled, real
-materials and shaders baked into textures), reviewed by a critic and by you, checked in Godot and
-delivered as one zip.
+materials and shaders baked into textures), built one render cycle at a time by builders that
+compare their own work with the reference, reviewed by you, checked in Godot and delivered as one
+zip.
 
 It began as the pipeline of [tessie1993/nokepom](https://github.com/tessie1993/nokepom) as it was
 before prep agents were added (commit `4e138ba`, the first commit of nokepom PR 36) and was then
 made fully generic: no example pack, no style written into the reference prompts, no fixed sizes or
 view angles, and the builder reads its reference directly. It also carries the skills and tools of
-nokepom's later pull requests (the `blender-image-to-3d` skill, the fresh-context critic, the Blender
-5.2 notes, the Godot check script, `kit.mark`, cgbookcase textures), without their prep agents.
+nokepom's later pull requests (the `blender-image-to-3d` skill, the Blender 5.2 notes, the Godot
+check script, `kit.mark`, cgbookcase textures), without their prep agents. (A separate fresh-context
+reviewing agent it once had was replaced by builders that review their own builds every cycle.)
 
 ## How it works
 
@@ -23,35 +25,50 @@ nokepom's later pull requests (the `blender-image-to-3d` skill, the fresh-contex
    shot per side), you look at the set-up and click Generate in Flow yourself (it uses your Flow
    credits) and give the downloaded images back. With `skip flow`, your own image(s) are the
    reference as they are.
-3. **One builder agent per object, in parallel** (`asset-builder`, the strongest model at high
-   effort). Before it may build it records every view in every reference image, measures them, looks
-   at them magnified (`cv.py observe`, `closeup`, `sample`: details, imperfections, colour and
-   material variation), reads the Blender skills that fit and writes an analysis: every part,
-   every surface's material and its variation, every detail and nuance.
-4. **Build → compare → write-up, every cycle.** Mid-to-high-poly models: sculpted signed-distance
-   clay, quad remeshing, subdivision, bevels, booleans, geometry nodes; real materials from Poly
-   Haven, ambientCG, cgbookcase and Blendkit plus procedural, layered shaders with masks. Each
-   build runs structure checks, renders every recorded view lit and in clay and compares them with
-   the reference (outline, proportions, colours, colour zones). The next build waits until the
-   builder has written down what the compare showed and what it fixes.
-5. **Baked for Godot.** The final build bakes every shader into one material (base colour, ORM,
+3. **Builders per object, in parallel, one render cycle each** (`asset-builder`, the strongest
+   model at high effort). Before the first build, the first builder records every view in every
+   reference image, measures them, looks at them magnified (`cv.py observe`, `closeup`, `sample`:
+   details, imperfections, colour and material variation), reads the Blender skills that fit and
+   writes an analysis: every part, every surface's material and its variation, every detail and
+   nuance.
+4. **Build → compare → review → Handoff, every cycle.** Each builder does one render cycle: the
+   next step, one full build (structure checks, every recorded view rendered lit and in clay, the
+   CV compare with the reference), then its own comparison part by part and view by view, and its
+   review in its notes: what matches, what differs (measured) and why, and a ranked list of what
+   needs improving. That list becomes the next step of the **Handoff** it writes for the next
+   builder, who gets only the Handoff, the reference views and the latest compare
+   (`pack.py brief`). The builders are their own reviewers: a builder ends with `DONE` when its
+   review finds nothing worth improving (or the standard 8 cycles are used up).
+5. **Lead and part builders.** The builder that reads a Handoff leads the cycle: it splits the
+   generator into part modules, makes a test harness, writes one job card per independent part task
+   and runs 2 to 4 part builders (`asset-part-builder`) at once, each doing exactly one job and
+   reporting; it judges every part against the reference itself, integrates and makes the cycle's
+   one full build. Builders run Blender in the background and keep the CPU cores busy. Guides for
+   both are in `.claude/skills/image-to-assets/references/`.
+6. **Baked for Godot.** The final build bakes every shader into one material (base colour, ORM,
    normal, emission) on one UV atlas, so what renders in Blender is what Godot shows. No flat
-   colours, and the reference image is never projected onto a model.
-6. **A critic reviews** each finished object with fresh eyes (`asset-critic`): every expectation
-   PASS/FAIL from a named view, fixes as measurements; up to 3 rounds of fixes.
+   colours, and the reference image is never projected onto a model. Models are mid to high poly:
+   sculpted signed-distance clay, quad remeshing, subdivision, bevels, booleans, geometry nodes;
+   real materials from Poly Haven, ambientCG, cgbookcase and Blendkit plus procedural, layered
+   shaders with masks.
 7. **You review**, Godot imports each accepted model and screenshots it from the same views, and
    you get the zip: per object the `.glb`, its baked textures and its renders.
 8. **Nothing of the run is left to steer the next one.** `pack.py finish` keeps the models, textures
-   and renders and deletes the rest: the builders' notes, the critic's reviews and every other .md,
-   the generators and helper scripts, the CV images and the build logs. You choose whether the
-   outputs stay in the repository.
+   and renders and deletes the rest: the builders' notes with their reviews and Handoffs and every
+   other .md, the generators with their part modules and helper scripts, the job cards and test
+   harnesses, the CV images and the build logs. You choose whether the outputs stay in the
+   repository.
+9. **Optionally, one cloud machine per object**: each runs its own builders on its own branch and
+   pushes after every Handoff; your session merges and runs your review (see the skill).
 
 ## Hooks: how the run is held together
 
 | Hook | When | What it does |
 |---|---|---|
-| `assetgen-guard.sh pre` | before Bash, Write, Edit and the Google Flow tools, during a run | Refuses changes outside the run pack's folders, git changes, a Blender build before the builder's set-up is complete or before the last build's CV compare is written up, a builder's build past its context budget (it hands off), a critic starting Blender or writing anything but its review, any Flow set-up that is not exactly `pack.py flow-call` (no bias added; your image the only reference), and Flow generating on its own (only your click spends credits) |
-| `assetgen-guard.sh post` | after Bash, Write, Edit, during a run | Restores any pipeline file that changed anyway from the run-start snapshot, moves stray files to `.scratch/assetgen/quarantine/`, and after a build points the builder at its CV compare |
+| `assetgen-guard.sh pre` | before Bash, Write, Edit and the Google Flow tools, during a run | Refuses changes outside the run pack's folders, git changes, a Blender build before the builder's set-up is complete or before the last build's CV compare and the builder's review are in its notes, a second cycle build by the same builder (one render cycle per builder: it hands off), a part builder writing anything but its job card's files or running Blender on anything but the lead's test harness, any Flow set-up that is not exactly `pack.py flow-call` (no bias added; your image the only reference), and Flow generating on its own (only your click spends credits) |
+| `assetgen-guard.sh post` | after Bash, Write, Edit, during a run | Restores any pipeline file that changed anyway from the run-start snapshot, moves stray files to `.scratch/assetgen/quarantine/`, and after a build points the builder at its CV compare and review |
+| `builder-tools-context.sh` | when an `asset-builder` or `asset-part-builder` starts | Hands it the guides and the Blender tools table (which tool or add-on for which job), and the method: understand, observe, compare, review, multitask; logs to `.scratch/assetgen/hooks.log` |
+| `builder-tools-hint.sh` | after Bash | When a Blender run fails because an operator needs the UI or an add-on is not enabled, points at the headless alternative in the tools guide |
 | `install-tools.sh` | session start (cloud) | Installs Blender 5.2.2 with its add-ons, Instant Meshes and xatlas, Godot 4.7.2, the CV libraries and ImageSorcery in the background, then the BlendKit add-on into Blender |
 
 The guard logic is `tools/assetgen/guard.py`; during a run the hooks run its snapshot copy, so
@@ -59,22 +76,26 @@ editing the pipeline cannot switch them off. They do nothing outside a run.
 
 ## Quality first, then context and speed
 
-- **Quality**: builders and critics run on the strongest model at high effort; 8 build cycles per
-  object by default; up to 3 critic rounds; renders at 768 px (1280 px final) in lit and clay.
-- **Context**: after 5 builds (`BUILDS_PER_BUILDER`, plus one final build) a builder writes a
-  handoff in its notes and a fresh builder continues from them, so no context fills up with every
-  earlier cycle; builders fetch their own brief (a one-line spawn prompt) and `pack.py status` has
-  a `next` column per object, so a run resumes after a compaction or in a new session.
-- **Speed**: a cycle build takes seconds to a minute (quick `--views N` checks in between); the
-  bake and the turnaround only in the final build; builders run in parallel (one per two CPU
-  cores); downloads are cached and shared.
+- **Quality**: lead builders run on the strongest model at high effort, part builders on a fast
+  model, each with one clear job; 8 build cycles per object by default; every cycle's build renders
+  every view at 768 px (1280 px final) in lit and clay, never reduced; every builder reviews its own
+  build part by part and explains each difference before it fixes it.
+- **Context**: one render cycle per builder (`BUILDS_PER_BUILDER`, plus the final build); its
+  Handoff is all the next builder reads, so no context fills up with earlier cycles; builders fetch
+  their own brief (a one-line spawn prompt) and `pack.py status` has a `next` column per object, so
+  a run resumes after a compaction or in a new session.
+- **Speed**: part builders work on independent parts at the same time, with a harness that
+  rebuilds and renders one part; Blender runs in the background while the builders keep working,
+  with the load kept near the number of cores; the bake and the turnaround only in the final build;
+  objects build in parallel (one per two CPU cores); downloads are cached and shared.
 
 ## Layout
 
 | Path | What it is |
 |---|---|
 | `.claude/skills/image-to-assets/SKILL.md` | The orchestrator's steps |
-| `.claude/agents/asset-builder.md`, `asset-critic.md` | The builder and the critic |
+| `.claude/skills/image-to-assets/references/` | The builders' guides: `builder_guide.md` (understand, observe, compare, review, Handoff, lead and part builders), `part_builder_guide.md`, `blender_tools_guide.md` |
+| `.claude/agents/asset-builder.md`, `asset-part-builder.md` | The (lead) builder and the part builder |
 | `.claude/hooks/`, `.claude/settings.json` | The hooks above |
 | `.claude/skills/blender-image-to-3d/`, `.claude/skills/scenario-blender-*/` | The Blender skills builders use (method, sculpting, hard surface, texturing, UVs and baking, retopology, geometry nodes, hair, expert notes) |
 | `.claude/skills/` (the other 16) | Skills from nokepom's pipeline (camera videos, product shots, Meshy AI image-to-3D, Blender GUI tools): `disable-model-invocation: true`, so they run only when you call them, and builders never see them |
@@ -83,7 +104,7 @@ editing the pipeline cannot switch them off. They do nothing outside a run.
 | `tools/assetgen/pack.py` | The pack manifest and every bookkeeping step (`pack.py --help`) |
 | `tools/assetgen/cv.py` | CV tools: `views`, `grid`, `measure`, `observe`, `sample`, `compare`, `closeup` |
 | `tools/assetgen/guard.py` | The hooks' logic |
-| `tools/assetgen/templates/` | Flow theme and shot prompts, builder brief, builder notes, critic brief |
+| `tools/assetgen/templates/` | Flow theme and shot prompts, the first-cycle builder brief, the Handoff brief, builder notes (review and Handoff format), the part builders' job card |
 | `tools/flow/install_flow_mcp.sh` | Installs the Google Flow MCP server (pinned) and registers it as `google-flow` |
 | `tools/assetgen/downloads.py` | Cached, size-checked downloads (textures, HDRIs, thumbnails, Blendkit) |
 | `tools/blender/assetgen/kit.py`, `README.md` | The builders' Blender kit and its contract |
