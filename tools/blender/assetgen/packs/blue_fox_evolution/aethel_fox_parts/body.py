@@ -33,9 +33,15 @@ def leg_defs():
 
 HEAD = {   # (centre, radii) ellipsoids and (a, b, ra, rb) cones of the head clay, before the 0.50 m scale
     "neck": ([(0, -0.106, 0.205), (0, -0.131, 0.262), (0, -0.137, 0.301)], [0.044, 0.037, 0.033]),   # was top (0,-0.147,0.313) r 0.037: filled under the jaw
-    "cranium": ((0, -0.152, 0.340), (0.055, 0.051, 0.050)),   # crown 0.390, rounder (was (0,-0.154,0.334) r (0.062,0.052,0.042))
+    # cycle 7 (user: "Make cheeks less puffy. More fox face"): the braincase lower, flatter and set back
+    # (crown 0.379, was 0.390; its sides behind the forehead so they no longer bulge out round in front of the
+    # ears: the side drawing's skull is a compact wedge behind the stop); was ((0,-0.152,0.340), (0.055,0.051,0.050))
+    "cranium": ((0, -0.143, 0.337), (0.054, 0.046, 0.042)),
     "brow": ((0, -0.176, 0.334), (0.040, 0.030, 0.024)),       # as built before cycle 4 (taller bulged over the eye bed)
-    "cheek": ((0.038, -0.170, 0.311), (0.032, 0.030, 0.021)),  # was (0.04,-0.172,0.305) r (0.035,0.034,0.029): jowls
+    # cheekbone: the flat side of a fox's face, from under the ear down to the cheek ruff, behind the eye's
+    # outer corner: thin front to back so it reads as a plane facing forward-out, not a round cheek ball
+    # (cycle 7; was the puffy cheek ((0.038,-0.170,0.311), (0.032,0.030,0.021)) bulging forward under the eye)
+    "cheekbone": ((0.038, -0.168, 0.316), (0.024, 0.014, 0.020)),
     # (centre, radii) along the snout: a narrow bridge on top (it runs between the eyes' inner corners, which
     # sit on the snout's upper edge) over a broad, deep lower part that tapers to the nose: in section a
     # trapezoid, wide below, so the wedge is broad at the cheeks without bulging under the eyes
@@ -48,12 +54,37 @@ HEAD = {   # (centre, radii) ellipsoids and (a, b, ra, rb) cones of the head cla
 }
 
 
-CHEEK_FUR = [   # (root, tip, root radius, tip radius) of the +X cheek ruff's two soft points
-    ((0.042, -0.150, 0.303), (0.079, -0.129, 0.291), 0.0135, 0.0045),   # lower, longer point (mouth height)
-    ((0.044, -0.143, 0.311), (0.071, -0.121, 0.307), 0.0115, 0.0040),   # upper point, shorter, behind it
+CHEEK_FUR = [   # (root, tip, root radius, tip radius) of the +X cheek ruff's two fur wedges
+    # cycle 7 (user: "Make cheeks less puffy. More fox face"): a fox's face from the front is a downward
+    # triangle whose top corners are the cheek ruff: fur that flares from the side of the face just under the
+    # ear and the eye out to two points between the eye and the nose (front drawing, measured on the full-
+    # resolution crop with the irises aligned: upper point ~13 mm, lower ~21 mm under the iris; side drawing:
+    # 9-17 mm under the eye, at the back of the cheek; kept a little wider than the iris-scaled drawing, whose
+    # eyes sit further apart, so the flare reads at the build's proportions). Each is a
+    # broad-rooted cone flattened front to back (CHEEK_FLAT), so from the front its edges run straight from
+    # the face to the point (the triangle) and the cheek reads as a flat fur plane, never a round ball
+    # (was lower (0.042,-0.150,0.303)->(0.079,-0.129,0.291) r 0.0135, upper (0.044,-0.143,0.311)->
+    # (0.071,-0.121,0.307) r 0.0115: small horns at the mouth's height under round cheek balls)
+    ((0.034, -0.172, 0.296), (0.071, -0.146, 0.3050), 0.017, 0.0026),   # lower wedge: its underside runs in to the jaw
+    ((0.040, -0.165, 0.330), (0.076, -0.142, 0.3180), 0.019, 0.0024),   # upper wedge: from under the ear to the outer point
 ]
-CHEEK_BLEND = 0.010
+CHEEK_FLAT = 1.3      # flattening of the cheek ruff wedges across their axis (horizontal, forward-outward)
+CHEEK_BLEND = 0.010   # the wedges' roots overlap (no notch at the roots), the two points stay apart
 LEG_JOINT_BLEND = 0.004   # smooth blend between a leg's segments (was 0: a crease at every joint)
+
+
+def flat_across(prim, a, b, k):
+    """The primitive squeezed k times thinner across the axis a -> b, along the horizontal direction
+    perpendicular to it, about the plane through a (distance scaled to stay conservative): a fur wedge that
+    is broad seen from the front and thin seen from above, its length kept."""
+    d = np.array([b[0] - a[0], b[1] - a[1], 0.0])
+    n = np.array([-d[1], d[0], 0.0]) / np.linalg.norm(d)
+    c = np.asarray(a, float)
+
+    def fn(x, y, z):
+        t = (x - c[0]) * n[0] + (y - c[1]) * n[1]
+        return prim.fn(x + (k - 1) * t * n[0], y + (k - 1) * t * n[1], z) / k
+    return S.Prim(fn, prim.lo - 0.01, prim.hi + 0.01)
 
 
 def body_clay():
@@ -74,8 +105,10 @@ def body_clay():
     clay.add(T(*HEAD["neck"]), blend=0.022)   # neck: joins the skull behind the jaw, so the throat stays under the jaw's rear
     hd = HEAD
     clay.add(E(*hd["cranium"]), blend=0.02)      # cranium: rounder and higher (front: the forehead rises well above the brows)
+    if "crown" in hd:   # the flat top of the braincase between the ears (cycle 7)
+        clay.add(E(*hd["crown"]), blend=0.014)
     clay.add(E(*hd["brow"]), blend=0.015)        # brow / frontal plane
-    clay.add(E(*hd["cheek"]), blend=0.016, mirror=True)   # cheeks: under the eyes, not hanging jowls
+    clay.add(E(*hd["cheekbone"]), blend=0.016, mirror=True)   # cheekbones: flat sides of the face (cycle 7)
     # snout: a fox's wedge, broad and deep where it meets the cheeks under the eyes, wider than tall, tapering
     # evenly to the small nose, its bridge a straight slope from below the eyes (user, cycle 4: "snout too
     # narrow, make a more fox shaped snout"); then the lower jaw under it and the soft rounded chin
@@ -102,7 +135,8 @@ def body_clay():
     # needle cones read as torn, blocky spikes)
     for s in (1, -1):
         for a, b, r1, r2 in CHEEK_FUR:
-            clay.add(C((s * a[0], a[1], a[2]), (s * b[0], b[1], b[2]), r1, r2), blend=CHEEK_BLEND)
+            a_, b_ = (s * a[0], a[1], a[2]), (s * b[0], b[1], b[2])
+            clay.add(flat_across(C(a_, b_, r1, r2), a_, b_, CHEEK_FLAT), blend=CHEEK_BLEND)
     # (no nape locks, elbow tufts, belly fringe, chest-side ruff locks or chest spikes: the drawings paint
     # that fur as strokes on smooth forms; as geometry they were spikes on the chest and belly. The chest
     # is the smooth ruff mound above; its cream bib ends in a painted V (cream_field). Cycle 6, user:
@@ -333,8 +367,11 @@ def smin(*v, k=None):
     return -smax(*[-a for a in v], k=k)
 
 
+# cycle 7: the cream 4-5 mm higher under the eyes and up to the cheek ruff's points (front and side drawings:
+# a thin blue band under the eye, the lower cheeks and the ruff cream); was 0.307/0.313/0.313/0.307/0.298/0.286/0.273
 HEAD_ZB = smooth_profile([-0.25, -0.225, -0.205, -0.185, -0.165, -0.145, -0.125, -0.105, -0.09],
-                         [0.295, 0.299, 0.307, 0.313, 0.313, 0.307, 0.298, 0.286, 0.273])
+                         [0.295, 0.299, 0.310, 0.317, 0.318, 0.317, 0.307, 0.292, 0.276])
+HEAD_ZB_OUTER = 0.004   # outer cheeks: cream a little higher toward the eye's outer corner (was 0.006)
 CHEST_YB = smooth_profile([0.10, 0.13, 0.16, 0.20, 0.24, 0.28, 0.30], [-0.157, -0.147, -0.136, -0.124, -0.115, -0.105, -0.10])
 CHEST_WC = smooth_profile([0.104, 0.115, 0.14, 0.18, 0.22, 0.26, 0.29, 0.30], THROAT_WC, sigma=0.25)
 # the belly's cream top in the side view: one smooth line from behind the elbow, rising a little with
@@ -348,7 +385,7 @@ def cream_field(p):
     nz = CREAM_NOISE[0] * noise.noise(Vector((x * 90, y * 90, z * 90))) + CREAM_NOISE[1] * noise.noise(Vector((x * 260, y * 260, z * 260)))
     # head: below a line from the nose under the eye back to the cheek tufts
     zb = HEAD_ZB(y)
-    zb += 0.006 * float(smoothstep(abs(x), 0.036, 0.056))      # outer cheeks: cream up to the eye's outer corner
+    zb += HEAD_ZB_OUTER * float(smoothstep(abs(x), 0.036, 0.056))      # outer cheeks: cream up to the eye's outer corner
     # the head's cream stops at the jaw: under the cheeks only the front of the jaw is cream, the sides of
     # the neck stay blue (front and side drawings); the throat strip comes from the chest part below
     below = min(1.0, max(0.0, (HEAD_CREAM_Z - z) / 0.004))

@@ -275,10 +275,91 @@ Needs improving (ranked by how much it hurts what each part is):
 5. Back-view cream beard (accept what the side view forces).
 
 
+## Cycle 7
+Lead cycle for the user's request after build 6: "Make cheeks less puffy. More fox face" (replaces "keep the
+approved head" for the face shape; eyes, nose, smile, brow markings, colours and everything below the neck kept),
+plus the Handoff's cheek-ruff notch. No Agent tool in this session again, so no Sonnet part builders: the lead
+did the head itself, with a new head-only test harness (part_tools/headtest.py: the body clay cut to the head at
+1.6 mm voxels with the real fur materials, eyes, eyelids, nose, mouth and ears, Cycles 12 samples, front / 3-4 /
+side / profile, lit and clay, ~3 min a run) running two variants side by side (h0-h9), then one full-pipeline
+check with harness.py --part full (c7f1, shots_head7.json) and the kit build 7. The tail tasks A and B of the
+cycle-6 Handoff were not started (the user's task this cycle was the face); they carry forward unchanged.
+Measuring (no masks): full-resolution crops r_front_head.png / r_side_head.png against build renders aligned by
+anchors read by eye on both images (align.py: the two iris centres in front, the eye's inner corner and wing
+tip in the side view; reference | aligned render | 50 % blend on one grid; cycle7/al_front_b6.png,
+al_side_b6.png, al_front_h6.png).
+What made build 6 a hamster (cycle7/before_b6_head_*.png, al_front_b6.png):
+- Cheeks: one ellipsoid per side at (0.038, -0.170, 0.311) r (0.032, 0.030, 0.021) reaching forward to Y -0.200
+  under the eye and out to X 0.070: a round ball that shades as a sphere from every view and bulges under the eye
+  in profile (before_b6_head_profile_clay.png). A fox's cheek is a flat plane of short fur.
+- Cheek ruff: two small cones from behind the jaw at mouth height (tips Z 0.291 / 0.307, X 0.079 / 0.071) hanging
+  off the bottom of the cheek balls; aligned on the irises the reference's points sit ~23 mm higher (front:
+  upper point ~13 mm, lower ~21 mm under the iris, at the nose's height) and they are the face's widest corners.
+- Cranium: a near-sphere (0, -0.152, 0.340) r (0.055, 0.051, 0.050), crown 0.390, its sides bulging in front of the
+  ears' bases: from the front a round dome over the face.
+Build 7 changes (body.py only; the face parts and everything below the neck untouched):
+- HEAD["cheek"] (the ball) replaced by HEAD["cheekbone"] (0.038, -0.168, 0.316) r (0.024, 0.014, 0.020): thin front
+  to back, behind the eye's outer corner, the flat side of the face.
+- CHEEK_FUR: two broad fur wedges per side, each a round cone with a big root flattened 1.3x across its axis
+  (new flat_across(); CHEEK_FLAT 1.3), so from the front its edges run straight from the face to the point:
+  upper (0.040, -0.165, 0.330) r 0.019 -> (0.076, -0.142, 0.318) r 0.0024 from just under the ear; lower
+  (0.034, -0.172, 0.296) r 0.017 -> (0.071, -0.146, 0.305) r 0.0026, its underside running in to the jaw.
+  CHEEK_BLEND 0.010 with the roots overlapping (no notch at the roots; the two points stay apart).
+- HEAD["cranium"] (0, -0.143, 0.337) r (0.054, 0.046, 0.042): crown 0.379 (was 0.390), set back so its sides no
+  longer bulge round in front of the ears.
+- Cream: HEAD_ZB 3-5 mm higher under the eyes and toward the ruff (0.310 / 0.317 / 0.318 / 0.317 / 0.307 / 0.292 /
+  0.276 at Y -0.205 ... -0.09), HEAD_ZB_OUTER 0.004 (was 0.006): a thin blue band under each eye, the lower cheeks
+  and the ruff points cream, the blue coming down the sides of the face to the upper point.
+- Variants tried and rejected: a wide flat cranium (h1: the head became a round bell), cheek ruff pointing back
+  (h3, h4: thin side spikes behind the face), ruff points 9 mm narrower to the iris-scaled drawing (h7: the
+  flare vanished; the build's eyes sit closer together than the drawing's, so iris scaling under-sizes the
+  head), a flat crown plate (h9: a cap with a ridge).
+CV build 7: overlap front 0.75, side 0.53, back 0.76 (build 6: 0.75, 0.54, 0.76); w/h +8 %, -6 %, -12 %.
+CHECK clean (16 degenerate faces, mirror 0.0052). 115,138 tris. 0.223 x 0.612 x 0.500 m.
+Close-ups: cycle7/ba7_head_<front|34|side|profile>.png = reference | build 6 lit | cycle 7 lit | build 6 clay |
+cycle 7 clay (harness ortho shots of the real pipeline); before_b6_* / after_c7_* singles; s_front8.png
+(head-test variants beside the reference); kit close-ups aethel_fox_cv_closeup_1.png (front head box 0.05 0
+0.95 0.32) and _2.png (side head box 0 0 0.32 0.45).
+Matches (keep):
+- Front (ba7_head_front): the face is now widest at the cheek ruff between the eye and the nose and tapers below
+  it in to the jaw and the small chin: a downward triangle with two fur points at each upper corner, as in
+  r_front_head.png; the cheeks are flat cream planes, no balls; the muzzle stands clear of the cheeks (cream on
+  the muzzle and lower cheeks, the blue bridge running to the nose, blue down the sides of the face).
+- Three-quarter (ba7_head_34): a lean fox head; the cheek plane turns cleanly into the side of the face; the ruff
+  points read at the back of the cheek.
+- Side and profile (ba7_head_side, ba7_head_profile): no bulge under the eye; the snout reads as one wedge from the
+  stop to the nose over a shallow jaw; the ruff sits at the back of the cheek, 1-2 cm under the eye, as drawn.
+- Eyes, nose, smiling mouth, brow markings, colours: unchanged; everything below the neck unchanged.
+Differs (measured, with why):
+1. Cheek ruff, side view (aethel_fox_cv_closeup_2): the drawing's two points stick out behind the jaw against the
+   background (the back of the head and neck behind them is ~1.5 cm further forward than the build's); in the
+   build they lie on the neck and read only as a small ledge. Why: the build's nape and the near ear are further
+   back relative to the eye (side alignment on the eye: ear and back of skull ~2.4 cm projected further back), so
+   the points end inside the silhouette.
+2. Skull length, side view: eye to ear and back of skull longer than the side drawing's compact wedge (same cause
+   as 1; the front drawing agrees with the build's crown height, the side drawing wants it ~1-2 cm lower: views
+   disagree).
+3. Forehead from the front: still a smooth rounded dome between the ears (the drawing's ears grow from the top
+   corners of a broad flat forehead; the build's ear bases sit behind and outside the cranium). Why: ear placement
+   (ear_shape base (0.044, -0.155, 0.341)), approved; a flat crown plate made a cap (h9).
+4. Front: the nose and mouth sit ~5 mm (projected) higher under the eyes than in the front drawing; the side
+   drawing agrees with the build (views disagree; nose and mouth approved).
+5. Tail (unchanged this cycle, as cycle 6): cream reads as jagged blotches; outline an egg, not the drawing's S;
+   tip ragged; back-view cream beard.
+Needs improving (ranked by how much it hurts what each part is):
+1. Tail cream flames: smooth S-bands with curled ends and a smooth cream cap (TASK A of cycle 6, unchanged).
+2. Tail profile toward the drawing's S and one clean curling tip (TASK B of cycle 6, unchanged).
+3. Cheek ruff points in the side view: 3-5 mm longer and pointing a little more down-back, so they show behind the
+   jaw (judge with head_side / head_34 beside r_side_head.png; keep the front triangle).
+4. Skull behind the eyes a little shorter (nape (0, -0.118, 0.304) forward / smaller), only if the ears still sit
+   on the head; ears stay approved.
+5. Back-view cream beard (accept what the side view forces).
+
 ## Handoff
-State: build 6 is the last kit build (CV, compare, renders in the evidence folder); the generator
-(aethel_fox.py + aethel_fox_parts/) is exactly what build 6 built. Builds so far 6 of the standard 8. Cycle 6 in
-the notes holds the details of the smoothing pass (root causes and every changed value).
+State: build 7 is the last kit build (CV, compare, renders in the evidence folder); the generator
+(aethel_fox.py + aethel_fox_parts/) is exactly what build 7 built. Builds so far 7 of the standard 8: the next
+build is the final one (`-- --final`). Cycle 7 holds the fox-face pass (what made build 6 a hamster, every changed
+value, rejected variants); cycle 6 the smoothing pass.
 
 ### 1. Understanding
 - What it is: Aethel Fox, phase-2 evolution of a stylised blue fox (anime / painted game art: soft
@@ -310,6 +391,14 @@ the notes holds the details of the smoothing pass (root causes and every changed
   a cyan/cream spiral painted on and cream fur tufts at its base; it stands from the skull and turns
   its bowl forward-outward. The ear tuft (cycle 6) is a soft fan of 5 domed cream locks laid on the bowl
   surface (bowl_point), roots overlapping, rounded points.
+- The head (cycle 7, user: "Make cheeks less puffy. More fox face"): a fox's skull is a compact wedge: braincase
+  behind the stop, a narrow muzzle from the stop to the nose, a shallow lower jaw, cheekbones that are flat planes.
+  From the front the face is a downward triangle: widest at the cheek ruff (short fur flaring from the side of the
+  face under the ear and the eye to two soft points between the eye and the nose), tapering along the jaw to a
+  small chin; never round cheek balls. Built as SDF clay: cranium (set back, crown 0.379), brow, stop, thin
+  cheekbone plates, the snout and jaw ellipsoids (approved), two broad-rooted fur wedges per side (CHEEK_FUR, cones
+  flattened across their axis by flat_across, CHEEK_FLAT 1.3); cream on the muzzle, lower cheeks and ruff
+  (HEAD_ZB), blue bridge to the nose and blue down the sides of the face.
 - The body surface: one smooth furred skin; fur flicks the drawing paints at the bib edge, elbows and belly
   are strokes on smooth forms, never geometry (cycle 6: the spike cones were removed; Taubin relax after the
   remesh, the face and toes held; cream regions cut on smooth fields).
@@ -322,38 +411,35 @@ aethel_fox_parts/: common.py (helpers, EYE_X, dark_material), body.py (clay, che
 marking images, fur shaders, brow marking, cream_field from smooth profiles, body_attributes, relax_surface),
 face.py (eyes, eyelids, nose, mouth), ears.py (ears, ear tufts, bowl_point), collar.py (cord, pendant, antlers with
 rounded tips), tail.py (TAIL_CTRL spline, TAIL_LAYERS, TAIL_EDGE_LOCKS, TAIL_EDGE_SINK, atlas).
-body (torso, neck, head, muzzle, stop, legs, paws with toes, cheek ruff, chest with brisket: SDF clay -> quad
+body (torso, neck, head: cranium, brow, cheekbones, muzzle, stop, jaw; legs, paws with toes, cheek ruff wedges, chest with brisket: SDF clay -> quad
 remesh 16,500 -> Taubin relax); ears + ear tufts (5 domed locks per ear); eyes; eyelids; brow markings (shader);
 nose; mouth; cord (3 strands); bail; bezel + plate; gem; antlers (beam, tines, scroll curls, drops); tail
-(tail_underfur + 42 locks). Triangles build 6: 115,018 of 120,000 (tail ~24.7k, was 31.4k: room for detail).
+(tail_underfur + 42 locks). Triangles build 7: 115,138 of 120,000 (tail ~24.7k, was 31.4k: room for detail).
 
-### 2. Comparison (build 6)
-CV overlap front 0.75, side 0.54 (kit box holds the small back-view fox), back 0.76; w/h +8 %, -6 %, -12 % (as
-build 5). CHECK clean (16 degenerate faces, mirror 0.0051). 115,018 tris. 0.223 x 0.612 x 0.500 m.
-Close-ups in evidence cycle6/: ba_<shot>.png = build 5 clay | build 6 clay | build 5 lit | build 6 lit (harness
-ortho shots: chest_low, belly_side, chest_front, full_front / side / 34 / back, head_front / side / 34,
-tail_side, tail_back), k6_close_<part>.png = reference | build 6 (cv.py closeup), c6_legs_side.png.
-- Chest and belly (ba_chest_low = low angle, ba_belly_side = side, ba_full_34 = three-quarter, ba_chest_front):
-  smooth and continuous, no spikes; cream bib edge a clean curve with a rounded V low between the front legs;
-  belly cream line one smooth curve rising to the stifle.
-- Head (ba_head_*): unchanged from the approved build 5 (relax weight 0 on the face); cheek ruff a smooth
-  two-point flare; a small notch between its points shows in the side clay (ba_head_34).
-- Ears: tufts a soft fan of rounded cream locks (k6_close_head beside the side drawing's 4-lock fan).
-- Tail geometry (ba_tail_side, ba_tail_back, aethel_fox_clay_2.png): one smooth plume of broad flowing locks, no
-  dark slits or shelves; the tip ends in 3-4 small ragged points.
-- Tail colour (k6_close_tail, ba_tail_back lit): cream reads as jagged blotches and torn patches; the drawing
-  paints broad smooth S-bands with curled ends and a smooth cream cap. Back view cream area x2.38 of the
-  drawing's, top-centre +0.21 lighter (the cream tip 'beard', side vs back drawing conflict).
-- Tail outline, side (compare.png overlay): an egg; the drawing an S (narrow root, concave lower front, mass
-  high and back): extra in front of the lower plume, missing behind the top.
-- Legs and paws (c6_legs_side.png): smooth joints and paws.
+### 2. Comparison (build 7)
+CV overlap front 0.75, side 0.53 (kit box holds the small back-view fox), back 0.76; w/h +8 %, -6 %, -12 % (as
+build 6). CHECK clean (16 degenerate faces, mirror 0.0052). 115,138 tris. 0.223 x 0.612 x 0.500 m.
+Head close-ups in evidence cycle7/: ba7_head_<front|34|side|profile>.png = reference | build 6 lit | cycle 7 lit |
+build 6 clay | cycle 7 clay; aligned overlays al_front_b6.png, al_side_b6.png, al_front_h6.png (reference |
+render scaled on anchors read by eye | 50 % blend); s_front8.png (head-test variants); kit close-ups
+aethel_fox_cv_closeup_1.png (front head) and _2.png (side head).
+- Head, front: a downward triangle widest at the two-point cheek ruff between eye and nose, tapering to the chin;
+  flat cream cheek planes; muzzle clear of the cheeks; blue bridge to the nose; blue down the sides of the face.
+  The forehead is still a smooth dome between the ears (ear bases behind the cranium); nose and mouth ~5 mm
+  (projected) higher under the eyes than the front drawing (the side drawing agrees with the build).
+- Head, 3-4 / side / profile: lean wedge head, no bulge under the eye, shallow jaw; the ruff points at the back of
+  the cheek read only as a small ledge in the side view (the drawing's stick out behind the jaw; the build's nape
+  and near ear sit ~2 cm further back relative to the eye, so the points end inside the silhouette).
+- Body, chest, belly, legs, collar, ears: unchanged from build 6 (smooth, as approved).
+- Tail (unchanged since build 6): geometry one smooth plume of broad flowing locks; cream reads as jagged blotches
+  and torn patches (the drawing paints broad smooth S-bands with curled ends and a smooth cream cap; back view
+  cream area x2.33); side outline an egg, the drawing an S; tip ends in 3-4 small ragged points.
 
 ### 3. Needs improving (ranked)
-1. Tail cream pattern: smooth S-band flames with curled ends inside blue and a smooth cream cap (the lit tail
-   still looks ragged though its geometry is smooth).
-2. Tail profile toward the drawing's S.
-3. Tail tip: one clean curling point.
-4. Cheek ruff notch (side clay).
+1. Tail cream pattern: smooth S-band flames with curled ends inside blue and a smooth cream cap.
+2. Tail profile toward the drawing's S; tail tip one clean curling point.
+3. Cheek ruff points in the side view: 3-5 mm longer, a little more down-back, showing behind the jaw.
+4. Skull behind the eyes a little shorter (nape), ears kept.
 5. Back-view cream beard (accept what the side view forces).
 
 ### 4. Next step: part tasks (one lead + part builders; copy each into a job card)
@@ -366,7 +452,8 @@ shots_ears2.json`, `--part full --out NAME --shots shots_smooth.json --clay --th
 `PYTHONPATH=.scratch/pydeps python3 $P/cmp.py NAME [--outdir DIR] --box V X0 Y0 X1 Y1` from the repo root. Use
 fresh output names. Never kill harness jobs with `pkill -f "harness.py"` from a command line that itself
 contains that text (it kills its own shell). If the session has an Agent tool, give TASK A and TASK B to
-Sonnet part builders (this session had none; part_tools/job_ears_cycle6.md shows a filled job card).
+Sonnet part builders (cycles 6 and 7 had none; part_tools/job_ears_cycle6.md shows a filled job card). TASK A and
+TASK B both write tail.py (one part builder, or B after A); TASK C writes body.py and can run beside them.
 
 TASK A. Part: tail colour (tail.py: tail_images, TAIL_CREAM_W, TAIL_ZONE_U0, TAIL_FLAMES, TAIL_LOCK_CREAM).
 - What it is: see Understanding (the tail). The cream flames are painted on the fur: in the side drawing
@@ -394,13 +481,23 @@ TASK B. Part: tail shape (tail.py: TAIL_CTRL, TAIL_RB / TAIL_RF / TAIL_RU, the l
 - Done when: the side overlay loses the extra in front of the lower plume, the tip is one clean point, the clay
   stays smooth. TASK A and TASK B both write tail.py: one part builder, or B after A.
 
-TASK C (lead). Cheek ruff notch: CHEEK_BLEND 0.010 -> ~0.013 or the upper point 3 mm shorter; judge in the
-head_34 and head_side clay shots against r_side_head.png; the face must stay identical (relax weight).
-Then the cycle's kit build, compare, review and Handoff. If the review finds nothing worth improving, the next
-build is the final one (--final).
+TASK C (lead or a third part builder). Part: cheek ruff (body.py CHEEK_FUR, CHEEK_FLAT, CHEEK_BLEND; the nape is
+the `clay.add(E((0, -0.118, 0.304), ...))  # nape` line in body_clay).
+- What it is: see Understanding (the head): short cheek fur flaring from the side of the face to two soft points.
+- Why: in the side view the points end inside the silhouette (aethel_fox_cv_closeup_2.png, ba7_head_side.png);
+  the drawing's stick out behind the jaw.
+- Do: tips 3-5 mm further out-back-down (e.g. upper -> (0.078, -0.137, 0.316), lower -> (0.073, -0.140, 0.302)),
+  optionally the nape ellipsoid (0, -0.118, 0.304) r 0.038 2-4 mm smaller at the back; test with
+  part_tools/headtest.py (two variants side by side, `--set body.CHEEK_FUR=[...]`, `--exec 'B.HEAD[...]=...'`),
+  then harness.py --part full --shots shots_head7.json; sheet.py / ba7.py / align.py for the comparison.
+- Keep: the front triangle (ba7_head_front cycle 7), the flat cheek planes, the eyes, nose, mouth, cream layout.
+- Done when: head_side and head_34 show two soft points behind the jaw as in r_side_head.png, front unchanged.
+Then the final kit build (`-- --final`, build 8 of 8), its review, the report, pack.py done.
 
 ### 5. Do not undo
-Everything the user approved in build 5: head (wedge snout, triangular nose, smiling mouth, chin), eyes (EyeBed,
+Cycle 7's fox face: no cheek balls (HEAD["cheekbone"] thin plates), the two-wedge cheek ruff at the nose's height
+(CHEEK_FUR, flat_across, CHEEK_FLAT 1.3, CHEEK_BLEND 0.010), cranium set back with crown 0.379, the raised cream
+line HEAD_ZB / HEAD_ZB_OUTER. Everything the user approved in build 5: snout (wedge), triangular nose, smiling mouth, chin, eyes (EyeBed,
 EYE_X 0.0278, lens <= 1 mm over the face, eyelid lines, cycle 4 eye shape), brow markings, overall proportions,
 stance and leg layout, colours and markings (navy lower legs, cream throat / bib / muzzle, flank glow, tan
 patch), braided cord, pendant, antlers, ears (shape, tips, colours). Cycle 6's smoothing: no spike cones in the
@@ -413,10 +510,13 @@ and drop tips. The tail stays fur (locks), never a shell. The 120k budget; the p
 ### 6. Files
 - Reference views: production/qa/evidence/blue_fox_evolution/aethel_fox/aethel_fox_ref_view_{1,2,3}.png; source
   design/asset-packs/blue_fox_evolution/source.jpg (4096 px).
-- Latest kit compare (build 6): .../aethel_fox_compare.png; renders aethel_fox_view_*.png, aethel_fox_clay_*.png.
+- Latest kit compare (build 7): .../aethel_fox_compare.png; renders aethel_fox_view_*.png, aethel_fox_clay_*.png.
+- Cycle 7 head close-ups: .../cycle7/ (ba7_head_*.png, before_b6_head_*.png, after_c7_head_*.png, al_*.png,
+  s_front8.png). Head test tools in part_tools/: headtest.py (head-only clay test), align.py (anchor-aligned
+  reference | render | blend), sheet.py, ba7.py, zoom.py (gridded magnifier), shots_head7.json.
 - Cycle 6 close-ups: .../cycle6/ (ba_*.png build 5 vs build 6, clay and lit; k6_close_*.png reference | build 6;
   c6_legs_side.png).
-- Part tools: .../part_tools/ (harness.py with --outdir and the scale fix, cmp.py, shots_smooth.json,
+- Part tools: .../part_tools/ (headtest.py, align.py, sheet.py, ba7.py, zoom.py, shots_head7.json; harness.py with --outdir and the scale fix, cmp.py, shots_smooth.json,
   shots_tail2.json, shots_ears2.json, shots*.json, full-resolution reference crops r_*.png and t_*.png,
   job_ears_cycle6.md).
 - Generator: tools/blender/assetgen/packs/blue_fox_evolution/aethel_fox.py + aethel_fox_parts/*.py.
@@ -482,6 +582,13 @@ and drop tips. The tail stays fur (locks), never a shell. The 120k budget; the p
   intent (what the form is), not for its exact pixels. Clean up torn or ragged geometry (chest bib edge, cheek
   tufts, tail lock edges and gaps, ear tufts, paws, voxel lumps). Keep the approved head (Cycle 5: wedge snout,
   triangular nose, smiling mouth) and the overall design.
+- User (after build 6): "Make cheeks less puffy. More fox face". This replaces "keep the approved head" for
+  the face shape (keep the eyes, nose, smile, markings and colours). Front view: the face is a downward-pointing
+  triangle, widest at the cheekbones under the eyes, tapering along the jaw to a small chin; the cheeks are
+  flat planes with only small fur points at the sides, never round balls. A clear muzzle runs from the stop
+  between the eyes to the nose, narrower than the cheeks, with the cream on the muzzle and lower cheeks and the
+  blue coming down the sides of the face. The forehead is broad and flat. Profile: long wedge snout, shallow
+  jaw. Judge it as a fox, from the front, three-quarter and profile.
 - Lead and part builders (user): the builder that reads this Handoff leads; it runs 2-4 part builders
   on Sonnet 5.5 at once (builder_guide.md section 8).
 - User (cycle 6, relayed by the coordinator): "Remove spikes in belly". On build 5 the underside of the chest and

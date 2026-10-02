@@ -1,7 +1,7 @@
 {
- "build": 6,
+ "build": 7,
  "final": false,
- "at": "2026-10-02T08:41:56+00:00",
+ "at": "2026-10-02T09:22:09+00:00",
  "views": [
   {
    "method": "plain background",
@@ -38,13 +38,13 @@
     ]
    ],
    "colour_reference": "#8e9ba9",
-   "colour_render": "#8795a1",
+   "colour_render": "#8995a1",
    "brightness_reference": 0.601,
-   "brightness_render": 0.576,
+   "brightness_render": 0.579,
    "lighter_darker": [
     [
      "middle-left",
-     -0.09
+     -0.08
     ],
     [
      "centre",
@@ -79,36 +79,36 @@
    ],
    "colours_render": [
     {
-     "colour": "#7d8893",
-     "share": 0.337,
-     "brightness": 0.527
+     "colour": "#798794",
+     "share": 0.317,
+     "brightness": 0.521
     },
     {
-     "colour": "#a8aeb1",
-     "share": 0.253,
-     "brightness": 0.678
+     "colour": "#aaafb0",
+     "share": 0.281,
+     "brightness": 0.682
     },
     {
-     "colour": "#4a576d",
-     "share": 0.242,
-     "brightness": 0.336
+     "colour": "#4b566c",
+     "share": 0.24,
+     "brightness": 0.335
     },
     {
-     "colour": "#c3e3ef",
-     "share": 0.168,
-     "brightness": 0.867
+     "colour": "#c9e4ef",
+     "share": 0.161,
+     "brightness": 0.875
     }
    ],
    "zones": [
     {
      "colour": "#98bad1",
      "share": 0.264,
-     "overlap": 0.144,
-     "area": 0.92,
+     "overlap": 0.124,
+     "area": 0.82,
      "missing": [
       [
        "top-centre",
-       0.19
+       0.22
       ],
       [
        "centre",
@@ -124,21 +124,21 @@
       ],
       [
        "top-left",
-       0.11
+       0.12
       ],
       [
        "top-right",
-       0.11
+       0.12
       ]
      ],
      "extra": [
       [
        "top-centre",
-       0.25
+       0.18
       ],
       [
        "middle-right",
-       0.17
+       0.18
       ],
       [
        "middle-left",
@@ -157,7 +157,7 @@
     {
      "colour": "#6b87a6",
      "share": 0.245,
-     "overlap": 0.105,
+     "overlap": 0.104,
      "area": 0.94,
      "missing": [
       [
@@ -166,7 +166,7 @@
       ],
       [
        "top-left",
-       0.15
+       0.14
       ],
       [
        "top-right",
@@ -180,7 +180,7 @@
       ],
       [
        "middle-right",
-       0.24
+       0.23
       ],
       [
        "top-right",
@@ -195,8 +195,8 @@
     {
      "colour": "#d1c8bf",
      "share": 0.184,
-     "overlap": 0.058,
-     "area": 0.78,
+     "overlap": 0.061,
+     "area": 1.01,
      "missing": [
       [
        "centre",
@@ -204,7 +204,7 @@
       ],
       [
        "top-left",
-       0.11
+       0.1
       ],
       [
        "middle-right",
@@ -222,27 +222,31 @@
      "extra": [
       [
        "top-centre",
-       0.2
+       0.3
       ],
       [
        "top-right",
-       0.16
+       0.19
       ],
       [
        "centre",
-       0.12
+       0.14
+      ],
+      [
+       "top-left",
+       0.07
       ]
      ]
     },
     {
      "colour": "#a4958c",
      "share": 0.17,
-     "overlap": 0.156,
-     "area": 1.76,
+     "overlap": 0.149,
+     "area": 1.65,
      "missing": [
       [
        "centre",
-       0.15
+       0.18
       ],
       [
        "bottom-centre",
@@ -250,7 +254,7 @@
       ],
       [
        "top-right",
-       0.09
+       0.1
       ]
      ],
      "extra": [
@@ -260,15 +264,15 @@
       ],
       [
        "top-left",
-       0.2
+       0.19
       ],
       [
        "top-right",
-       0.14
+       0.12
       ],
       [
        "top-centre",
-       0.12
+       0.1
       ],
       [
        "middle-left",
@@ -283,7 +287,7 @@
     {
      "colour": "#4a546c",
      "share": 0.135,
-     "overlap": 0.164,
+     "overlap": 0.162,
      "area": 1.94,
      "missing": [
       [
@@ -306,7 +310,7 @@
      "extra": [
       [
        "bottom-centre",
-       0.51
+       0.52
       ],
       [
        "bottom-left",
@@ -336,16 +340,16 @@
     "diagonal \\": 0.07
    },
    "directions_render": {
-    "horizontal": 0.04,
-    "vertical": 0.55,
-    "diagonal /": 0.19,
-    "diagonal \\": 0.22
+    "horizontal": 0.01,
+    "vertical": 0.54,
+    "diagonal /": 0.22,
+    "diagonal \\": 0.24
    },
    "view": 1
   },
   {
    "method": "plain background",
-   "overlap": 0.537,
+   "overlap": 0.534,
    "aspect_reference": 1.115,
    "aspect_render": 1.048,
    "aspect_change": -0.06,
@@ -372,7 +376,7 @@
     ],
     [
      "top-left",
-     0.11
+     0.12
     ],
     [
      "bottom-left",
@@ -447,24 +451,24 @@
    ],
    "colours_render": [
     {
-     "colour": "#99b1c2",
-     "share": 0.304,
-     "brightness": 0.679
+     "colour": "#a2b7c5",
+     "share": 0.314,
+     "brightness": 0.704
     },
     {
-     "colour": "#708497",
-     "share": 0.288,
-     "brightness": 0.506
+     "colour": "#74899d",
+     "share": 0.31,
+     "brightness": 0.526
     },
     {
-     "colour": "#cbdee3",
-     "share": 0.218,
-     "brightness": 0.857
+     "colour": "#465267",
+     "share": 0.209,
+     "brightness": 0.317
     },
     {
-     "colour": "#444f64",
-     "share": 0.191,
-     "brightness": 0.308
+     "colour": "#d3e4e7",
+     "share": 0.166,
+     "brightness": 0.879
     }
    ],
    "zones": [
@@ -472,7 +476,7 @@
      "colour": "#8da3b8",
      "share": 0.255,
      "overlap": 0.102,
-     "area": 0.73,
+     "area": 0.72,
      "missing": [
       [
        "centre",
@@ -481,6 +485,10 @@
       [
        "middle-right",
        0.12
+      ],
+      [
+       "middle-left",
+       0.11
       ],
       [
        "bottom-left",
@@ -492,10 +500,6 @@
       ],
       [
        "top-centre",
-       0.1
-      ],
-      [
-       "middle-left",
        0.1
       ],
       [
@@ -514,7 +518,7 @@
       ],
       [
        "middle-left",
-       0.15
+       0.14
       ],
       [
        "top-right",
@@ -522,31 +526,31 @@
       ],
       [
        "top-left",
-       0.06
+       0.07
       ]
      ]
     },
     {
      "colour": "#9fc6db",
      "share": 0.252,
-     "overlap": 0.195,
-     "area": 0.71,
+     "overlap": 0.185,
+     "area": 0.67,
      "missing": [
       [
        "centre",
        0.21
       ],
       [
+       "middle-left",
+       0.19
+      ],
+      [
        "top-centre",
        0.18
       ],
       [
-       "middle-left",
-       0.18
-      ],
-      [
        "top-left",
-       0.08
+       0.09
       ],
       [
        "middle-right",
@@ -564,19 +568,15 @@
       ],
       [
        "top-left",
-       0.09
-      ],
-      [
-       "middle-left",
-       0.07
+       0.08
       ]
      ]
     },
     {
      "colour": "#687e9a",
      "share": 0.198,
-     "overlap": 0.08,
-     "area": 0.87,
+     "overlap": 0.076,
+     "area": 0.85,
      "missing": [
       [
        "bottom-right",
@@ -601,6 +601,10 @@
       [
        "top-left",
        0.06
+      ],
+      [
+       "middle-left",
+       0.06
       ]
      ],
      "extra": [
@@ -609,12 +613,12 @@
        0.16
       ],
       [
-       "middle-left",
+       "bottom-left",
        0.1
       ],
       [
-       "bottom-left",
-       0.1
+       "middle-left",
+       0.09
       ],
       [
        "bottom-centre",
@@ -629,12 +633,12 @@
     {
      "colour": "#d3cfc9",
      "share": 0.187,
-     "overlap": 0.176,
-     "area": 0.97,
+     "overlap": 0.19,
+     "area": 1.03,
      "missing": [
       [
        "middle-left",
-       0.17
+       0.14
       ],
       [
        "top-right",
@@ -660,7 +664,7 @@
       ],
       [
        "middle-left",
-       0.11
+       0.14
       ]
      ]
     },
@@ -668,7 +672,7 @@
      "colour": "#48556e",
      "share": 0.106,
      "overlap": 0.126,
-     "area": 1.58,
+     "area": 1.59,
      "missing": [
       [
        "bottom-centre",
@@ -692,7 +696,7 @@
     }
    ],
    "edges_reference": 0.119,
-   "edges_render": 0.098,
+   "edges_render": 0.101,
    "directions_reference": {
     "horizontal": 0.17,
     "vertical": 0.34,
@@ -700,16 +704,16 @@
     "diagonal \\": 0.19
    },
    "directions_render": {
-    "horizontal": 0.09,
-    "vertical": 0.37,
-    "diagonal /": 0.42,
-    "diagonal \\": 0.12
+    "horizontal": 0.14,
+    "vertical": 0.4,
+    "diagonal /": 0.37,
+    "diagonal \\": 0.09
    },
    "view": 2
   },
   {
    "method": "plain background",
-   "overlap": 0.758,
+   "overlap": 0.762,
    "aspect_reference": 0.475,
    "aspect_render": 0.418,
    "aspect_change": -0.12,
@@ -738,7 +742,7 @@
    "extra": [
     [
      "top-centre",
-     0.21
+     0.18
     ],
     [
      "middle-right",
@@ -750,9 +754,9 @@
     ]
    ],
    "colour_reference": "#7c91a5",
-   "colour_render": "#9aa9b8",
+   "colour_render": "#9aa9b7",
    "brightness_reference": 0.557,
-   "brightness_render": 0.656,
+   "brightness_render": 0.654,
    "lighter_darker": [
     [
      "top-centre",
@@ -764,7 +768,7 @@
     ],
     [
      "bottom-right",
-     -0.09
+     -0.08
     ]
    ],
    "colours_reference": [
@@ -791,24 +795,24 @@
    ],
    "colours_render": [
     {
-     "colour": "#7b91a8",
-     "share": 0.289,
-     "brightness": 0.558
+     "colour": "#a4bacb",
+     "share": 0.315,
+     "brightness": 0.716
     },
     {
-     "colour": "#a8bdcc",
-     "share": 0.286,
-     "brightness": 0.727
+     "colour": "#788da4",
+     "share": 0.281,
+     "brightness": 0.543
     },
     {
-     "colour": "#edebe4",
+     "colour": "#edeae3",
      "share": 0.233,
-     "brightness": 0.922
+     "brightness": 0.917
     },
     {
-     "colour": "#51627c",
-     "share": 0.193,
-     "brightness": 0.378
+     "colour": "#4f5f79",
+     "share": 0.17,
+     "brightness": 0.367
     }
    ],
    "zones": [
@@ -969,13 +973,13 @@
     {
      "colour": "#d1cfce",
      "share": 0.119,
-     "overlap": 0.282,
-     "area": 2.38,
+     "overlap": 0.287,
+     "area": 2.33,
      "missing": [],
      "extra": [
       [
        "top-centre",
-       0.39
+       0.36
       ],
       [
        "centre",
@@ -998,7 +1002,7 @@
     {
      "colour": "#34425b",
      "share": 0.076,
-     "overlap": 0.118,
+     "overlap": 0.12,
      "area": 0.74,
      "missing": [
       [
@@ -1025,8 +1029,8 @@
    "directions_render": {
     "horizontal": 0.0,
     "vertical": 0.67,
-    "diagonal /": 0.15,
-    "diagonal \\": 0.18
+    "diagonal /": 0.16,
+    "diagonal \\": 0.16
    },
    "view": 3
   }
