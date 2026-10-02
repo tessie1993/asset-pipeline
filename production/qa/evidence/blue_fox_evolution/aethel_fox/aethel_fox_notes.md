@@ -120,6 +120,13 @@ indigo with a cyan spiral (front drawing tan with blue spirals: conflict); front
 cream throat ball, cheek tufts wide (front extra middle-left 26 % / middle-right 24 %), nose a two-lobed blob
 (drawing: smooth rounded triangle).
 
+## Cycle 5
+Rebuild only, no generator change: build 5 is the committed generator (cycle 4's part modules with the head
+passes q1-q4: smiling mouth, tapered jaw, wider wedge snout, triangular nose) run through the kit after the
+cluster finish. The user approved the model on the q4 renders ("Model approved").
+CV build 5: overlap front 0.74, side 0.55, back 0.75; w/h +8 %, -6 %, -12 %. CHECK clean (16 degenerate
+faces, mirror 0.005).
+
 ## Handoff
 State: build 4 is the last kit build (CV, compare, renders in the evidence folder); the generator
 (aethel_fox.py + aethel_fox_parts/) is exactly what build 4 built. Cycles 1-4 in the notes hold the details.
