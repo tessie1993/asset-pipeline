@@ -401,8 +401,8 @@ def smoothstep(x, a, b):
 
 # ============================================================================ BODY CLAY
 EYE = {}   # side -> eye frame and lid rims (set by cut_eye_opening)
-EYE_RA, EYE_RB = 0.033, 0.0118   # almond half-width / half-height (reference: width 0.050-0.058, h:w 0.45-0.5)
-EYEBALL = (0.038, 0.020, 0.022)  # eyeball radii along the opening's long axis, the normal and up
+EYE_RA, EYE_RB = 0.040, 0.0118   # almond half-width / half-height (reference: width 0.050-0.058, h:w 0.45-0.5)
+EYEBALL = (0.046, 0.020, 0.022)  # eyeball radii along the opening's long axis, the normal and up
 
 
 LEGS = {
@@ -498,6 +498,8 @@ def body_clay():
             clay.add(E((kx, ky - 0.012, kz), (0.04, 0.035, 0.045)), blend=0.02)
     # flat underside (the legs end inside the separate paws)
     clay.intersect(S.sd_halfspace((0, 0, 0.03), (0, 0, -1)))
+    # chin: a slight soft chin under the smile
+    clay.add(S.sd_ellipsoid((0.0, -0.560, 0.640), (0.020, 0.020, 0.009)), blend=0.014)
     # mouth: a smile crease cut along a W under the nose that runs back along the jaw (Review 1)
     for s in (1, -1):
         clay.stroke(mouth_line(s), [0.0032, 0.0034, 0.0034, 0.0032, 0.003, 0.0028, 0.0024, 0.0018],
@@ -533,7 +535,7 @@ def eye_frame_at(clay, side):
     e_long = np.cross(e_up, n)
     if e_long[0] * side < 0:
         e_long = -e_long
-    sl = math.radians(16)
+    sl = math.radians(21)
     e_l = e_long * math.cos(sl) + e_up * math.sin(sl)
     e_u = -e_long * math.sin(sl) + e_up * math.cos(sl)
     return p, n, e_l, e_u
@@ -576,8 +578,11 @@ def cut_eye_opening(clay, side):
 
 
 def mouth_line(s):
-    return [(0.0, -0.614, 0.662), (s * 0.006, -0.612, 0.6555), (s * 0.016, -0.606, 0.655), (s * 0.026, -0.596, 0.659),
-            (s * 0.036, -0.580, 0.662), (s * 0.044, -0.555, 0.661), (s * 0.050, -0.525, 0.664), (s * 0.056, -0.500, 0.671)]
+    """One half of the closed smile (reference front: a short line down from the nose, then a soft W whose
+    corners turn up under the pupils; side: the line runs back along the muzzle and curls up at the
+    corner under the eye)."""
+    return [(0.0, -0.618, 0.664), (s * 0.006, -0.615, 0.6545), (s * 0.016, -0.608, 0.6505), (s * 0.028, -0.596, 0.6505),
+            (s * 0.039, -0.578, 0.6545), (s * 0.046, -0.556, 0.6595), (s * 0.051, -0.530, 0.6665), (s * 0.054, -0.512, 0.6745)]
 
 
 def crease_mouth(obj, clay):
@@ -702,11 +707,7 @@ def mark_images():
         decal[..., 0] = np.maximum(decal[..., 0], np.clip((1 - d) * 8, 0, 1))
     d = np.sqrt(((Ys + 0.522) / 0.015) ** 2 + ((Zs - 0.764) / 0.0085) ** 2)
     decal[..., 1] = np.maximum(decal[..., 1], np.clip((1 - d) * 8, 0, 1))
-    # mouth: W-shaped smile line under the nose
-    for s in (1, -1):
-        poly_paint(decal[..., 2], Xf, Zf, bez2((0.0, 0.664), (s * 0.008, 0.657), (s * 0.02, 0.655), (s * 0.034, 0.664)),
-                   [0.0035, 0.003, 0.003, 0.0015], 1.5 * px)
-    poly_paint(decal[..., 2], Xf, Zf, [(0.0, 0.676), (0.0, 0.664)], [0.003, 0.003], 1.5 * px)
+    # (the mouth is modelled: a crease and a dark line, build_mouth)
     return new_image("LW_marks", n, n, marks), new_image("LW_decal", n, n, decal)
 
 
@@ -886,9 +887,11 @@ def eye_material(side):
     uvs = nt.sep(uv)
     x = nt.math("MULTIPLY", nt.math("SUBTRACT", uvs[0], 0.5), 2 * EYEBALL[0])
     y = nt.math("MULTIPLY", nt.math("SUBTRACT", uvs[1], 0.5), 2 * EYEBALL[2])
-    dx = nt.math("SUBTRACT", x, 0.001)
-    dy = nt.math("SUBTRACT", y, 0.0018)
-    r = nt.math("DIVIDE", nt.math("SQRT", nt.math("ADD", nt.math("POWER", dx, 2.0), nt.math("POWER", dy, 2.0))), 0.0128)
+    # iris a little toward the nose and low, big enough that the heavy upper lid cuts its top (hooded) and
+    # its bottom touches the lower lid (no dark crescent under it)
+    dx = nt.math("ADD", x, 0.001)
+    dy = nt.math("ADD", y, 0.0008)
+    r = nt.math("DIVIDE", nt.math("SQRT", nt.math("ADD", nt.math("POWER", dx, 2.0), nt.math("POWER", dy, 2.0))), 0.0138)
     vert = nt.math("ADD", nt.math("DIVIDE", y, 2 * EYE_RB), 0.5)
     iris = nt.ramp(vert, [(0.0, "#d4ecf2"), (0.35, "#a9cde0"), (0.62, "#7fa6cf"), (1.0, "#3a5a9a")])
     # fine radial fibres in the iris (painted look)
@@ -1160,20 +1163,42 @@ def build_lid_lines(clay, side, mat):
     e = EYE[side]
     p, n, el, eu = e["p"], e["n"], e["el"], e["eu"]
     # on the lid margin itself (pulled 10 % toward the opening's centre so no skin shows between line and eye)
-    U = e["upper"] + (p - e["upper"]) * 0.10 + n * 0.0012
+    U = e["upper"] + (p - e["upper"]) * 0.17 + n * 0.0014
     # the flick: continues from the outer corner out and up, on the skin
     a0, b0 = EYE_RA, 0.0
     fl = np.array([p + el * (a0 + d) + eu * (b0 + h) + n * 0.01 for d, h in ((0.006, 0.0022), (0.012, 0.0055), (0.016, 0.0085))])
     fl, _ = clay.project(fl)
     P = np.concatenate([U[2:], fl + n * 0.0009])
     tt = np.linspace(0, 1, len(P))
-    r = np.interp(tt, [0.0, 0.15, 0.55, 0.85, 1.0], [0.0012, 0.0022, 0.0026, 0.0020, 0.0])
+    r = np.interp(tt, [0.0, 0.15, 0.55, 0.85, 1.0], [0.0016, 0.0031, 0.0036, 0.0028, 0.0])
     up, _ = sweep(f"eyelid_upper_{'left' if side > 0 else 'right'}", P, r * 0.75, r, 8, mat, hint=np.tile(n, (len(P), 1)))
     Lo = e["lower"][2:-1] + (p - e["lower"][2:-1]) * 0.12 + n * 0.0009
     t2 = np.linspace(0, 1, len(Lo))
     r2 = np.interp(t2, [0.0, 0.5, 1.0], [0.0006, 0.0013, 0.0009])
     lo, _ = sweep(f"eyelid_lower_{'left' if side > 0 else 'right'}", Lo, r2 * 0.8, r2, 8, mat, hint=np.tile(n, (len(Lo), 1)))
     return [up, lo]
+
+
+def build_mouth(clay, mat):
+    """The closed smile as a thin dark line lying in its crease: from under the nose (the philtrum) down,
+    out in a soft W and up into the corners, back along the muzzle (both halves one line)."""
+    halves = []
+    for s in (1, -1):
+        P = np.array(S.catmull_rom(mouth_line(s), 6)) if hasattr(S, "catmull_rom") else catmull(np.array(mouth_line(s)), 6)
+        halves.append(P)
+    P = np.concatenate([halves[1][::-1], halves[0][1:]])
+    P, N = clay.project(P)
+    P = P + N * 0.0005
+    top = np.array([0.0, -0.621, 0.672])
+    t, _ = clay.project(np.array([top]))
+    mid = len(P) // 2
+    tt = np.linspace(0, 1, len(P))
+    r = 0.0016 * np.interp(tt, [0.0, 0.08, 0.5, 0.92, 1.0], [0.25, 0.85, 1.0, 0.85, 0.25])
+    line, _ = sweep("mouth_line", P, r * 0.8, r, 8, mat, hint=np.tile(np.array([0.0, -1.0, 0.0]), (len(P), 1)), tip=False)
+    ph = np.array([t[0] + N[mid] * 0.0005, P[mid]])
+    ph = np.stack([np.linspace(ph[0, k], ph[1, k], 8) for k in range(3)], 1)
+    phil, _ = sweep("mouth_philtrum", ph, 0.0011, 0.0013, 8, mat, hint=np.tile(np.array([0.0, -1.0, 0.0]), (8, 1)), tip=False)
+    return [line, phil]
 
 
 def build_nose(mat):
@@ -1237,8 +1262,9 @@ def collar_paths(clay):
     paths.append(("neckband", snap(ring, 0.004, lift=0.2), 0.004, True))   # mostly buried in the ruff
     for s in (1, -1):
         j = lambda: rng.uniform(-0.004, 0.004)
-        # upper arched band: from the side of the neck (z 0.57) down in a slight arch to the gem top
-        arc1 = bez2((s * 0.128, -0.43, 0.572), (s * 0.10, -0.49, 0.565 + j()), (s * 0.045, -0.535, 0.505), (s * 0.006, -0.552, 0.470), 40)
+        # upper strand: from the gem top curving up and out into the upper scroll curl (no straight band)
+        arc1 = bez2((s * 0.088 + 0.021 * math.cos(math.pi * 1.1), -0.515, 0.462 + 0.021 * math.sin(math.pi * 1.1)),
+                    (s * 0.085, -0.528, 0.505 + j()), (s * 0.035, -0.548, 0.505), (s * 0.006, -0.552, 0.470), 40)
         paths.append(("branch", snap(arc1, 0.0101), np.linspace(0.0107, 0.0081, 40), False))
         # lower arched band: from the chest side (z 0.53) bowing down to the gem's side corner (z 0.41)
         arc2 = bez2((s * 0.145, -0.42, 0.53), (s * 0.13, -0.48, 0.47 + j()), (s * 0.075, -0.53, 0.415), (s * 0.036, -0.547, 0.412), 40)
@@ -1302,7 +1328,8 @@ def build_collar(clay, mat):
     objs = []
     for k, (kind, P, r, closed) in enumerate(collar_paths(clay)):
         P = np.asarray(P, float)
-        rr = np.broadcast_to(np.asarray(r, float), (len(P),)).copy()
+        # filigree wire: about 6 mm across on the reference (gem setting heavier)
+        rr = np.broadcast_to(np.asarray(r, float), (len(P),)).copy() * (1.0 if kind == "gem_setting" else 0.62)
         if not closed and kind in ("scroll", "tine", "leaf_tip"):
             rr[-1] = 0.0
         hint = (0.0, -1.0, 0.0) if kind != "neckband" else (0.0, 0.0, 1.0)
@@ -1314,59 +1341,83 @@ def build_collar(clay, mat):
 
 
 # ============================================================================ SHOULDER FEATHERS
+# the shoulder fur's locks (side view, Y z): root on the front of the shoulder, tip up and back, width at the
+# widest, bow of the lock (convex up); measured tips: the big one at (-0.143, 0.71) rising above the back
+# line, the lower ones lying on the shoulder (tips at z 0.47-0.61), two short ones at the nape
+SHOULDER_LOCKS = [((-0.435, 0.425), (-0.250, 0.470), 0.050, 0.018),
+                  ((-0.432, 0.462), (-0.226, 0.514), 0.060, 0.022),
+                  ((-0.425, 0.500), (-0.200, 0.557), 0.068, 0.026),
+                  ((-0.416, 0.540), (-0.180, 0.606), 0.074, 0.028),
+                  ((-0.405, 0.578), (-0.143, 0.712), 0.080, 0.034),
+                  ((-0.405, 0.612), (-0.210, 0.698), 0.054, 0.028),
+                  ((-0.415, 0.638), (-0.256, 0.684), 0.042, 0.022)]
+
+
 def build_shoulder_fur(clay, mat):
-    """The shoulder fur: magical feather-like fur locks growing out of the shoulder fur, six per side, soft
-    and flame-shaped (widest at a third of the length), lying on the shoulder at the root and sweeping up and
-    back, lifting off the body only after half their length, the tips curling up; the lowest runs back
-    along the body, the highest rises behind the head to z ~0.72. Built as fur locks (Fur.lock: flat,
-    tapering, two strand grooves) with their roots sunk in the body fur. One object per side."""
+    """The shoulder fur: magical flame-shaped locks lying on the shoulder like a folded wing, rooted on its
+    front and sweeping up and back in a convex-up bow, the lower locks lying over the upper ones; only the
+    tips leave the body, curling up a little, and the top lock rises above the back line behind the head.
+    Built as fur locks (Fur.lock: flat, tapering, two strand grooves) on the body clay. One object per side."""
     objs = []
     rng = random.Random(91)
+    n = len(SHOULDER_LOCKS)
     for side in (1, -1):
         fur = Fur()
-        n = 8
-        for k in range(n):
-            f = k / (n - 1)
-            root_s = np.array([side * 0.10, -0.385 + 0.05 * f + rng.uniform(-0.008, 0.008),
-                               0.46 + 0.11 * f + rng.uniform(-0.008, 0.008)])
-            elev = math.radians(6 + 56 * f + rng.uniform(-4, 4))
-            d = np.array([0.0, math.cos(elev), math.sin(elev)])
-            L = 0.16 + 0.10 * math.sin(math.pi * (0.25 + 0.6 * f)) + rng.uniform(-0.015, 0.015)
-            ns = 22
+        for k, (r, t, w0, bow) in enumerate(SHOULDER_LOCKS):
+            r = np.array(r) + np.array([rng.uniform(-0.006, 0.006), rng.uniform(-0.006, 0.006)])
+            t = np.array(t) + np.array([rng.uniform(-0.008, 0.008), rng.uniform(-0.008, 0.008)])
+            d = t - r
+            perp = np.array([-d[1], d[0]]) / np.linalg.norm(d)
+            if perp[1] < 0:
+                perp = -perp
+            ctrl = (r + t) / 2 + perp * bow * 2.8
+            ns = 26
             tt = np.linspace(0, 1, ns)
-            up = np.array([0.0, 0.2, 1.0])
-            up /= np.linalg.norm(up)
-            curl = (0.12 + 0.08 * rng.random()) * L
-            Q = root_s[None, :] + tt[:, None] * d[None, :] * L + (tt ** 2.6)[:, None] * up[None, :] * curl
+            YZ = ((1 - tt) ** 2)[:, None] * r + (2 * tt * (1 - tt))[:, None] * ctrl + (tt ** 2)[:, None] * t
+            YZ[:, 1] += 0.040 * smoothstep(tt, 0.55, 1.0) ** 2        # the tip curls up
+            Q = np.stack([np.full(ns, side * 0.115), YZ[:, 0], YZ[:, 1]], 1)
             Sp, Nr = clay.project(Q)
             out = np.array([side, 0.0, 0.0])
-            # shingled like a wing: the lower locks lie over the upper ones; only the tips leave the body
-            lift = -0.002 + 0.0035 * (n - 1 - k) / (n - 1) + smoothstep(tt, 0.6, 1.0) * (0.008 + 0.012 * f + 0.006 * rng.random())
+            lift = 0.0015 + 0.004 * (n - 1 - k) / (n - 1) + smoothstep(tt, 0.65, 1.0) * (0.009 + 0.005 * rng.random())
             w8 = 0.5 * smoothstep(tt, 0.55, 0.95)[:, None]
             nrm = Nr * (1 - w8) + out[None, :] * w8
             nrm /= np.linalg.norm(nrm, axis=1, keepdims=True)
             P = Sp + nrm * lift[:, None]
-            # where the lock rises above the back it stays where it grows (not pulled down onto the body)
-            free = smoothstep(clay.sample(Q) - lift, 0.0, 0.012)[:, None]
-            P = P * (1 - free) + Q * free
-            for _ in range(2):
+            # where the lock rises above the back it stays where it grows (not pulled down onto the body):
+            # it leaves the surface smoothly where the surface falls away from its path
+            gap = np.linalg.norm(Sp - Q, axis=1)
+            free = smoothstep(gap, 0.015, 0.05)
+            free = np.maximum.accumulate(free)[:, None]
+            Qx = Q.copy()
+            Qx[:, 0] = np.where(free[:, 0] > 0, P[np.argmax(free[:, 0] > 0) - 1 if (free[:, 0] > 0).any() else 0, 0], Q[:, 0])
+            P = P * (1 - free) + Qx * free
+            # off the body the lock's flat faces turn to the side (no normals from far-off projections)
+            nrm = nrm * (1 - free) + out[None, :] * free
+            nrm /= np.linalg.norm(nrm, axis=1, keepdims=True)
+            for _ in range(3):
+                nrm[1:-1] = (nrm[:-2] + 2 * nrm[1:-1] + nrm[2:]) / 4
+            nrm /= np.linalg.norm(nrm, axis=1, keepdims=True)
+            for _ in range(6):
                 P[1:-1] = (P[:-2] + 2 * P[1:-1] + P[2:]) / 4
-            w0 = 0.075 + 0.03 * rng.random()
+            w = 1.5 * w0 * rng.uniform(0.92, 1.08)
             # flame outline: from a buried root to the widest point at 0.35, then a long taper to the tip
-            width = w0 * np.where(tt < 0.35, 0.45 + 0.55 * np.sin(tt / 0.35 * math.pi / 2), np.clip((1 - tt) / 0.65, 0, 1) ** 0.85)
-            thick = np.minimum(width * 0.14, 0.008) + 0.0015
-            fur.lock(P, nrm, width, thick, 0.0, ljit=rng.uniform(-1, 1), M=8, ridge=0.18)
+            width = w * np.where(tt < 0.35, 0.45 + 0.55 * np.sin(tt / 0.35 * math.pi / 2), np.clip((1 - tt) / 0.65, 0, 1) ** 0.85)
+            thick = np.minimum(width * 0.12, 0.007) + 0.0015
+            fur.lock(P, nrm, width, thick, 0.0, ljit=rng.uniform(-1, 1), M=10, ridge=0.16)
         o = fur.to_object(f"shoulder_fur_{'left' if side > 0 else 'right'}", mat)
         objs.append(o)
     return objs
 
 
 # ============================================================================ TAILS (fur)
-# A tail is a thin core (bone, skin and dense dark underfur) covered by long guard hairs that grow from the
-# root toward the tip and group into locks: shingled (each lock's tip lies over the next lock's root),
-# twisting along the tail, parting along its edges, tapering to points with darker roots and lighter tips,
-# converging to a brush at the end. In this style the cream and blue bands are separate locks. The tail ends
-# curl up on the ground into three fat spirals (tail curls): their locks follow the curl into the centre.
+# A tail is a mass of long guard hair over dense underfur. In this style the guard hair groups into broad,
+# smooth locks that flow from the root to the tip and lie on the mass: bands of cream, light, mid and dark
+# blue, each lock a low lens with a groove to its neighbours, a darker root and a lighter tip, the next lock
+# starting under it; only the tips leave the outline, as pointed curling locks. Built so: the fur mass is
+# sculpted as clay (signed distance, its outline measured on the reference) and remeshed; the locks are
+# relief displaced along the fur's flow (parallel to the plume's outline, along a curl's spiral, along a
+# tail with a slow twist), and every vertex carries its lock's colour band, root-to-tip and across-lock
+# coordinates for the fur shader; the loose tips are separate tapered locks (Fur.lock).
 def catmull(pts, per=8):
     """Catmull-Rom spline through 2D/3D points, ``per`` samples per span."""
     P = np.concatenate([pts[:1] * 2 - pts[1:2], pts, pts[-1:] * 2 - pts[-2:-1]])
@@ -1399,122 +1450,12 @@ def coil(c, n, e_h, R0, phi0, turns, n_pts, shrink=2.0, power=1.0, drift=0.0, sv
     return np.array(out)
 
 
-def blend_path(a, b, n=10):
-    """Smooth bridge from the end of path a into the start of path b (Hermite on their end tangents)."""
-    p0, p1 = a[-1], b[0]
-    t0 = (a[-1] - a[-2]) / (np.linalg.norm(a[-1] - a[-2]) + 1e-9)
-    t1 = (b[1] - b[0]) / (np.linalg.norm(b[1] - b[0]) + 1e-9)
-    L = np.linalg.norm(p1 - p0)
-    out = []
-    for t in np.linspace(0, 1, n + 2)[1:-1]:
-        h00, h10, h01, h11 = 2 * t ** 3 - 3 * t ** 2 + 1, t ** 3 - 2 * t ** 2 + t, -2 * t ** 3 + 3 * t ** 2, t ** 3 - t ** 2
-        out.append(h00 * p0 + h10 * L * t0 + h01 * p1 + h11 * L * t1)
-    return np.concatenate([a, np.array(out), b])
-
-
-def cut_into_curl(P, ru, rv, lob, frac, k_start):
-    """Stop a tail ``frac`` of its coil after it reaches its curl; its locks end there (their tips lie on the
-    curl, whose own locks carry the spiral on)."""
-    i_l = int(round(frac * (len(lob) - 1)))
-    i0 = int(k_start * (len(P) - 1))
-    icut = i0 + int(np.argmin(np.linalg.norm(P[i0:] - lob[i_l], axis=1)))
-    return P[:icut + 1].copy(), np.array(ru[:icut + 1], float), np.array(rv[:icut + 1], float)
-
-
 def resample(P, n):
     """n points evenly spaced along polyline P."""
     s = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
     t = np.linspace(0, s[-1], n)
-    return np.stack([np.interp(t, s, P[:, k]) for k in range(3)], 1)
+    return np.stack([np.interp(t, s, P[:, k]) for k in range(P.shape[1])], 1)
 
-
-# tail curls (the tail ends coiled on the ground): the centre tail's curl faces the back (the back view's big
-# centre spiral), the side tails' curls are turned between the side and the back; no tail passes through
-# another curl
-CURL_CENTRE = dict(c=(0.025, 0.500, 0.150), n=(0.0, 1.0, 0.0), e_h=(-1.0, 0.0, 0.0), R0=0.108, sv=1.0)
-# the left (+X) curl turned mostly to the side and stretched along the ground (side view: Y 0.09-0.53, z 0-0.30)
-CURL_SIDE = {1: dict(c=(0.190, 0.300, 0.150), n=(0.90, 0.44, 0.0), e_h=(0.44, -0.90, 0.0), R0=0.150, sv=0.72),
-             -1: dict(c=(-0.195, 0.340, 0.160), n=(-0.62, 0.78, 0.0), e_h=(-0.78, -0.62, 0.0), R0=0.100, sv=1.0)}
-
-
-def tail_paths():
-    """The tails' centre lines (N,3) with their fur radii (ru along the frame normal, rv along the binormal),
-    frame hints and where each tail comes out of the centre tail (``vis``, a path fraction). Y = side-view
-    metres from the nose - 0.62."""
-    tails = []
-    # the centre tail, carrying the constellation: a broad plume rising from the rump, arcing up and back
-    # (outer top z 0.70), down the back edge (outer Y 0.60 at z 0.45), then into its curl
-    cps = [(0.10, 0.535), (0.20, 0.575), (0.30, 0.585), (0.39, 0.555), (0.425, 0.48), (0.44, 0.39), (0.455, 0.31)]
-    arc = catmull(np.array(cps), 10)
-    arc = np.stack([np.linspace(0.034, 0.028, len(arc)), arc[:, 0], arc[:, 1]], 1)
-    lob = coil(**{k: CURL_CENTRE[k] for k in ("c", "n", "e_h", "R0", "sv")}, phi0=-0.25, turns=1.75, n_pts=120, shrink=2.05, drift=0.012)
-    P = resample(blend_path(arc, lob, 8), 200)
-    s = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
-    tt = s / s[-1]
-    k_arc = float(np.argmin(np.linalg.norm(P - arc[-1], axis=1))) / (len(P) - 1)
-    # broad in the plane of the arc (the side view's plume), a ribbon across (X); it holds its breadth down
-    # the back edge and sweeps on into the curl (no flat cap)
-    rv = np.interp(tt, [0, 0.03, 0.07, 0.12, 0.2, k_arc * 0.85, k_arc, k_arc + 0.06, k_arc + 0.14, k_arc + 0.22, 0.88, 0.96, 1.0],
-                   [0.05, 0.075, 0.105, 0.14, 0.175, 0.17, 0.155, 0.155, 0.12, 0.085, 0.05, 0.03, 0.0])
-    ru = np.interp(tt, [0, 0.05, 0.2, k_arc * 0.7, k_arc, k_arc + 0.08, 0.75, 0.88, 0.96, 1.0],
-                   [0.05, 0.065, 0.08, 0.098, 0.10, 0.09, 0.07, 0.052, 0.03, 0.0])
-    P, ru, rv = cut_into_curl(P, ru, rv, lob, 0.42 / 1.75, k_arc)
-    tails.append(dict(name="tail_centre", P=P, ru=ru, rv=rv, hint=(1.0, 0.0, 0.0), side=0, vis=0.0, curl="centre"))
-    # the side tails: their roots run inside the centre tail (hidden in the side view, as drawn) to its back
-    # edge, then sweep forward and curl: entering at the top-back, over the top to the front
-    for side in (1, -1):
-        L = CURL_SIDE[side]
-        xo = 0.05 if side > 0 else -0.045
-        root = catmull(np.array([(0.10, 0.535), (0.20, 0.562), (0.30, 0.568), (0.38, 0.535), (0.415, 0.46), (0.43, 0.39),
-                                 (0.43, 0.34)]), 6)
-        root = np.stack([np.linspace(xo * 0.6, xo, len(root)), root[:, 0], root[:, 1]], 1)
-        lob = coil(L["c"], L["n"], L["e_h"], L["R0"], phi0=-1.05, turns=1.8, n_pts=130, shrink=2.1, drift=0.01 * side, sv=L["sv"])
-        P = resample(blend_path(root, lob, 10), 200)
-        s = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
-        tt = s / s[-1]
-        k0 = float(np.argmin(np.linalg.norm(P - root[-1], axis=1))) / (len(P) - 1)
-        prof = np.interp(tt, [0, k0 * 0.5, k0, k0 + 0.06, k0 + 0.2, 0.7, 0.85, 0.94, 1.0],
-                         [0.03, 0.036, 0.05, 0.068, 0.072, 0.064, 0.05, 0.034, 0.0])
-        n_full = len(P)
-        P, ru, rv = cut_into_curl(P, prof * 1.12, prof, lob, 0.40 / 1.8, k0)
-        vis = max(0.0, (k0 * (n_full - 1) - 14) / (len(P) - 1))
-        tails.append(dict(name=f"tail_side_{'left' if side > 0 else 'right'}", P=P, ru=ru, rv=rv, hint=tuple(L["n"]),
-                          side=side, vis=vis, curl=side))
-    # the two thin tails: their roots run inside the centre tail like the side tails' and leave its back edge
-    # at z 0.34-0.37, out sideways behind the side curls to x +-0.35, the tips turning down (back view)
-    for side in (1, -1):
-        dz = 0.0 if side > 0 else 0.03
-        root = catmull(np.array([(0.10, 0.535), (0.20, 0.562), (0.30, 0.568), (0.38, 0.535), (0.415, 0.46),
-                                 (0.43, 0.39 + dz)]), 6)
-        root = np.stack([np.linspace(side * 0.018, side * 0.03, len(root)), root[:, 0], root[:, 1]], 1)
-        # out to x 0.33 and hooking down (front view: the tip down to z ~0.21 at x 0.31-0.35)
-        out = catmull(np.array([(side * 0.03, 0.43, 0.34 + dz), (side * 0.20, 0.42, 0.335 + dz), (side * 0.32, 0.40, 0.315 + dz),
-                                (side * 0.358, 0.39, 0.27 + dz), (side * 0.350, 0.383, 0.230 + dz), (side * 0.330, 0.378, 0.205 + dz)]), 12)
-        P = resample(blend_path(root[:-1], out, 6), 110)
-        s_ = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
-        tt = s_ / s_[-1]
-        k0 = float(np.argmin(np.linalg.norm(P - out[0], axis=1))) / (len(P) - 1)
-        prof = np.interp(tt, [0, k0, k0 + 0.25 * (1 - k0), k0 + 0.6 * (1 - k0), k0 + 0.85 * (1 - k0), 1.0],
-                         [0.02, 0.022, 0.024, 0.02, 0.011, 0.0])
-        tails.append(dict(name=f"tail_thin_{'left' if side > 0 else 'right'}", P=P, ru=prof * 1.1, rv=prof * 0.8,
-                          hint=(0.0, 0.0, 1.0), side=side, vis=max(0.0, k0 - 0.04), curl=None))
-    return tails
-
-
-# loose fur locks that leave the tails' outline and taper to points: the two curling tips on top of the
-# plume, the inner hook under the tail root, the lock hanging off the back edge, the flick on the ground, the
-# front view's up-curling hook on the left curl, a lock on the right curl and a flick at the root.
-# (name, bezier control points, root radius, frame hint, colour band)
-TAIL_LOCKS = [
-    ("tail_lock_top_front", [(0.030, 0.30, 0.660), (0.030, 0.235, 0.715), (0.030, 0.190, 0.738), (0.030, 0.165, 0.720)], 0.039, (1, 0, 0), 3),
-    ("tail_lock_top_back", [(0.030, 0.37, 0.650), (0.030, 0.470, 0.700), (0.030, 0.565, 0.712), (0.030, 0.550, 0.745)], 0.045, (1, 0, 0), 2),
-    ("tail_lock_hook", [(0.050, 0.33, 0.300), (0.050, 0.245, 0.285), (0.050, 0.195, 0.315), (0.052, 0.205, 0.362)], 0.048, (1, 0, 0), 0),
-    ("tail_lock_hanging", [(0.055, 0.50, 0.330), (0.065, 0.585, 0.245), (0.070, 0.590, 0.150), (0.070, 0.560, 0.100)], 0.042, (1, 0, 0), 0),
-    ("tail_lock_ground_flick", [(0.150, 0.34, 0.040), (0.135, 0.47, 0.018), (0.125, 0.578, 0.032), (0.115, 0.566, 0.090)], 0.050, (0, 0, 1), 1),
-    ("tail_lock_front_hook", [(0.258, 0.215, 0.215), (0.320, 0.205, 0.300), (0.290, 0.200, 0.395), (0.190, 0.200, 0.370)], 0.042, (0, 1, 0), 0),
-    ("tail_lock_right_curl", [(-0.250, 0.300, 0.230), (-0.325, 0.290, 0.280), (-0.330, 0.300, 0.215), (-0.305, 0.300, 0.190)], 0.038, (0, 1, 0), 1),
-    ("tail_lock_root", [(0.040, 0.16, 0.585), (0.040, 0.215, 0.640), (0.038, 0.170, 0.668), (0.036, 0.135, 0.655)], 0.026, (1, 0, 0), 3),
-]
 
 # fur colour bands (the material's ramp): 0 cream, 1 warm cream, 2 light blue, 3 mid blue, 4 dark blue,
 # 5 indigo, 6 deep indigo (underfur)
@@ -1522,15 +1463,12 @@ BAND = lambda k: k / 6.0
 
 
 class Fur:
-    """Collects fur locks (tapered tubes) and the tail's core into one bmesh, with per-vertex attributes for
-    the fur material: lu (0 root .. 1 tip), lv (around the lock), band (colour), ljit (per-lock tone),
-    lglow (a glowing streak on the lock)."""
+    """Collects tapered fur locks into one bmesh, with per-vertex attributes for the fur material: lu (0 root
+    .. 1 tip), lv (around the lock), band (colour), ljit (per-lock tone), lglow (a glowing streak)."""
     KEYS = ("lu", "lv", "band", "ljit", "lglow")
 
-    def __init__(self, mesh=None):
+    def __init__(self):
         self.bm = bmesh.new()
-        if mesh is not None:
-            self.bm.from_mesh(mesh)
         self.lay = {k: self.bm.verts.layers.float.new(k) for k in self.KEYS}
         self.locks = 0
 
@@ -1592,113 +1530,17 @@ class Fur:
                   dict(band=band, ljit=ljit, lglow=lglow), ridge=ridge)
         self.locks += 1
 
-    def ribbon(self, R, Nr, h, band, ljit=0.0, lglow=0.0, sink=0.003, tip=True):
-        """A lock lying ON a surface: R (n, A, 3) surface points across the lock per step along it (edge to
-        edge), Nr their normals, h (n,) the lock's height above the surface. The top is a lens that rises
-        h in the middle and meets the surface at both edges (no plank sides); the underside is sunk ``sink``
-        into the surface. The last row closes to a pointed tip. lv runs across the top (0..1)."""
-        n, A, _ = R.shape
-        acr = np.linspace(-1.0, 1.0, A)
-        prof = np.clip(1 - acr ** 2, 0, 1) ** 0.55
-        lu = np.linspace(0.0, 1.0, n)
-        L = self.lay
-
-        def vert(p, u, v):
-            vv = self.bm.verts.new(p)
-            vv[L["lu"]], vv[L["lv"]], vv[L["band"]], vv[L["ljit"]], vv[L["lglow"]] = u, v, band, ljit, lglow
-            return vv
-        rings = []
-        last = n - 1 if tip else n
-        for i in range(last):
-            top = [vert(R[i, j] + Nr[i, j] * (h[i] * prof[j] + 0.0006), lu[i], j / (A - 1)) for j in range(A)]
-            bot = [vert(R[i, j] - Nr[i, j] * sink, lu[i], 1.0) for j in range(A - 2, 0, -1)]
-            rings.append(top + bot)
-        m = len(rings[0])
-        for i in range(len(rings) - 1):
-            for j in range(m):
-                j2 = (j + 1) % m
-                self.bm.faces.new((rings[i][j], rings[i][j2], rings[i + 1][j2], rings[i + 1][j]))
-        if tip:
-            tv = vert(R[-1].mean(0) + Nr[-1].mean(0) * h[-1] * 0.5, 1.0, 0.5)
-            for j in range(m):
-                self.bm.faces.new((rings[-1][j], rings[-1][(j + 1) % m], tv))
-        cv = vert(R[0].mean(0), 0.0, 0.5)
-        for j in range(m):
-            self.bm.faces.new((rings[0][(j + 1) % m], rings[0][j], cv))
-        self.locks += 1
-
     def to_object(self, name, mat):
-        bm = self.bm
-        bm.normal_update()
-        obj = kit.mesh_object(name, bm, mat)
+        self.bm.normal_update()
+        obj = kit.mesh_object(name, self.bm, mat)
+        obj.data.shade_smooth()
         return obj
 
 
-def lock_profile(f, root=0.45):
-    """Width of a lock along its length (0 root .. 1 tip): buried root, full by a quarter, a long taper."""
-    rise = root + (1 - root) * np.sin(np.clip(f / 0.25, 0, 1) * math.pi / 2)
-    return rise * np.clip(1 - f, 0, 1) ** 0.75
-
-
-def fur_bundle(fur, P, ru, rv, hint, K, windows, twist, bands, rng, vis=0.0, lift=0.010, width_k=1.6,
-               h_max=0.012, core_k=0.85, n_lock=18, A=7, glow=0):
-    """Cover a tail (centre line P with fur radii ru, rv) with long locks of fur lying on its core (an
-    ellipse of core_k x the radii): K locks around per layer, each layer a window of the tail's length
-    (path fractions), staggered half a lock around and lying a little above the layer below, so each
-    layer's tips lie over the next layer's roots. A lock is a lens-shaped ribbon on the core surface (it
-    meets the surface at its edges), widest at a quarter of its length, tapering to a point that lifts off
-    the tail by ``lift``. The locks twist ``twist`` turns along the tail."""
-    P = np.asarray(P, float)
-    T, N, B = frames(P, hint)
-    s_ = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
-    tt = s_ / s_[-1]
-    perim = math.pi * (3 * (ru + rv) - np.sqrt((3 * ru + rv) * (ru + 3 * rv)))
-    glow_ids = set(rng.sample(range(K), min(glow, K))) if glow else set()
-
-    def at(arr, t):
-        return np.stack([np.interp(t, tt, arr[:, k]) for k in range(arr.shape[1])], 1) if arr.ndim == 2 else np.interp(t, tt, arr)
-    acr = np.linspace(-1.0, 1.0, A)
-    for w, (ta, tb) in enumerate(windows):
-        kw = core_k + 0.012 * w
-        for i in range(K):
-            th0 = 2 * math.pi * (i + 0.5 * w + rng.uniform(-0.15, 0.15)) / K
-            t0 = float(np.clip(ta + rng.uniform(-0.035, 0.035), vis, 1.0))
-            t1 = float(np.clip(tb + rng.uniform(-0.05, 0.03), 0.0, 1.0))
-            if t1 - t0 < 0.06:
-                continue
-            tl = np.linspace(t0, t1, n_lock)
-            f = (tl - t0) / (t1 - t0)
-            Pi, Ni, Bi, rui, rvi, pe = at(P, tl), at(N, tl), at(B, tl), at(ru, tl), at(rv, tl), at(perim, tl)
-            rui, rvi = np.maximum(rui, 2e-3) * kw, np.maximum(rvi, 2e-3) * kw
-            th = th0 + 2 * math.pi * twist * tl + 0.10 * np.sin(f * math.pi * 2 + i)
-            width = pe * kw / K * width_k * lock_profile(f) * rng.uniform(0.85, 1.15)
-            rm = np.sqrt((rui ** 2 + rvi ** 2) / 2)
-            dth = 0.5 * width / rm
-            ph = th[:, None] + acr[None, :] * dth[:, None]
-            c, sn_ = np.cos(ph), np.sin(ph)
-            lift_r = lift * smoothstep(f, 0.70, 1.0) ** 1.5
-            R = (Pi[:, None, :] + Ni[:, None, :] * (c * (rui + lift_r)[:, None])[..., None]
-                 + Bi[:, None, :] * (sn_ * (rvi + lift_r)[:, None])[..., None])
-            Nr = Ni[:, None, :] * (c / rui[:, None])[..., None] + Bi[:, None, :] * (sn_ / rvi[:, None])[..., None]
-            Nr /= np.linalg.norm(Nr, axis=2, keepdims=True)
-            h = h_max * np.minimum(1.0, width / (width.max() + 1e-9) * 1.4) * (0.8 + 0.4 * rng.random())
-            band = bands[(i + 3 * w) % len(bands)]
-            fur.ribbon(R, Nr, h, BAND(band), ljit=rng.uniform(-1, 1),
-                       lglow=1.0 if (w == 0 and i in glow_ids) else 0.0, sink=0.004)
-
-
-def fur_core(fur, P, ru, rv, hint, vis=0.0, k=0.85, M=16):
-    """The tail's core under the locks: bone, skin and dense dark underfur (seen in the partings)."""
-    i0 = int(vis * (len(P) - 1))
-    Pc, ruc, rvc = P[i0:], np.asarray(ru)[i0:] * k, np.asarray(rv)[i0:] * k
-    ruc[-1] = rvc[-1] = 0.0
-    fur.tube(Pc, hint, np.maximum(ruc, 0.0), np.maximum(rvc, 0.0), M, dict(band=BAND(3.8), ljit=0.0, lglow=0.0))
-
-
-def tail_lock(fur, name, cps, r0, hint, band, rng):
+def tail_lock(fur, cps, r0, hint, band, rng):
     """A loose lock leaving the outline: a main strand clump and one or two thinner ones that part from it
     toward the tip, each tapering to a point."""
-    P = np.array(S.bezier(*cps, 22))
+    P = np.array(S.bezier(*cps, 26))
     tt = np.linspace(0, 1, len(P))
     hint = np.asarray(hint, float)
     T, N, Bv = frames(P, hint)
@@ -1712,10 +1554,9 @@ def tail_lock(fur, name, cps, r0, hint, band, rng):
         f = tt[m] / end
         prof = r0 * shrink * np.clip(1 - f, 0, 1) ** (0.85 + 0.2 * rng.random()) * (0.75 + 0.25 * np.clip(f / 0.2, 0, 1))
         fur.lock(C, np.tile(hint, (len(C), 1)), prof * 2.0, prof * 1.1, BAND(band + (1 if k == 2 else 0)),
-                 ljit=rng.uniform(-1, 1), M=8, ridge=0.1)
+                 ljit=rng.uniform(-1, 1), M=10, ridge=0.1)
 
 
-# ---------------------------------------------------------------- tail curls
 def curl_frame(L):
     n = np.asarray(L["n"], float)
     n = n / np.linalg.norm(n)
@@ -1741,103 +1582,359 @@ def sd_ellipsoid_axes(c, axes, radii):
     return S.Prim(fn, c - m, c + m)
 
 
-# per curl: the fur mass's half-sizes in the coil plane (along e_h, up) and across it (rn); the coil start
-# (phi0, as the tail enters) and how much of the first turn the clay follows (the tail's entry)
-TAIL_CURLS = {"centre": dict(L=CURL_CENTRE, rh=0.150, rv=0.150, rn=0.100, phi0=-0.25, entry=0.40, tube=0.052),
-              1: dict(L=CURL_SIDE[1], rh=0.208, rv=0.152, rn=0.098, phi0=-1.05, entry=0.36, tube=0.048),
-              -1: dict(L=CURL_SIDE[-1], rh=0.150, rv=0.150, rn=0.090, phi0=-1.05, entry=0.36, tube=0.046)}
+# ---------------------------------------------------------------- lock relief (shared)
+def hash01(*xs):
+    v = np.zeros(np.broadcast(*xs).shape) if len(xs) > 1 else np.zeros(np.shape(xs[0]))
+    for i, x in enumerate(xs):
+        v = v + np.asarray(x, float) * (12.9898 + 41.23 * i)
+    return np.mod(np.sin(v) * 43758.5453, 1.0)
 
 
-def build_tail_curl(key, mat, rng):
-    """One tail curl: the tail's end coiled on the ground. Its core is a fat soft mass of underfur (signed-
-    distance clay: a mass in the coil plane, the tail's entry blended in, seated on the ground); over it, on
-    both faces, fur locks follow the spiral inward to the centre in three interleaved streams per turn
-    (cream, blue, indigo), each lock's tip lying over the next one's root; the outermost locks wrap the
-    rim. Returns the object (core and locks in one mesh)."""
+def band_pattern(q, pattern):
+    """q in pattern repeats; pattern [(width, band)]: -> band colour index, f across the band (0..1), serial k."""
+    W = np.array([w for w, _ in pattern], float)
+    W /= W.sum()
+    E = np.cumsum(W)
+    S0 = E - W
+    rep = np.floor(q)
+    pos = q - rep
+    i = np.minimum(np.searchsorted(E, pos, side="right"), len(W) - 1)
+    f = np.clip((pos - S0[i]) / W[i], 0, 1)
+    band = np.array([b for _, b in pattern], float)[i]
+    return band, f, rep * len(W) + i
+
+
+def set_corner_attr(obj, name, values):
+    me = obj.data
+    if name in me.attributes:
+        me.attributes.remove(me.attributes[name])
+    a = me.attributes.new(name, "FLOAT", "CORNER")
+    a.data.foreach_set("value", np.asarray(values, np.float32))
+
+
+def loop_faces(obj):
+    """(vertex index, face index) per face corner."""
+    me = obj.data
+    vi = np.empty(len(me.loops), np.int64)
+    me.loops.foreach_get("vertex_index", vi)
+    ls = np.empty(len(me.polygons), np.int64)
+    lt = np.empty(len(me.polygons), np.int64)
+    me.polygons.foreach_get("loop_start", ls)
+    me.polygons.foreach_get("loop_total", lt)
+    return vi, np.repeat(np.arange(len(ls)), lt)
+
+
+def apply_locks(obj, q, pid, band, f, s_len, amp, lock_len=0.17, gshare=0.0, wrap=None):
+    """Displace the fur surface into locks (a lens across each band, grooves between) and write what the
+    fur shader needs to draw the same locks per pixel: bq (the continuous band coordinate, in pattern
+    repeats; the shader looks its band, slot and across-lock position up in LW_tail_bands row pid), sflow
+    (metres along the flow / lock length: lock ends, roots and tips), gshare (share of locks with a glow
+    streak). band, f: the band and across-lock position per vertex (for the relief); amp: relief height."""
+    co, no = verts_np(obj), vnormals_np(obj)
+    prof = np.sin(np.pi * f) ** 0.6
+    co = co + no * (amp * (prof - 0.55))[:, None]
+    obj.data.vertices.foreach_set("co", co.ravel())
+    obj.data.update()
+    n = len(co)
+    # the band coordinate per face corner: where it comes from an angle (around a curl or a tube) it is
+    # unwrapped per face, so the faces across the angle's seam draw their bands without a smear
+    vi, fi = loop_faces(obj)
+    ql = q[vi]
+    if wrap is not None:
+        ang, scale = wrap
+        fs = np.bincount(fi, np.sin(ang[vi]))
+        fc = np.bincount(fi, np.cos(ang[vi]))
+        af = np.arctan2(fs, fc)[fi]
+        av = ang[vi]
+        ql = ql + scale * np.round((af - av) / (2 * math.pi))
+    set_corner_attr(obj, "bq", ql)
+    set_attr(obj, "pid", np.full(n, float(pid)))
+    set_attr(obj, "sflow", s_len / lock_len)
+    set_attr(obj, "lut", np.ones(n))
+    set_attr(obj, "gshare", np.full(n, gshare))
+    tail_projection_attrs(obj, co)
+    return co
+
+
+def tail_projection_attrs(obj, co):
+    """Coordinates of the tail marks image (side: Y -0.10..0.92, z; back: X -0.51..0.51, z)."""
+    set_attr(obj, "tys", (co[:, 1] + TAIL_Y0) / MARK_SPAN)
+    set_attr(obj, "pzs", co[:, 2] / MARK_SPAN)
+    set_attr(obj, "pxf", (co[:, 0] + 0.51) / MARK_SPAN)
+
+
+def remesh_clay(clay, name, faces):
+    o = clay.to_object(name, symmetric=False)
+    kit.quad_remesh(o, faces)
+    close_holes(o)
+    o.data.shade_smooth()
+    return o
+
+
+# ---------------------------------------------------------------- the plume (centre tail)
+# its outline (Y, z) on the side view's mask (cv: top edge z 0.71 at Y 0.24-0.40, back edge Y 0.62 at
+# z 0.34-0.42, inner edge Y 0.25 at z 0.30-0.42), the root inside the rump, the lower edge hidden behind the
+# curls; per point the width of the lock zone (from the outline in to the dark starry underfur): broad at
+# the outer edge (0.14), thin along the inner edge (0.045)
+PLUME = np.array([(-0.05, 0.600), (0.02, 0.608), (0.08, 0.604), (0.12, 0.613), (0.15, 0.636), (0.18, 0.670),
+                  (0.21, 0.697), (0.24, 0.709), (0.30, 0.709), (0.36, 0.715), (0.42, 0.703), (0.48, 0.674),
+                  (0.53, 0.645), (0.565, 0.600), (0.590, 0.550), (0.605, 0.500), (0.616, 0.440),
+                  (0.620, 0.380), (0.613, 0.330), (0.597, 0.292), (0.565, 0.266), (0.505, 0.252),
+                  (0.430, 0.250), (0.360, 0.258), (0.300, 0.275), (0.265, 0.292), (0.250, 0.320),
+                  (0.250, 0.380), (0.246, 0.420), (0.228, 0.458), (0.190, 0.484), (0.140, 0.500),
+                  (0.080, 0.508), (0.020, 0.520), (-0.05, 0.535)])
+PLUME_ZONE = np.array([0.06, 0.07, 0.08, 0.10, 0.12, 0.13, 0.14, 0.145, 0.145, 0.145, 0.14, 0.135, 0.13, 0.13,
+                       0.13, 0.13, 0.13, 0.13, 0.125, 0.11, 0.10, 0.09, 0.08, 0.07, 0.065, 0.06, 0.05, 0.045,
+                       0.045, 0.045, 0.05, 0.05, 0.05, 0.055, 0.06])
+def closed_spline(P, per=6):
+    """Closed Catmull-Rom curve through P (n, 2)."""
+    Q = np.concatenate([P[-1:], P, P[:2]])
+    out = []
+    for i in range(1, len(P) + 1):
+        p0, p1, p2, p3 = Q[i - 1], Q[i], Q[i + 1], Q[i + 2]
+        for t in np.linspace(0, 1, per, endpoint=False):
+            t2, t3 = t * t, t * t * t
+            out.append(0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3))
+    return np.array(out)
+
+
+PLUME_RAW, PLUME_ZONE_RAW = PLUME, PLUME_ZONE
+PLUME = closed_spline(PLUME_RAW, 6)
+PLUME_ZONE = np.repeat(PLUME_ZONE_RAW, 6) * 0.0 + np.interp(np.arange(len(PLUME)) / 6.0, np.arange(len(PLUME_ZONE_RAW)), PLUME_ZONE_RAW)
+PLUME_ROUND = 0.07   # rim rounding (in the plane of the plume)
+# lock bands from the rim's crest inward, per face (+X, -X), as shares of the lock zone
+PLUME_BANDS = {1: [(0.10, 2), (0.17, 0), (0.15, 2), (0.07, 1), (0.16, 3), (0.11, 0), (0.12, 2), (0.12, 4)],
+               -1: [(0.12, 3), (0.18, 0), (0.14, 2), (0.10, 0), (0.17, 3), (0.09, 1), (0.20, 4)]}
+
+
+def poly_sdf2(P, Y, Z, want_s=False):
+    """Signed distance (negative inside) from points (Y, Z) to the closed polygon P (n, 2); with want_s also
+    the nearest outline point's arc position (0..1 from P[0]) and the outline's length."""
+    Y, Z = np.broadcast_arrays(np.asarray(Y, float), np.asarray(Z, float))
+    best = np.full(Y.shape, np.inf)
+    sb = np.zeros(Y.shape)
+    inside = np.zeros(Y.shape, bool)
+    Q = np.vstack([P, P[:1]])
+    seg = np.linalg.norm(np.diff(Q, axis=0), axis=1)
+    cum = np.concatenate([[0], np.cumsum(seg)])
+    for i in range(len(P)):
+        a, b = Q[i], Q[i + 1]
+        ab = b - a
+        t = np.clip(((Y - a[0]) * ab[0] + (Z - a[1]) * ab[1]) / (ab @ ab), 0, 1)
+        d = np.hypot(Y - (a[0] + t * ab[0]), Z - (a[1] + t * ab[1]))
+        m = d < best
+        best = np.where(m, d, best)
+        sb = np.where(m, cum[i] + t * seg[i], sb)
+        inside ^= ((a[1] > Z) != (b[1] > Z)) & (Y < ab[0] * (Z - a[1]) / (ab[1] + 1e-12) + a[0])
+    d = np.where(inside, -best, best)
+    return (d, sb / cum[-1], cum[-1]) if want_s else d
+
+
+def plume_T(Y, Z):
+    """Half thickness of the plume across (X): thin up top (hidden behind the head in the back view),
+    fuller low where it falls into the centre curl, and at the root."""
+    return 0.048 + 0.055 * np.clip((0.52 - Z) / 0.24, 0, 1) + 0.016 * np.clip((0.10 - Y) / 0.14, 0, 1)
+
+
+def plume_xc(Z):
+    return -0.018 * np.clip((0.52 - Z) / 0.3, 0, 1)
+
+
+def plume_h(d, T):
+    k = np.clip(d / PLUME_ROUND, 0, 1)
+    return T * np.sqrt(np.clip(1 - (1 - k) ** 2, 0, 1)) + np.clip(0.10 * (d - PLUME_ROUND), 0, 0.012)
+
+
+def rim_arc(d, T):
+    """Arc length over the plume's rounded rim from its crest to the place at in-plane depth d."""
+    D = PLUME_ROUND
+    al = np.arccos(np.clip(1 - np.minimum(d, D) / D, -1, 1))
+    ts = np.linspace(0, 1, 25)[None, :] * al[:, None]
+    integrand = np.sqrt((D * np.sin(ts)) ** 2 + (T[:, None] * np.cos(ts)) ** 2)
+    E = np.trapezoid(integrand, ts, axis=1) if hasattr(np, "trapezoid") else np.trapz(integrand, ts, axis=1)
+    return E + np.maximum(d - D, 0)
+
+
+def sd_plume():
+    def fn(x, y, z):
+        Y2, Z2 = y[0], z[0]           # (ny, 1), (1, nz)
+        d2 = poly_sdf2(PLUME, Y2, Z2)
+        Yb, Zb = np.broadcast_arrays(Y2, Z2)
+        h = plume_h(np.maximum(-d2, 0), plume_T(Yb, Zb))
+        return np.maximum(d2[None], np.abs(x - plume_xc(Zb)[None]) - h[None])
+    return S.Prim(fn, (-0.14, -0.08, 0.18), (0.14, 0.66, 0.74))
+
+
+def build_plume(mat):
+    clay = S.Clay((-0.14, -0.08, 0.18), (0.14, 0.66, 0.74), voxel=0.0035)
+    clay.add(sd_plume())
+    o = remesh_clay(clay, "tail_centre", 10000)
+    co = verts_np(o)
+    d2, s01, per = poly_sdf2(PLUME, co[:, 1], co[:, 2], want_s=True)
+    d = np.maximum(-d2, 0)
+    T = plume_T(co[:, 1], co[:, 2])
+    zone = np.interp(s01 * per, np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(np.vstack([PLUME, PLUME[:1]]), axis=0), axis=1))])[:-1], PLUME_ZONE)
+    u = rim_arc(d, T)
+    g = u / rim_arc(zone, T)
+    side = np.where(co[:, 0] - plume_xc(co[:, 2]) >= 0, 1, -1)
+    sl = s01 * per
+    # the bands wave and pinch along the flow (locks narrowing to their ends)
+    g = g + 0.05 * np.sin(sl * 21.0 + side) + 0.045 * g * np.sin(sl * 13.0 + 2.0 * side)
+    qs = np.clip(side * g, -0.999, 0.999)
+    band = np.zeros(len(co))
+    f = np.zeros(len(co))
+    for sd in (1, -1):
+        m = side == sd
+        band[m], f[m], _ = band_pattern(np.abs(qs[m]), PLUME_BANDS[sd])
+    core = smoothstep(g, 0.97, 1.08)
+    amp = 0.0055 * (1 - core) * smoothstep(co[:, 1], 0.0, 0.08)
+    apply_locks(o, (qs + 1) / 2, 0, band, f, sl, amp, lock_len=0.19, gshare=0.03)
+    # the dark starry underfur inside the lock zone, on both faces
+    set_attr(o, "starry", core)
+    set_attr(o, "curl_centre", np.zeros(len(co)))
+    return o
+
+
+# ---------------------------------------------------------------- tail curls (the tail ends coiled on the ground)
+# the centre curl faces the back (the back view's big centre spiral, x -0.04 z 0.13 r 0.16); the left (+X)
+# curl is a long roll turned between the side and the back (side view: the ground sweep Y 0.08-0.54 z 0-0.30
+# with its spiral at Y 0.28 z 0.17; back view: x 0.0-0.35); the right (-X) curl faces back-out (back view
+# x -0.12..-0.36 z 0.16)
+TAIL_CURLS = {
+    "centre": dict(c=(-0.035, 0.420, 0.158), n=(0.0, 1.0, 0.0), e_h=(-1.0, 0.0, 0.0), rh=0.152, rv=0.150, rn=0.085, turns=2.2,
+                   pattern=[(0.32, 0), (0.10, 2), (0.30, 3), (0.12, 4), (0.16, 2)]),
+    1: dict(c=(0.170, 0.275, 0.158), n=(0.80, 0.60, 0.0), e_h=(0.60, -0.80, 0.0), rh=0.165, rv=0.150, rn=0.072, turns=2.3,
+            pattern=[(0.34, 0), (0.12, 2), (0.30, 3), (0.08, 4), (0.16, 2)]),
+    -1: dict(c=(-0.200, 0.340, 0.158), n=(-0.62, 0.78, 0.0), e_h=(-0.78, -0.62, 0.0), rh=0.140, rv=0.150, rn=0.080, turns=2.2,
+             pattern=[(0.30, 0), (0.14, 2), (0.32, 3), (0.10, 4), (0.14, 2)]),
+}
+SIDE_PATTERN = [(0.30, 0), (0.22, 2), (0.30, 3), (0.18, 2)]
+THIN_PATTERN = [(0.35, 2), (0.30, 3), (0.35, 0)]
+# rows of the band lookup image: 0 the plume (signed lock-zone coordinate), 1-3 the curls, 4 side tails, 5 thin
+CURL_PID = {"centre": 1, 1: 2, -1: 3}
+
+
+def build_tail_curl(key, mat):
+    """One tail curl: the tail's end coiled on the ground, a fat soft mass of fur (clay: a mass in the coil
+    plane, a little fuller at its outer turn, seated on the ground) whose locks follow the spiral into the
+    centre in interleaved streams (cream, light blue, mid blue, dark), on both faces and over the rim."""
     Bc = TAIL_CURLS[key]
-    L = Bc["L"]
-    c, n, e_h, up = curl_frame(L)
-    span = max(Bc["rh"], Bc["rv"], Bc["rn"]) + 0.08
-    clay = S.Clay(c - span, c + span, voxel=0.004)
-    clay.add(sd_ellipsoid_axes(c, [e_h, up, n], (Bc["rh"], Bc["rv"], Bc["rn"])))
-    clay.add(sd_ellipsoid_axes(c - up * 0.02 + e_h * 0.02, [e_h, up, n], (Bc["rh"] * 0.85, Bc["rv"] * 0.8, Bc["rn"] * 1.08)), blend=0.03)
-    lob = coil(L["c"], L["n"], L["e_h"], L["R0"], phi0=Bc["phi0"], turns=1.8, n_pts=130, shrink=2.1, sv=L["sv"])
-    ent = lob[:int(Bc["entry"] / 1.8 * 129):4]
-    clay.add(S.sd_tube(list(ent), [Bc["tube"]] * len(ent), blend=0.02), blend=0.035)
+    c, n, e_h, up = curl_frame(Bc)
+    rh, rv, rn = Bc["rh"], Bc["rv"], Bc["rn"]
+    span = max(rh, rv, rn) + 0.06
+    clay = S.Clay(c - span, c + span, voxel=0.0035)
+    clay.add(sd_ellipsoid_axes(c, [e_h, up, n], (rh, rv, rn)))
+    clay.add(sd_ellipsoid_axes(c + up * 0.03 - e_h * 0.03, [e_h, up, n], (rh * 0.8, rv * 0.82, rn * 1.1)), blend=0.03)
     clay.intersect(S.sd_halfspace((0, 0, 0.002), (0, 0, -1)), blend=0.012)
-    core = clay.to_object("tail_curl_core_tmp", symmetric=False)
-    kit.quad_remesh(core, 1600)
-    close_holes(core)
-    me = core.data
-    fur = Fur(me)
-    for v in fur.bm.verts:
-        v[fur.lay["band"]] = BAND(4.2)
-        v[fur.lay["lu"]] = 0.3
-    bpy.data.objects.remove(core)
-    bpy.data.meshes.remove(me)
-    # spiral streams of locks on both faces
-    squash = Bc["rv"] / Bc["rh"]
-    Rp = Bc["rh"] * 1.04
-    pitch = Rp / 2.25
-    J = 2
-    stream_band = [0, 3]
-    for face in (1, -1):
-        for j in range(J):
-            q0 = Rp / pitch + j / J
-            phis = np.linspace(Bc["phi0"], Bc["phi0"] + 2 * math.pi * (q0 - 0.03 / pitch), 900)
-            r = pitch * (q0 - (phis - Bc["phi0"]) / (2 * math.pi))
-            keep = r <= Rp
-            phis, r = phis[keep], r[keep]
-            x, y = r * np.sin(phis), r * np.cos(phis) * squash
-            G = c + x[:, None] * e_h + y[:, None] * up + (face * Bc["rn"] * 1.3) * n
-            Sp, Nr = clay.project(G)
-            sl = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(Sp, axis=0), axis=1))])
-            pos = rng.uniform(0, 0.05)
-            while pos < sl[-1] - 0.03:
-                Ll = rng.uniform(0.18, 0.26) * (0.7 if sl[-1] - pos < 0.3 else 1.0)
-                a, b = pos, min(pos + Ll, sl[-1])
-                su = np.linspace(a, b, 16)
-                C = np.stack([np.interp(su, sl, Sp[:, k]) for k in range(3)], 1)
-                Nn = np.stack([np.interp(su, sl, Nr[:, k]) for k in range(3)], 1)
-                Nn /= np.maximum(np.linalg.norm(Nn, axis=1, keepdims=True), 1e-9)
-                rr = np.interp(su, sl, r)
-                f = (su - a) / max(b - a, 1e-6)
-                h = 0.010 * np.clip(rr / 0.07, 0.55, 1.0) * lock_profile(f, 0.7) / 0.9
-                width = 1.5 * pitch / J * np.clip(rr / 0.08, 0.45, 1.0) * lock_profile(f, 0.6) * rng.uniform(0.9, 1.1)
-                # across the lock: on the surface, perpendicular to the spiral; re-snapped onto the core
-                Tg = np.gradient(C, axis=0)
-                X = np.cross(Nn, Tg)
-                X /= np.maximum(np.linalg.norm(X, axis=1, keepdims=True), 1e-9)
-                acr = np.linspace(-1.0, 1.0, 7)
-                G2 = C[:, None, :] + X[:, None, :] * (0.5 * width[:, None, None] * acr[None, :, None])
-                Rr, Rn = clay.project(G2.reshape(-1, 3))
-                Rr, Rn = Rr.reshape(G2.shape), Rn.reshape(G2.shape)
-                lift = 0.006 * smoothstep(f, 0.7, 1.0)
-                Rr = Rr + Rn * lift[:, None, None]
-                band = stream_band[j]
-                if band == 3 and rng.random() < 0.3:
-                    band = 2
-                elif band == 3 and rng.random() < 0.4:
-                    band = 4
-                if band == 0 and rng.random() < 0.25:
-                    band = 1
-                fur.ribbon(Rr, Rn, h, BAND(band), ljit=rng.uniform(-1, 1), sink=0.004)
-                pos += Ll * rng.uniform(0.7, 0.8)
     name = "tail_curl_centre" if key == "centre" else f"tail_curl_{'left' if key == 1 else 'right'}"
-    return fur.to_object(name, mat), clay
+    area = 2 * math.pi * rh * rv + 2 * math.pi * math.sqrt((rh * rh + rv * rv) / 2) * rn * 1.4
+    o = remesh_clay(clay, name, int(area / 5.2e-5))
+    co = verts_np(o)
+    rel = co - c
+    a, b = rel @ e_h / rh, rel @ up / rv
+    r = np.hypot(a, b)
+    phi = np.arctan2(a, b)
+    Tn = Bc["turns"]
+    q = r * Tn + phi / (2 * math.pi) + 0.03 * np.sin(phi * 3 + r * 9)
+    band, f, _ = band_pattern(q, Bc["pattern"])
+    phu = 2 * math.pi * Tn * (1 - np.clip(r, 0, 1))
+    R = 0.5 * (rh + rv)
+    s_len = R * (phu - phu ** 2 / (4 * math.pi * Tn))
+    amp = 0.006 * smoothstep(r, 0.06, 0.22)
+    apply_locks(o, q, CURL_PID[key], band, f, s_len, amp, lock_len=0.15, gshare=0.0, wrap=(phi, 1.0))
+    set_attr(o, "starry", np.zeros(len(co)))
+    set_attr(o, "curl_centre", np.ones(len(co)) if key == "centre" else np.zeros(len(co)))
+    return o
+
+
+# ---------------------------------------------------------------- the side and thin tails (tubes of fur)
+# the side tails run inside the plume from the rump and leave its lower edge into their curls; the thin
+# tails leave the plume's back edge at z 0.40 out sideways to x +-0.35, the tips hanging down (back view
+# wisps; side view: the lock tips hanging at the plume's back edge, Y 0.58 z 0.2-0.27)
+def tail_tubes():
+    out = []
+    for side in (1, -1):
+        # from inside the plume's back edge (its vertical bands in the side view, clear of the stars) down
+        # and out into the curl: the back view's side tails fanning from the rump to the side spirals
+        cps = np.array([(side * 0.01, 0.565, 0.52), (side * 0.05, 0.55, 0.45), (side * 0.10, 0.52, 0.37),
+                        (side * 0.14, 0.47, 0.30), (side * 0.16, 0.42, 0.25), (side * 0.165, 0.36, 0.21)]) if side > 0 else \
+            np.array([(-0.01, 0.565, 0.52), (-0.05, 0.55, 0.45), (-0.11, 0.52, 0.37), (-0.16, 0.48, 0.30),
+                      (-0.19, 0.44, 0.25), (-0.20, 0.40, 0.21)])
+        P = resample(catmull(cps, 12), 90)
+        r = np.interp(np.linspace(0, 1, len(P)), [0, 0.4, 1.0], [0.035, 0.05, 0.06])
+        out.append(dict(name=f"tail_side_{'left' if side > 0 else 'right'}", P=P, r=r, K=3, twist=0.35,
+                        pid=4, faces=1400))
+    for side in (1, -1):
+        dz = 0.0 if side > 0 else 0.015
+        cps = np.array([(side * 0.03, 0.52, 0.378 + dz), (side * 0.14, 0.55, 0.366 + dz), (side * 0.25, 0.565, 0.348 + dz),
+                        (side * 0.32, 0.575, 0.322 + dz), (side * 0.352, 0.58, 0.288 + dz), (side * 0.346, 0.585, 0.248 + dz)])
+        P = resample(catmull(cps, 12), 110)
+        r = np.interp(np.linspace(0, 1, len(P)), [0, 0.3, 0.7, 0.9, 1.0], [0.026, 0.023, 0.016, 0.009, 0.003])
+        out.append(dict(name=f"tail_thin_{'left' if side > 0 else 'right'}", P=P, r=r, K=2, twist=0.3,
+                        pid=5, faces=1500))
+    return out
+
+
+def build_tail_tube(t, mat):
+    P, r = t["P"], t["r"]
+    lo, hi = P.min(0) - r.max() - 0.03, P.max(0) + r.max() + 0.03
+    clay = S.Clay(lo, hi, voxel=0.003)
+    clay.add(S.sd_tube(list(P[::3]), list(r[::3]), blend=0.01))
+    o = remesh_clay(clay, t["name"], t["faces"])
+    co = verts_np(o)
+    T, N, B = frames(P, (0.0, 0.0, 1.0))
+    sl = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
+    best = np.full(len(co), np.inf)
+    idx = np.zeros(len(co), int)
+    for i in range(len(P)):
+        dd = np.linalg.norm(co - P[i], axis=1)
+        m = dd < best
+        best[m], idx[m] = dd[m], i
+    rel = co - P[idx]
+    th = np.arctan2((rel * B[idx]).sum(1), (rel * N[idx]).sum(1))
+    s = sl[idx]
+    q = t["K"] * (th / (2 * math.pi) + t["twist"] * s / sl[-1]) + 0.04 * np.sin(s * 25)
+    band, f, _ = band_pattern(q, SIDE_PATTERN if t["pid"] == 4 else THIN_PATTERN)
+    amp = 0.004 * np.clip(r[idx] / 0.03, 0.4, 1.0)
+    apply_locks(o, q, t["pid"], band, f, s, amp, lock_len=0.16, gshare=0.12, wrap=(th, float(t["K"])))
+    set_attr(o, "starry", np.zeros(len(co)))
+    set_attr(o, "curl_centre", np.zeros(len(co)))
+    return o
+
+
+# loose fur locks that leave the tails' outline and taper to curling points (side view unless named): the
+# tip curling forward-up on top of the plume (Y 0.21 z 0.71), the tip hooking up at its top back (Y 0.57
+# z 0.71), the hook on the inner edge (Y 0.21 z 0.34), the lock hanging off the back edge, the flick at the
+# end of the ground sweep (Y 0.56 z 0.05-0.10), the front view's hook rising on the left curl (to z 0.39),
+# a lock on the right curl.  (bezier control points, root radius, frame hint, colour band)
+TAIL_LOCKS = [
+    ([(0.025, 0.34, 0.690), (0.025, 0.262, 0.716), (0.025, 0.214, 0.730), (0.025, 0.200, 0.708)], 0.020, (1, 0, 0), 2),
+    ([(0.022, 0.45, 0.688), (0.022, 0.528, 0.668), (0.022, 0.585, 0.672), (0.022, 0.574, 0.714)], 0.021, (1, 0, 0), 2),
+    ([(0.045, 0.262, 0.410), (0.045, 0.228, 0.340), (0.045, 0.200, 0.322), (0.046, 0.206, 0.350)], 0.022, (1, 0, 0), 3),
+    ([(0.050, 0.555, 0.300), (0.060, 0.598, 0.250), (0.062, 0.600, 0.190), (0.058, 0.585, 0.165)], 0.030, (1, 0, 0), 0),
+    ([(-0.010, 0.520, 0.290), (-0.010, 0.560, 0.240), (-0.012, 0.565, 0.180), (-0.012, 0.548, 0.150)], 0.026, (1, 0, 0), 2),
+    ([(0.160, 0.34, 0.050), (0.140, 0.47, 0.026), (0.128, 0.576, 0.042), (0.124, 0.560, 0.105)], 0.052, (0, 0, 1), 0),
+    ([(0.140, 0.36, 0.070), (0.120, 0.46, 0.050), (0.110, 0.540, 0.070), (0.108, 0.530, 0.112)], 0.034, (0, 0, 1), 3),
+    ([(0.262, 0.290, 0.215), (0.318, 0.285, 0.300), (0.290, 0.280, 0.392), (0.196, 0.278, 0.368)], 0.028, (0, 1, 0), 2),
+    ([(-0.270, 0.330, 0.220), (-0.335, 0.330, 0.270), (-0.338, 0.335, 0.215), (-0.312, 0.335, 0.190)], 0.034, (0, 1, 0), 1),
+]
+
+
+TAIL_Y0 = 0.10   # the tail marks image covers Y -0.10 .. 0.92 (the body's covers -0.72 .. 0.30)
+LUT_W, LUT_H = 1024, 8
 
 
 def tail_marks_image():
     """Side (Y, Z) and back (X, Z) projections of the constellations' glowing lines: R = side lines on the
-    centre tail, G = back lines on the centre curl."""
+    plume, G = back lines on the centre curl."""
     n = MARK_RES
     cc = (np.arange(n) + 0.5) / n * MARK_SPAN
-    Ys, Zs = np.meshgrid(cc - 0.72, cc)
+    Ys, Zs = np.meshgrid(cc - TAIL_Y0, cc)
     Xb, Zb = np.meshgrid(cc - 0.51, cc)
     img = np.zeros((n, n, 3), np.float32)
     px = MARK_SPAN / n
     for a, b in CONST_SIDE_LINES:
-        poly_paint(img[..., 0], Ys, Zs, [CONST_SIDE[a], CONST_SIDE[b]], [0.0026, 0.0026], 1.5 * px, halo=0.35, halo_w=0.003)
+        poly_paint(img[..., 0], Ys, Zs, [CONST_SIDE[a], CONST_SIDE[b]], [0.0024, 0.0024], 1.5 * px, halo=0.35, halo_w=0.003)
     for a, b in CONST_BACK_LINES:
         poly_paint(img[..., 1], Xb, Zb, [CONST_BACK[a], CONST_BACK[b]], [0.003, 0.003], 1.5 * px, halo=0.5, halo_w=0.004)
     x0, z0 = CONST_BACK[0]
@@ -1845,29 +1942,73 @@ def tail_marks_image():
     return new_image("LW_tail_marks", n, n, img)
 
 
-def tail_fur_material(marks):
-    """Painted tail fur: the lock's colour band (cream, light / mid / dark blue, indigo), darker roots and
-    lighter tips, fine strands along each lock (colour and bump), crevices dark between the locks; the
-    starry zone of the centre tail indigo with star specks; the constellations' glowing lines; glowing
-    streaks on a few locks near the root."""
+def band_lut_image():
+    """The lock patterns as a lookup image, one row per pattern (pid): R the band's colour (BAND), G its slot
+    in the pattern (/16), B the place across the lock (0..1). Row 0, the plume, holds the signed lock-zone
+    coordinate (-X face left, +X face right of the middle)."""
+    pats = {1: TAIL_CURLS["centre"]["pattern"], 2: TAIL_CURLS[1]["pattern"], 3: TAIL_CURLS[-1]["pattern"],
+            4: SIDE_PATTERN, 5: THIN_PATTERN}
+    img = np.zeros((LUT_H, LUT_W, 3), np.float32)
+    x = (np.arange(LUT_W) + 0.5) / LUT_W
+    q = x * 2 - 1
+    for sd in (1, -1):
+        m = (q >= 0) if sd > 0 else (q < 0)
+        b_, f_, k_ = band_pattern(np.clip(np.abs(q[m]), 0, 0.999), PLUME_BANDS[sd])
+        img[0, m, 0], img[0, m, 1], img[0, m, 2] = b_ / 6.0, (k_ + (0 if sd > 0 else 8)) / 16.0, f_
+    for pid, pat in pats.items():
+        b_, f_, k_ = band_pattern(x, pat)
+        img[pid, :, 0], img[pid, :, 1], img[pid, :, 2] = b_ / 6.0, k_ / 16.0, f_
+    return new_image("LW_tail_bands", LUT_W, LUT_H, img)
+
+
+def white_noise(nt, inp, dims="1D"):
+    nd = nt.node("ShaderNodeTexWhiteNoise", noise_dimensions=dims)
+    nt.link(inp, nd.inputs["W" if dims == "1D" else "Vector"])
+    return nd.outputs["Value"]
+
+
+def tail_fur_material(marks, lut):
+    """Painted tail fur. Where the tail is a sculpted fur mass (lut = 1) the locks are drawn per pixel from the
+    continuous band coordinate bq: the band's colour, its place across the lock (lv) from the lookup row
+    pid; along the flow (sflow) each band breaks into locks with a darker root and a lighter tip, each lock
+    its own tone (white noise per band and lock); on the loose lock tips (lut = 0) the same comes from their
+    vertices. Fine strands along each lock (colour and bump), dark crevices between the locks; the plume's
+    starry underfur indigo with star specks; the constellations' glowing lines; glow streaks on a few
+    locks."""
     mat, tree, bsdf = kit.principled("M_tail_fur")
     nt = NT(tree)
-    lu, lv, band, ljit, lglow = (nt.attr(k) for k in ("lu", "lv", "band", "ljit", "lglow"))
+    use = nt.attr("lut")
+    bq, pid, sfl = nt.attr("bq"), nt.attr("pid"), nt.attr("sflow")
+    x = nt.math("FRACT", bq)
+    v = nt.math("DIVIDE", nt.math("ADD", pid, 0.5), float(LUT_H))
+    L = nt.rgb_sep(nt.image(lut, nt.combine(x, v), interp="Closest").outputs["Color"])
+    serial = nt.math("ADD", nt.math("MULTIPLY", nt.math("FLOOR", bq), 16.0), nt.math("MULTIPLY", L[1], 16.0))
+    su = nt.math("ADD", sfl, white_noise(nt, nt.math("ADD", serial, 0.37)))
+    li = nt.math("FLOOR", su)
+    lu_l = nt.math("FRACT", su)
+    ljit_l = nt.math("SUBTRACT", nt.math("MULTIPLY", white_noise(nt, nt.combine(serial, li), "2D"), 2.0), 1.0)
+    glow_l = nt.math("LESS_THAN", white_noise(nt, nt.combine(nt.math("ADD", serial, 0.5), nt.math("ADD", li, 7.5)), "2D"),
+                     nt.attr("gshare"))
+    band = nt.mixf(use, nt.attr("band"), L[0])
+    lu = nt.mixf(use, nt.attr("lu"), lu_l)
+    lv = nt.mixf(use, nt.attr("lv"), L[2])
+    ljit = nt.mixf(use, nt.attr("ljit"), ljit_l)
+    lglow = nt.mixf(use, nt.attr("lglow"), glow_l)
     starry, curlc = nt.attr("starry"), nt.attr("curl_centre")
-    base = nt.ramp(band, [(0.0, "#e2ddd0"), (BAND(1), "#d0cbbf"), (BAND(2), "#9ec4d8"), (BAND(3), "#80a3c0"),
-                          (BAND(4), "#6a82a6"), (BAND(5), "#4f6491"), (1.0, "#3c4b7a")])
+    base = nt.ramp(nt.math("ADD", band, 0.04), [(0.0, "#e2ddd0"), (BAND(1), "#d0cbbf"), (BAND(2), "#9ec4d8"), (BAND(3), "#80a3c0"),
+                          (BAND(4), "#6a82a6"), (BAND(5), "#4f6491"), (1.0, "#3c4b7a")], interp="CONSTANT")
     jit = nt.math("ADD", nt.math("MULTIPLY", ljit, 0.05), 1.0)
     base = nt.mix(1.0, base, nt.combine(jit, jit, jit), "MULTIPLY")
-    # root dark, tip light
-    rootf = nt.maprange(lu, 0.0, 0.22, 0.22, 0.0)
+    # root a little darker, tip a little lighter (each lock)
+    rootf = nt.maprange(lu, 0.0, 0.2, 0.16, 0.0)
     base = nt.mix(rootf, base, lin("#3f4e80"))
-    tipf = nt.maprange(lu, 0.72, 1.0, 0.0, 0.22)
+    tipf = nt.maprange(lu, 0.75, 1.0, 0.0, 0.16)
     base = nt.mix(tipf, base, lin("#f2f5f6"))
     # fine strands along the lock
     strands = nt.noise(nt.combine(nt.math("MULTIPLY", lv, 46.0), nt.math("MULTIPLY", lu, 2.2), nt.math("MULTIPLY", ljit, 9.0)), 1.0, 4, 0.6)
-    sv = nt.ramp(strands, [(0.3, (0.86, 0.88, 0.92, 1)), (0.5, (1, 1, 1, 1)), (0.7, (1.08, 1.07, 1.05, 1))])
+    sv = nt.ramp(strands, [(0.3, (0.88, 0.90, 0.93, 1)), (0.5, (1, 1, 1, 1)), (0.7, (1.07, 1.06, 1.04, 1))])
     base = nt.mix(1.0, base, sv, "MULTIPLY")
-    # starry zone (centre tail, side facing): indigo with star specks
+    # starry underfur (the plume's inner faces): indigo with star specks
     zone_col = nt.mix(nt.maprange(nt.noise(nt.coords("Object"), 9.0, 3, 0.5), 0.35, 0.7), lin("#3f5088"), lin("#4a5f98"))
     base = nt.mix(nt.math("MULTIPLY", starry, 0.92), base, zone_col)
     vor = nt.node("ShaderNodeTexVoronoi")
@@ -1876,26 +2017,24 @@ def tail_fur_material(marks):
     speck = nt.math("MULTIPLY", nt.maprange(vor.outputs["Distance"], 0.07, 0.025), starry)
     # constellation lines from the side / back projections
     ncomp = nt.sep(nt.coords("Normal"))
-    side_uv = nt.combine(nt.attr("pys"), nt.attr("pzs"))
-    back_uv = nt.combine(nt.attr("pxf"), nt.attr("pzs"))
-    mk_s = nt.rgb_sep(nt.image(marks, side_uv).outputs["Color"])
-    mk_b = nt.rgb_sep(nt.image(marks, back_uv).outputs["Color"])
+    mk_s = nt.rgb_sep(nt.image(marks, nt.combine(nt.attr("tys"), nt.attr("pzs"))).outputs["Color"])
+    mk_b = nt.rgb_sep(nt.image(marks, nt.combine(nt.attr("pxf"), nt.attr("pzs"))).outputs["Color"])
     line_s = nt.math("MULTIPLY", nt.math("MULTIPLY", mk_s[0], nt.maprange(ncomp[0], 0.1, 0.4)), nt.maprange(starry, 0.2, 0.5))
     line_b = nt.math("MULTIPLY", nt.math("MULTIPLY", mk_b[1], nt.maprange(ncomp[1], 0.1, 0.4)), curlc)
     line = nt.math("MAXIMUM", line_s, line_b)
-    # glowing streak along the top of a few locks near the root
-    top = nt.maprange(nt.math("MINIMUM", lv, nt.math("SUBTRACT", 1.0, lv)), 0.07, 0.0)
-    streak = nt.math("MULTIPLY", nt.math("MULTIPLY", top, lglow), nt.math("MULTIPLY", nt.maprange(lu, 0.08, 0.2), nt.maprange(lu, 0.6, 0.35)))
-    glow = nt.math("MAXIMUM", nt.math("MAXIMUM", speck, line), nt.math("MULTIPLY", streak, 0.45))
+    # a thin glowing streak along the edge of a few locks, away from root and tip
+    top = nt.maprange(nt.math("MINIMUM", lv, nt.math("SUBTRACT", 1.0, lv)), 0.05, 0.0)
+    streak = nt.math("MULTIPLY", nt.math("MULTIPLY", top, lglow), nt.math("MULTIPLY", nt.maprange(lu, 0.08, 0.25), nt.maprange(lu, 0.7, 0.45)))
+    glow = nt.math("MAXIMUM", nt.math("MAXIMUM", speck, line), nt.math("MULTIPLY", streak, 0.4))
     base = nt.mix(nt.math("MULTIPLY", glow, 0.9), base, lin("#d8f8ff"))
     # crevices between the locks
     ao = nt.node("ShaderNodeAmbientOcclusion")
     ao.inputs["Distance"].default_value = 0.03
     base = nt.mix(nt.maprange(ao.outputs["AO"], 0.95, 0.4, 0.0, 0.25), base, lin("#34426e"))
     emis = nt.ramp(glow, [(0.0, "#000000"), (0.3, "#3fb4ea"), (1.0, "#c4f6ff")])
-    rough = nt.mixf(glow, nt.math("ADD", nt.math("MULTIPLY", strands, 0.14), 0.70), 0.4)
-    set_bsdf(nt, bsdf, base=base, rough=rough, emis_col=emis, emis_str=2.2, normal=nt.bump(strands, 0.35, 0.0012))
-    bsdf.inputs["Specular IOR Level"].default_value = 0.3
+    rough = nt.mixf(glow, nt.math("ADD", nt.math("MULTIPLY", strands, 0.14), 0.62), 0.4)
+    set_bsdf(nt, bsdf, base=base, rough=rough, emis_col=emis, emis_str=2.2, normal=nt.bump(strands, 0.3, 0.0012))
+    bsdf.inputs["Specular IOR Level"].default_value = 0.35
     return mat
 
 
@@ -1905,21 +2044,6 @@ CONST_SIDE_LINES = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0), (0, 6)]
 # plus the lone star at the right)
 CONST_BACK = [(0.085, 0.217), (0.028, 0.172), (0.015, 0.110), (0.006, 0.104), (-0.111, 0.199), (0.104, 0.248)]
 CONST_BACK_LINES = [(0, 1), (1, 2), (2, 3), (5, 0)]
-
-
-def fur_attributes(obj, starry_zone=False, curl_centre=False):
-    co = verts_np(obj)
-    no = vnormals_np(obj)
-    set_attr(obj, "pys", (co[:, 1] + 0.72) / MARK_SPAN)
-    set_attr(obj, "pzs", co[:, 2] / MARK_SPAN)
-    set_attr(obj, "pxf", (co[:, 0] + 0.51) / MARK_SPAN)
-    z = np.zeros(len(co))
-    if starry_zone:
-        # the dark starry interior of the plume's arc on the side the main view sees (Y 0.23-0.47, z 0.30-0.58)
-        dyz = np.sqrt(((co[:, 1] - 0.37) / 0.165) ** 2 + ((co[:, 2] - 0.42) / 0.185) ** 2)
-        z = np.clip((1.15 - dyz) / 0.25, 0, 1) * np.clip((no[:, 0] + 0.1) / 0.4, 0, 1)
-    set_attr(obj, "starry", z)
-    set_attr(obj, "curl_centre", np.ones(len(co)) if curl_centre else np.zeros(len(co)))
 
 
 def star_dome(name, p, nrm, r, mat):
@@ -1933,49 +2057,42 @@ def star_dome(name, p, nrm, r, mat):
 
 
 def build_tails(star_mat):
-    """The five tails as fur (centre, two side, two thin), their curls on the ground, the loose locks and the
-    constellation stars. One object per tail (core and locks)."""
-    mat = tail_fur_material(tail_marks_image())
+    """The five tails as fur: the plume (centre tail), the two side tails and the two thin tails, the three
+    curls on the ground, the loose lock tips and the constellation stars."""
+    mat = tail_fur_material(tail_marks_image(), band_lut_image())
     rng = random.Random(4242)
     objs = []
-    spec = {  # locks around per layer, layers (path windows), twist (turns), colour bands around, glow streaks
-        "tail_centre": dict(K=12, windows=[(0.0, 0.72), (0.34, 1.0)], twist=0.32,
-                            bands=[0, 3, 1, 2, 4, 0, 3, 2, 1, 3, 5, 2], glow=0, th_max=0.022),
-        "tail_side_left": dict(K=9, windows=[(0.0, 0.75), (0.40, 1.0)], twist=0.30, bands=[0, 3, 2, 4, 1, 3, 0, 5, 2], glow=1, th_max=0.018),
-        "tail_side_right": dict(K=9, windows=[(0.0, 0.75), (0.40, 1.0)], twist=0.30, bands=[1, 3, 0, 4, 2, 3, 0, 5, 2], glow=1, th_max=0.018),
-        "tail_thin_left": dict(K=5, windows=[(0.0, 0.8), (0.42, 1.0)], twist=0.25, bands=[3, 2, 4, 3, 0], glow=1, th_max=0.012),
-        "tail_thin_right": dict(K=5, windows=[(0.0, 0.8), (0.42, 1.0)], twist=0.25, bands=[2, 3, 4, 0, 3], glow=1, th_max=0.012),
-    }
-    centre = None
-    for t in tail_paths():
-        sp = spec[t["name"]]
-        fur = Fur()
-        fur_core(fur, t["P"], t["ru"], t["rv"], t["hint"], vis=max(0.0, t["vis"] - 0.02))
-        fur_bundle(fur, t["P"], t["ru"], t["rv"], t["hint"], sp["K"], sp["windows"], sp["twist"], sp["bands"], rng,
-                   vis=t["vis"], glow=sp["glow"], h_max=sp["th_max"] * 0.6)
-        if t["name"] == "tail_centre":
-            for name, cps, r0, hint, band in TAIL_LOCKS:
-                tail_lock(fur, name, cps, r0, hint, band, rng)
-        o = fur.to_object(t["name"], mat)
-        fur_attributes(o, starry_zone=(t["name"] == "tail_centre"))
-        objs.append(o)
-        if t["name"] == "tail_centre":
-            centre = o
-    curls = {}
+    plume = build_plume(mat)
+    plume.data.materials.append(mat)
+    objs.append(plume)
     for key in ("centre", 1, -1):
-        o, clay = build_tail_curl(key, mat, rng)
-        fur_attributes(o, curl_centre=(key == "centre"))
+        o = build_tail_curl(key, mat)
+        o.data.materials.append(mat)
         objs.append(o)
-        curls[key] = o
-    # constellation stars: the side constellation on the centre tail (from +X), the back one on the centre
-    # curl (from behind); small glowing domes of uneven size
-    tree = bvh_of(centre)
+        if key == "centre":
+            centre_curl = o
+    for i, t in enumerate(tail_tubes()):
+        o = build_tail_tube(t, mat)
+        o.data.materials.append(mat)
+        objs.append(o)
+    fur = Fur()
+    for cps, r0, hint, band in TAIL_LOCKS:
+        tail_lock(fur, cps, r0, hint, band, rng)
+    o = fur.to_object("tail_locks", mat)
+    co = verts_np(o)
+    tail_projection_attrs(o, co)
+    set_attr(o, "starry", np.zeros(len(co)))
+    set_attr(o, "curl_centre", np.zeros(len(co)))
+    objs.append(o)
+    # constellation stars: the side constellation on the plume's +X face, the back one on the centre curl;
+    # small glowing domes of uneven size
+    tree = bvh_of(plume)
     sizes = [0.012, 0.011, 0.013, 0.012, 0.008, 0.009, 0.006]
     for i, (y, z) in enumerate(CONST_SIDE):
         hit = tree.ray_cast(Vector((1.0, y, z)), Vector((-1, 0, 0)))
         if hit[0] is not None:
             objs.append(star_dome(f"constellation_star_side_{i}", np.array(hit[0]), np.array(hit[1]), sizes[i] * rng.uniform(0.9, 1.1), star_mat))
-    tree = bvh_of(curls["centre"])
+    tree = bvh_of(centre_curl)
     sizes = [0.0072, 0.0058, 0.0052, 0.0040, 0.0060, 0.0048]
     for i, (x, z) in enumerate(CONST_BACK):
         hit = tree.ray_cast(Vector((x, 2.0, z)), Vector((0, -1, 0)))
@@ -1985,19 +2102,20 @@ def build_tails(star_mat):
 
 
 # ============================================================================ BODY ATTRIBUTES AND CREAM
-def make_cream_field(obj):
+def make_cream_field(obj, clay):
     """Cream zones of the fur, as a field for kit.mark. Review 1: the chest ruff is cream only where the
     surface faces forward (normal Y < -0.3), the belly only on the underside plus the tips of the
     fringe locks (jagged), the cheeks only inside |x| < 0.12 and not on their back faces."""
-    tree = bvh_of(obj)
-
+    # the surface normal from the smooth clay (the mesh's face normals are piecewise flat and would cut
+    # the cream edge into steps along the faces)
     def field(p):
         x, y, z = p.x, p.y, p.z
-        hit = tree.find_nearest(p)
-        n = hit[1] if hit[1] is not None else Vector((0, 0, 1))
+        n = Vector(clay.normal(np.array([[x, y, z]]))[0])
         nz = 0.0012 * noise.noise(Vector((x * 55, y * 55, z * 55))) + 0.0008 * noise.noise(Vector((x * 160, y * 160, z * 160)))
         # head: below a line from the nose (z 0.683) under the eye (0.700) back to the cheek (0.655)
         zb = float(np.interp(y, [-0.65, -0.60, -0.55, -0.50, -0.45, -0.40, -0.36, -0.33], [0.656, 0.656, 0.662, 0.676, 0.674, 0.660, 0.645, 0.62]))
+        # the cheek fur is cream up toward the outer eye corners (front view), the muzzle middle stays blue
+        zb += 0.026 * float(smoothstep(abs(x), 0.06, 0.12))
         head = max(z - zb, y + 0.33, 0.55 - z, abs(x) - 0.15, n.y - 0.35)
         wb = 0.016 + 0.034 * min(1.0, max(0.0, (y + 0.62) / 0.14))
         bridge = max(abs(x) - wb, 0.672 - z, y + 0.44)   # blue nose bridge, narrowing to the nose
@@ -2007,7 +2125,8 @@ def make_cream_field(obj):
         wc = float(np.interp(z, [0.24, 0.27, 0.32, 0.38, 0.47, 0.55, 0.62, 0.66], [0.0, 0.04, 0.085, 0.115, 0.115, 0.095, 0.06, 0.08]))
         chest = max(y - yb, abs(x) - wc, 0.245 - z, z - 0.665, (n.y + 0.05) * 0.1)
         # belly: the underside, and the lower ends of the fringe locks (a jagged cream edge in the side view)
-        jag = 0.006 * abs(math.sin(y * 95.0)) + 0.004 * noise.noise(Vector((x * 40, y * 40, 3.0)))
+        ph = (y * 27.0 + 0.3 * noise.noise(Vector((x * 9, y * 9, 1.0)))) % 1.0
+        jag = -0.016 * (1 - abs(2 * ph - 1)) ** 2 + 0.008 + 0.003 * noise.noise(Vector((x * 40, y * 40, 3.0)))
         under = max((n.z + 0.2) * 0.1, z - 0.42, 0.28 - z, y - 0.06, -0.33 - y, abs(x) - 0.085)
         sx = 1.0 if x >= 0 else -1.0
         fringe = max(z - (0.352 + jag), 0.30 - z, y - 0.02, -0.31 - y, abs(x) - 0.075)
@@ -2069,7 +2188,7 @@ def build():
     crease_mouth(body, clay)
     body.data.shade_smooth()
     body.data.materials.append(m_fur)
-    kit.mark(body, make_cream_field(body), m_cream)
+    kit.mark(body, make_cream_field(body, clay), m_cream)
     close_holes(body)
     body_attributes(body)
     parts = [body]
@@ -2085,6 +2204,7 @@ def build():
         parts.append(build_eye(clay, side, eye_material(side)))
         parts += build_lid_lines(clay, side, m_liner)
     parts.append(build_nose(m_nose))
+    parts += build_mouth(clay, m_liner)
     parts.append(build_gem(m_gem))
     parts += build_collar(clay, m_silver)
     parts += build_shoulder_fur(clay, m_feather)

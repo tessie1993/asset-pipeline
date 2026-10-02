@@ -591,6 +591,43 @@ spiral streams of long ribbons (cream / blue), eye almond 0.066 x 0.024 facing 4
 lines on the lid margins, shoulder fur 8 shingled flat locks, thin tails hooked down, tail colour ramp from the
 reference clusters. Not yet read: the compare image of build 11 (run stopped by the coordinator).
 
+## Cycle 12
+Lead builder (no Agent tool in this session: the part tasks A-C were done by the lead itself, one after the other,
+each checked in the part harness beside the reference crops before the one full build).
+Harness (rebuilt; the old work folder was gone): .scratch/.../parttest.py (opens parts/base.blend, rebuilds one part
+from a generator copy, renders orthographic views at the reference's own scale: side 1353 px/m, nose at Y -0.62;
+front 1500 px/m; back 1382 px/m; ground at the mask bottom) + pair.py (reference crop | render | outlines, IoU).
+refgeo.py writes tgt/grid_<view>.png (the reference with a world grid) and the masks.
+
+Changes (and why):
+- Tails rebuilt as fur masses with lock relief (task A). Why: the core + ribbon locks read as planks and dashes
+  because the ribbons were 7 samples across and the core path could not hold the C shape (inverted-U hose).
+  Now: the plume (centre tail) is clay from its measured side outline (PLUME, 35 points from the mask, smoothed:
+  top z 0.71 at Y 0.24-0.40, back edge Y 0.62 at z 0.34-0.42, inner edge Y 0.25 at z 0.30-0.42, mass ending at
+  z 0.25 above the curls), a pillow across X (half thickness 0.048 top to 0.10 low, rim rounded 0.07); its locks
+  run parallel to the outline (the reference's bands), a lock zone 0.14 wide at the outer edge and 0.045 at the inner
+  edge, the starry underfur inside. Curls: clay rolls (centre faces back at Y 0.42; +X a roll at Y 0.10-0.44 turned
+  between side and back; -X faces back-out), locks along an Archimedean spiral (2.2-2.3 turns). Side tails from inside
+  the plume's back edge down into their curls; thin tails arcing out and down to x +-0.35 (tips z 0.25).
+  Locks are geometry (lens 5.5 mm, grooves between) and the shader draws the same locks per pixel from a continuous
+  band coordinate (corner attribute bq, unwrapped per face across the angle seams) through a lookup image
+  LW_tail_bands (per pattern: band colour, slot, place across the lock), lock ends / root-tip shading and per-lock
+  tone from sflow + white noise. Tails 72k tris (was 106k).
+- Constellation lines (task A4): the tail marks image covered Y -0.72..0.30 (the body's window), the stars sit at
+  Y 0.22-0.47, so EXTEND smeared the last column into a horizontal bar. Own window (TAIL_Y0 = 0.10, attribute tys).
+- Shoulder fur (task C): 7 flame locks per side from measured roots (shoulder front, Y -0.43..-0.40, z 0.42-0.64)
+  to tips (top one at Y -0.143 z 0.71), convex-up bow, tips curling up, lower locks over upper ones, 1.5x wider.
+- Collar (task C): wire radii x0.62 (reference ~6 mm across); the straight upper V bands replaced by a strand from the
+  gem top into the upper scroll curl.
+- Chest / belly cream: the cream field's normal now from the smooth clay (face normals cut the edge into steps).
+- Eyes (task B): opening half-height 11.8 -> 14.5 mm (reference h:w 0.45-0.5), upper lash line 1.4x thicker.
+
+Build 12: CHECK parts 76, floating none, no material none, flat colour none; non-manifold 0, open 0, degenerate 0
+(was 1236), mirror 0.0155. BUILT 187,680 tris (budget 200,000), 0.729 x 1.256 x 1.013 m.
+CV (kit, bbox-normalised, a coarse outline check only): front 0.80 (w/h +14 %), side 0.78 (-1 %), back 0.77 (+2 %).
+Harness IoU at the reference's own scale (tail windows): side 0.787 -> 0.829, back 0.779 -> 0.818, front 0.772 -> 0.752.
+Reads as (conceptual comparison, worst first): see the Handoff's Comparison.
+
 ## Handoff
 State: build 11 is the latest full build (CV lines above, compare /home/user/asset-pipeline/production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_compare.png, NOT yet looked at).
 Generator /home/user/asset-pipeline/tools/blender/assetgen/packs/blue_fox_evolution/lumina_warden.py = build 11 exactly
