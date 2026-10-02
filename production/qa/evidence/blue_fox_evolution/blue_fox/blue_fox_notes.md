@@ -688,120 +688,165 @@ Written for build 14: end-lock roots staggered s 0.55-0.70 and sunk 3x TAIL_SINK
 tongue 2.0; tail pattern jag 0.035 fbm(90) + 0.015 fbm(300) -> 0.014 fbm(60) + 0.003 fbm(200); gem catch light
 (attribute gem_hl, white #f4f8ff mixed into the base colour inputs, not a Mix Shader).
 
-## Handoff (current: after build 11)
+## Cycle 14
+Lead: no Agent tool in this session either, so no part builders: the lead ran the part tasks itself (said so in the
+final message). User priority this cycle: "Look at the snout closer from all angles and fix the snout, make it more fox
+like." Snout first, then the build-14 steps already written into the generator by the last lead (tail end-lock roots
+staggered and sunk, top tuft lift 0.9, lower tongue 2.0, tail pattern jag softened, gem catch light gem_hl) and the e1
+eye test (upper lid arc x1.06-1.12, rounder eye) went into this build untested on their own.
+
+New lead tools (work folder parts/): headtest.py builds ONLY the head (the body clay box cut to the head, so ~2 min
+instead of ~5), the eyeballs and the nose from a generator copy, paints them with the generator's own paint, and
+renders snout close-ups at the REFERENCE'S PIXEL DENSITY (fox height: view 1 696 px -> 2231 px/m = 0.448 mm/px; view 2
+1049 px -> 3253 px/m = 0.307 mm/px; --scale 2 renders at 2x) from front (az 0 el 2), view 2 (az 59 el 13), side (az 90),
+q30 (az 30 el 6), top (az 20 el 62) and below (az 25 el -45), lit and clay, and prints ANCHOR pixels of the near eye's
+inner corner (X 0.015 Z 0.201 on the face) and the nose tip. snoutcmp.py puts the native reference view next to a
+render aligned on that eye corner (reference | before | after | clay | outline overlay red ref / cyan render);
+beforeafter.py stacks before/after lit and clay for the angles the reference does not show. snout_cam.py renders any
+.glb/.blend the same way (an imported .glb shows the clay only: its base-colour alpha cuts the lit render).
+
+### Snout: what makes the reference read as a fox (native crops ref_v2_head.png, ref_v1_head.png in parts/snout)
+- A fox snout is the long narrow rostrum of the skull under short fur: a STRAIGHT bridge (nasal bones) from a shallow
+  stop between the eyes' inner corners down to the nose; the sides (maxillae) slope out to the upper lips, so a section
+  is a rounded trapezoid, narrow on top, widest at the lip line; the upper lips hang a little over a NARROW lower jaw
+  whose small chin sits behind and below the nose; the nose leather caps the very tip and its top continues the bridge.
+- Reference, measured on view 2 against the near eye's inner corner (Y -0.1405, Z 0.201): nose front 35.7 mm ahead
+  (Y -0.176) and its top-front corner 9.6 mm lower (Z 0.1915); bridge Z 0.2025 (stop, Y -0.151) -> 0.1977 (-0.158) ->
+  0.1956 (-0.165) -> 0.193 (-0.171), a straight line falling ~25 deg; nose bottom Y -0.171 Z 0.184; mouth starts under
+  the nose Y -0.167 Z 0.178, lowest 10 mm out (Z 0.1775), corners X +-0.0177 Y -0.144 Z 0.180 (below the eye's inner
+  corner; front view: 34 mm wide, corners up 2.7 mm, only a slight central rise); chin Y -0.164 Z 0.175, jaw underside
+  0.171 (-0.157) -> 0.167 (-0.145); nose (front) 13.4 x 7.7 mm rounded triangle, #4e3b3e with a #6c5f60 top highlight;
+  muzzle cream #dccbb8 climbs the snout's sides to just under the bridge (Z ~0.196 halfway, the nose's top at the tip):
+  only the bridge's top band is blue.
+- Build 13 (before, parts/snout/s0 and the evidence sheets): the muzzle was a ROUND CONE (r 23 -> 12 mm, 39 mm long)
+  blended into a forehead dome with a round lower-jaw cone under it: from every angle a short bulbous puppy/cat muzzle,
+  convex bridge, nose a sausage on the front, mouth 17 mm long, cream only below Z 0.1835. Measured: nose 9.6 mm too far
+  back (view 2: eye->nose (-97.9, +29.8) native px vs the reference's (-124.8, +33)), nose and mouth ~5 mm too high
+  (front: nose centre 5.4 mm above the reference's), top view a wide round cylinder.
+- Cause: wrong construction (a cone has a round section and a convex top; it cannot give a straight bridge, a tapering
+  wedge from above or a lip line), not wrong numbers. Rebuilt with the method that fits:
+  sd_muzzle() = rounded-trapezoid sections (exact 2D trapezoid SDF, sides bulging 1.5 mm, rounded 7.5 mm max) lofted
+  along Y from tables SN_Y/SN_ZT (bridge)/SN_ZB (lip line)/SN_WT/SN_WB, its root as wide as the eyes' inner corners (the
+  face there carries the eyes: a narrow root moved them 8.5 mm back, first try), its front by height (SN_TIP_Z/Y: inside
+  the nose leather, then the philtrum leaning back to the mouth); sd_jaw() = a narrow rounded wedge (JAW_*) tucked 3.5 mm
+  under the lips, chin at Y -0.166, blended into throat and cheeks (blend 12 mm); build_nose() = the nose leather as its
+  own SDF mesh (0.2 mm voxels, 1,600 tris): front-view rounded triangle 16 x 8.6 mm before rounding (reads 13 x 7.7),
+  top domed across and following the bridge, front domed and leaning back 3 mm toward the bottom, its back diving under
+  the bridge fur after 7 mm; MOUTH re-traced (world coordinates); a cream field zc(Y) on the snout (body_color).
+- Iterations (all in parts/snout, sheets cmp_sN_v2/front.png and ba_sN.png): s1 narrow root (eyes moved back, jaw a hard
+  plate), s2 wide root + softer sections + jaw into the throat (outline matches, nose a slab), s3 receding philtrum +
+  bigger nose (a brick standing above a round ridge), s4 short domed pad (too small), s5 = built: 16 mm pad, gentler mouth.
+- After (s5 = build 14): view 2 eye->nose (-123.6, +38.5) native px vs reference (-124.8, +33): length within 1 %, nose
+  1.7 mm low; the 50/50 blend of reference and render (judged by eye) shows forehead, stop, bridge, nose, philtrum,
+  chin and jaw lines on top of each other, the smile ~1 mm lower and curving up less at the back than the reference's;
+  front: nose 13 x 8 mm rounded triangle at the reference's place (0.7 mm high); top view a tapering wedge, below view a
+  narrow jaw under the lips. Reads as a fox's snout from every angle. Evidence: blue_fox_snout_v2_before_after.png,
+  blue_fox_snout_front_before_after.png (reference | build 13 | build 14 | clay | 50/50 blend of reference and build 14), blue_fox_snout_angles_
+  before_after.png (side, q30, top, below: before / after / before clay / after clay).
+- Still differs: front-view mouth a "w" with a pointed centre (the stroke dips into the midline notch between the lip
+  halves; reference: a soft wave); chin seen from the front shows vertical edges where the jaw meets the cheeks (reference
+  a soft rounded chin); cheek tufts in view 2 read as spikes (reference: soft cream ruff with one gentle point).
+
+- New user rule mid-cycle, "Don't use masks": the sheets above were first made with thresholded outline overlays
+  (red reference / cyan render) and a body-alignment test (bodyalign.py, now retired, its result discarded: it never
+  steered the build). The reference pixel densities were first read from a threshold of the fox's height; re-measured
+  directly on the native reference at 6x/3x zoom with a 5 px grid: view 1 ear tip y 13 -> paw outline y 707 (694 px),
+  view 2 near ear tip y 11 -> paw y 1059 (1048 px): the densities stand. snoutcmp.py now shows a plain 50/50 image
+  blend of reference and render (no masks, no thresholded outlines); every snout measurement above was read by eye on
+  the native reference (zoomed crops, hand-read pixels), not from a mask.
+
+### Build 14 (full)
+80,698 tris (budget 90,000); CHECK 10 parts, no floating, no flat colour, mirror 0.0014; 3 non-manifold + 1 open edge
+(were 1 / 0: to find; probably make_manifold over the new jaw/neck seam). Overlap 0.88 (w/h +3 %) / 0.70 (+3 %) / 0.87
+(-0 %); view 3 centre 0.10 darker. Part by part (what it reads as):
+- Snout: as above; in the full view 2 the head now reads as a fox's.
+- Tail (build-14 steps): from behind still a cream DOME with a small horn and two white dots on top and a ring crease
+  (reference: soft cream mass ending in a few wispy flame tips); from the side the cream top band is thin and the spiral
+  stands upright in the middle (reference: wide cream top with flame tongues, big spiral, cream tip). Not fixed.
+- Gem: still reads dull navy with a dark halo (the silver bezel renders dark); reference: bright domed blue cabochon with
+  a white highlight in a bright silver ring.
+- Eyes (e1 rounder upper lid): no visible harm; the reference's eyes still read rounder/larger.
+
+## Handoff (current: after build 14)
 
 ### 1. Understanding
 - Whole: small stylised fox (~0.31 m to ear tips), soft painted anime 3D style; light-blue fur, cream face/chest/
   belly, big cupped ears, huge plume tail, braided leather cord with a silver-set blue cabochon. Young, no wear.
 - Body: one soft mass under short fur: SDF clay (voxel 0.8 mm), fur only in paint + normal map.
-- Eye: what shows of an eye is the eyeball's front (sclera, iris under a wet cornea) framed by the lids. In this
-  face the nose bridge stands 10-15 mm in front of any ball that fits, so the eye front is built from the face's
-  own height map (eye_front_y), lids = the 0.7 mm margin cut + lash ridge + dark paint. Do NOT go back to a
-  ball-in-socket (Cycle 10: holes and trenches).
-- Tail: a mass of fur: dense underfur round the bone, guard-hair locks rooted toward the base, each wide at the
-  root and tapering to a point, tips lying over younger roots (shingles), locks wrapping round the tail; in this
-  style the relief is LOW (soft streaks, a few notches only near the end) and the colour reads as soft flame
-  tongues, not lock mosaics. Spiral/curls = painted markings.
-- Ears: thin cupped cartilage leaves with fur: bowl opening forward-out, tan inner skin, a cream fur tuft (3 pointed
-  layered lobes) in the bowl, blue rim, dark tip, dark spiral front, dark patch + light spiral on the back.
-- Collar: two leather strands twisted (lozenges with dark grooves), hanging in a V; pendant = silver bezel cup +
-  blue cabochon + upright bail threaded on the cord.
+- Snout (Cycle 14): the rostrum = rounded-trapezoid sections lofted along Y (sd_muzzle: straight bridge, wedge from
+  above, sides sloping to the lip line), the lower jaw a narrow wedge under the lips with a small chin (sd_jaw), the nose
+  leather its own SDF mesh capping the tip (build_nose). Keep this construction; never go back to a cone.
+- Eye: what shows is the eyeball's front framed by the lids, built from the face's own height map (eye_front_y); lids =
+  margin cut + lash ridge + paint. The face at the eyes' inner corners comes from the snout root: changing the root's
+  width moves the eyes (Cycle 14: a narrow root moved them 8.5 mm back).
+- Tail: a mass of fur: dense underfur round the bone, guard-hair locks rooted toward the base, tapering to points,
+  shingled; LOW relief in this style (soft streaks), colour = painted flame tongues and a spiral.
+- Ears: thin cupped cartilage leaves with fur (rolled half-cone), tan inner skin, cream tuft, blue rim, dark tip, spirals.
+- Collar: two leather strands twisted, hanging in a V; pendant = silver bezel cup + blue cabochon + bail.
 
 ### 2. Part inventory (generator names)
-body (body_clay: head, muzzle, cheek ruff, neck, torso, legs, paws, ears + sd_ear_tuft, tail root stub; carve_eyes),
-eyeball_left/right (eyeball_mesh), nose, mouth line (clay stroke + paint), brow dots (paint), tail (tail_clay:
-underfur + tail_locks; tail_color), collar_cord_strand_0/1, pendant_bezel, pendant_gem, pendant_bail.
+body (body_clay: head, sd_muzzle, sd_jaw, cheeks + cheek ruff cones, neck, torso, legs, paws, ears + sd_ear_tuft, tail
+root stub; carve_eyes; mouth stroke MOUTH), eyeball_left/right (eyeball_mesh), nose (build_nose / sd_nose), tail
+(tail_clay: underfur + tail_locks; tail_color), collar_cord_strand_0/1, pendant_bezel, pendant_gem, pendant_bail.
 Materials M_body_fur, M_tail_fur, M_eyeball_*, M_nose, M_collar_leather, M_pendant_silver, M_pendant_gem.
-Triangles 80,088 / 90,000: body 36,000, tail 26,000, eyes 2 x 3,328, collar 9,216, rest ~2,200.
+Triangles 80,698 / 90,000: body 36,000, tail 26,000, eyes 2 x 3,328, nose ~1,600, collar 9,216, rest.
 
-### 3. Comparison (build 11; compare blue_fox_compare.png, closeups blue_fox_cv_closeup_1.png (eyes) / _2.png (tail))
-- View 1 (0.89, w/h +1 %): eyes now match in kind, shape and size (almond 23 x 19 mm, pointed raised outer corner,
-  iris toward the nose, catch light); missing middle-left/right 11-13 % = tail sides beside the shoulders and cheek
-  ruff; extra top-left/right 6 % = ears; dark zone #49566e x0.46 (ear tips/spirals, lower legs).
-- View 2 (0.70 kit; box includes the back-view fox): tail = lumpy shingles with thin flat fins on the distal top,
-  needle hook at the end, mosaic colour; side spiral too small; far ear edge-on blade; cream zone overlap 0.16.
-- View 3 (0.90, w/h -2 %): tail from behind darker by 0.11-0.12 in the centre (#526d8d area x1.55: lock shading +
-  underside blue too strong), cream x0.58 (blaze/end too small); extra top-centre 9 % = tail end hook/fins.
+### 3. Comparison (build 14: blue_fox_compare.png; snout sheets blue_fox_snout_*_before_after.png; closeups
+blue_fox_cv_closeup_1/2/3.png = pendant view 1, tail view 2, tail view 3)
+- View 1 (0.88, w/h +3 %): snout and nose in place (front sheet); mouth a pointed "w" (reference a soft wave); chin with
+  vertical side edges; missing top-left/right 12-13 % = ears (narrow from the front since the outward opening); pendant
+  gem dull navy, bezel dark (reference bright silver ring, bright blue gem, white highlight).
+- View 2 (0.70 kit; its box includes the back-view fox, so the kit number stays low): head reads as a fox's; snout
+  outline within ~1 mm of the reference on the eye-aligned overlay; cheek tufts read as spikes; tail: thin cream top band,
+  upright spiral, end a club with a nib (reference wide cream top with flame tongues, big spiral, soft point, 2 notches).
+- View 3 (0.87): tail from behind a cream dome with a horn + two white dots + ring crease; centre 0.10 darker.
 
-### 4. Next steps: part tasks (the next lead first splits the generator into part modules, builder_guide s.8)
+### 4. Next steps: part tasks (each independent; run with headtest.py / harness.py, then one full build)
 
-TASK A. Part: tail (tail_env, TAIL_RINGS/TAIL_END_LOCKS, tail_locks, lock_segments, lock_seg_sd, tail_clay,
-lock_fields, tail_color/tail_height, tail_pattern).
-- What it is: see Understanding (fur mass; low relief in this style).
-- Comparison: view 2 reference = smooth plume, soft streaks, 2 notches (top edge at 1740,722 and lower edge at
-  1830,912) and a soft pointed end (1878,830) pointing back-down; cream flame tongues on the distal top half and
-  one large cream spiral (r ~0.016-0.02 m, stroke ~5 mm). Build 11 = shingle steps up to ~2.4 mm, flat fins/discs
-  standing off the distal top (t4-t6 clay), needle hook end, colour patches with lock outlines, spiral ~60 % size.
-  View 3: render centre 0.12 darker, cream area x0.58.
-- What needs doing and why: (1) find the fins: build single locks (one ring at a time) and render; suspects:
-  lock_seg_sd caps (qt/w with w up to 17 mm extends caps 17 mm along T past each segment end, on a steeply tapering
-  envelope s 0.67-0.83 the caps stand out), n/B frames near the taper, end locks (fixed 10-12 mm) - fix the cause
-  (e.g. caps scaled by th not w, or per-segment capsule only at the lock's first/last segment). Why: the reference
-  outline is smooth; fins are a construction error. (2) halve the relief (sink 2.4 -> 1.0 mm, th 0.25w -> 0.15w,
-  blend 0.0009 -> 0.0015): the style draws fur as soft streaks, not scales. (3) end: no lift, end locks converge
-  to a soft point (min half width 2 mm), 2 notches only. (4) colour: blend lock colour with the zone colour
-  (e.g. 50/50) and soften crease/shade so tongues read as flames; enlarge the side spiral to r 0.02 / stroke 5 mm;
-  view-3 underside lighter (C_TAIL_UNDER weight 0.70 -> 0.45). Why: reference colour is painted zones, lock
-  outlines invisible.
-- Reference crops: work folder tail_side.png, tail_end.png, tail_tip.png, tail_back.png; closeup boxes view 2
-  0.55 0.0 1.0 0.5, view 3 0.1 0.1 0.9 0.65, view 1 (tip between ears) 0.35 0.10 0.65 0.25. Test renders:
-  t3_cmp.png ... t6_cmp.png (tailonly.py + prev3.py; e4.blend holds the rest; note body textures in e4.blend were
-  overwritten by later builds).
-- Keep fitting: root stub in body_clay (tail_underfur_prims(0.85, s_max 0.16)); TAIL_PTS/TAIL_RZ/TAIL_W envelope
-  (outline views 1/3 pass); TAIL_TRIS 26,000.
-- Done when: clay view 2 shows no fins, relief <= 1 mm, smooth outline with 2 notches + soft point; cream share in
-  view-2 box 0.65 0.15 0.85 0.3 15-25 %; view 3 centre within 0.05 of the reference; overlap views 1/3 >= 0.89.
+TASK A. Part: face finishing (MOUTH + mouth stroke in body_clay, sd_jaw, cheeks + cheek ruff cones in body_clay).
+- What: the smile is a painted + carved crease where the upper lip overhangs the jaw; the chin a small soft bulge; the
+  cheek ruff soft cream fur with one gentle point per side.
+- Do: (1) mouth: no carve within |X| < 2.5 mm (or a shallower stroke there) so the centre is a soft wave, not a point;
+  check front close-up vs ref_v1_head.png (corners up 2.7 mm, centre rise ~0.3 mm). (2) chin: widen JAW_W at the front
+  (0.0052 -> 0.0065) and raise the jaw blend or add a soft chin ellipsoid so the front shows no vertical edges.
+  (3) cheek ruff: the three cones per side read as spikes in view 2: fewer/softer (2 tufts, r0 x1.3, tips rounded,
+  blend 0.009) keeping |X| 0.06 in the front outline. Check: headtest.py front/v2/q30 + snoutcmp.py.
+- Keep: SN_*/JAW_* tables (snout outline matches), the eye-corner face (Y -0.1405 at X 0.015).
 
-TASK B. Part: eyes and face details (EYE_* tables, eye_front_y, eyeball_mesh, sd_eye_opening, carve_eyes,
-lash_line_points, eyelid_marks, eyeball_color_fn; brow dots, nose, MOUTH; cheek ruff cones in body_clay).
-- What it is: see Understanding (eye front following the face; lids as margin + lash ridge + paint).
-- Comparison: view 1 closeup now matches (shape, size, iris, catch light). Remaining: lash line on the face is
-  ragged/hairy (fur streak bump + 0.8 mm voxels) vs the reference's crisp 1.3 mm line (thicker at the outer corner,
-  small wing); in the 3/4 close-up (e4_eye_side_cmp.png) the wing spikes and lid edges are jagged and the eye looks
-  ~10 % larger than view 2's (check with cv.py closeup view 2 box 0.08 0.30 0.22 0.41 on the kit render, not the
-  hand camera). Brow dots smaller/lower than the reference; nose/mouth heights to check (closeup_1).
-  Cheek ruff: view 1 missing middle-left/right 11-13 %: the reference's cheek tufts stick out sideways past the head.
-- What needs doing and why: lash ridge smoother (stroke n 60 -> 120, radii a bit larger) and no fur streaks inside
-  the lash mask (they break the painted line); wing as one tapered stroke; check the 3/4 size on the kit view;
-  cheek ruff 2 pointed tufts per side reaching |X| 0.06 (review Fix 9) since the outline misses them; brow dots to
-  the reference size/height.
-- Reference crops: eyes_front.png, eyeL8.png, eye_side.png, nose_front.png, cheeks_front.png; closeup boxes view 1
-  0.22 0.28 0.78 0.46, view 2 0.08 0.30 0.22 0.41. Test renders e3/e4_eyes_front_cmp.png, e4_eye_side_cmp.png
-  (eyecmp.py).
-- Keep fitting: EYE_X 0.0262, EYE_Z 0.204, the outline tables, head proportions (HS/HO), brow anchors.
-- Done when: front and 3/4 closeups show a crisp lash line, no jagged lid edges, view-1 overlap >= 0.91.
+TASK B. Part: tail (tail_env, TAIL_RINGS/TAIL_END_LOCKS, tail_locks, tail_clay, tail_color/tail_pattern).
+- From behind: no horn/dots/ring: the end is guard hairs converging to a soft point (locks of different lengths ending
+  at different s, no shared root ring, the top tuft not lifted); from the side: cream top band from s 0.40 as wide as
+  the reference's (top third of the tail depth) with flame tongues, the spiral big (r 20-25 mm) and lying along the tail,
+  cream tip. Crops: parts/crops tail_side.png, tail_back.png; closeup boxes view 2 0.55 0 1 0.6, view 3 0.1 0.05 0.9 0.65.
+  Test: harness.py --base <full .blend> --part tail (save a base .blend from the current generator first).
 
-TASK C. Part: ears (ear_frame, sd_ear, EAR_CUP, ear_tuft_locks/sd_ear_tuft, ear_fields + ear paint in body_color).
-- Comparison: view 2 far ear an edge-on blade (reference shows its back, 0.08 W wide); near-ear tuft now one 3-lobe
-  tuft but flat and pale vs the reference's layered pointed lobes with shadows (e4_ear_cmp.png, built bigger since,
-  check); inner tan region a blob vs the reference's long teardrop; dark spiral too thin/small, its tail should
-  sweep down the outer edge; back patch 44 % vs 60 % (view 3); view 1 extra top 6 % each side (ears too wide/high).
-- What needs doing and why: review Fix 3 (cup 4-6 mm so the far ear reads, tuft relief, rim band 3 mm, tip
-  #4a6a9a gradient, spiral stroke 3 mm, back patch 60 %).
-- Reference crops: ears_front.png, ears_side.png, ears_back.png; boxes view 1 0.0 0.0 1.0 0.32, view 2 0.10 0.0 0.36
-  0.30, view 3 0.0 0.0 1.0 0.40.
-- Keep fitting: ear base on the head (ear_frame base), ear tips (view outlines), body_clay blend 0.008.
-- Done when: far ear >= 0.07 W wide in view 2; markings match the crops; view 1/3 extra top <= 3 %.
+TASK C. Part: pendant (collar(): pendant_bezel/gem/bail, silver_material, gem_material).
+- Gem reads dull navy with a dark halo; reference: bright #3f63cc-#8fb0f0 domed cabochon, big white highlight, bright
+  silver bezel ring ~1/5 of the radius wide. Brighten the silver (base #c8ccd4, roughness 0.25, metallic 1 reads dark in
+  the studio: give it a lighter base and lower metallic or a painted highlight band), gem centre lighter, gem_hl bigger.
+  Closeup view 1 box 0.3 0.5 0.7 0.68 --scale 3.
 
-TASK D. Part: collar and pendant (collar(), cord_material, silver_material, gem_material). Built this cycle but
-not yet compared closely: check against c_collar.png (lozenges ~4 mm, V drape, bail ring, bezel rim width, gem
-#3f63cc-#1a33a0 with a large white highlight); closeup boxes view 1 0.2 0.45 0.8 0.68, view 2 0.10 0.38 0.32 0.62.
-Done when the closeups match the crop in lozenge count (~9 per side in view 1), drape and pendant proportions.
+TASK D. Mesh health: 3 non-manifold + 1 open edge appeared in build 14 (make_manifold over the new jaw/neck seam?):
+  find them (kit CHECK lists counts only: select non-manifold in a saved .blend and print their positions) and fix.
 
 ### 5. Do not undo
-Views/cameras; body proportions, legs, paws; brow dots placement; chest/cheek cream; eye construction (Cycle 10);
-tail as its own fur object; manifold repair; texel painting (no Mix Shader).
+Views/cameras; body proportions, legs, paws; the Cycle 14 snout (sd_muzzle/sd_jaw/build_nose, SN_*/JAW_*/NOSE_*, MOUTH
+positions, snout cream field zc); brow dots (Cycle 12 spacing); eye construction (Cycle 10) and eye positions; tail as
+its own fur object; manifold repair; texel painting (no Mix Shader).
 
 ### 6. Files
-Reference views blue_fox_ref_view_1..3.png; compare blue_fox_compare.png; closeups blue_fox_cv_closeup_1/2.png;
-work folder .scratch/assetgen/work/blue_fox_evolution/blue_fox: crops (above), tests e4_*, t3-t6_cmp.png, helpers dbg2.py + freeze.sh (debug build of a
-frozen generator copy), tailonly.py (rebuild only the tail into a saved .blend), prev3.py (lit/clay close-ups),
-eyecmp.py, lockprobe.py. Everything in the generator is in build 11.
+Reference views blue_fox_ref_view_1..3.png (native cut-outs); compare blue_fox_compare.png; snout sheets
+blue_fox_snout_v2_before_after.png, blue_fox_snout_front_before_after.png, blue_fox_snout_angles_before_after.png;
+work folder .scratch/assetgen/work/blue_fox_evolution/blue_fox/parts: headtest.py (head-only build + snout close-ups at
+reference density, ANCHOR lines), snoutcmp.py (no masks: plain image blend), beforeafter.py, ev.sh (anchor from a log), snout_cam.py,
+harness.py (whole model or one part into a saved .blend), cmp.py, gen_s0..s5.py (s0 = build 13 generator, s5 = build
+14), snout/s0..s5 renders and logs, build14.log.
 
 ### 7. Standing rules
 - builder_guide.md and blender_tools_guide.md (scratchpad copies named in the task) are the method: read both
   first; the Handoff follows builder_guide.md section 7.
-- The user's wishes: "Both eyes are bad. Fix the eyes." (eyes first); the critic's review 1 Fixes apply.
+- The user's wishes: "Both eyes are bad. Fix the eyes." (done in Cycles 10-13; keep); "Look at the snout closer from all
+  angles and fix the snout, make it more fox like." (Cycle 14: rebuilt; finish with Task A); the critic's review 1 Fixes.
 - The tail is fur.
 - Think about what you see and build that (builder_guide.md section 1).
 - Understand the thing you are making, conceptually, and let that choose the approach (builder_guide.md section 1).
@@ -816,6 +861,26 @@ eyecmp.py, lockprobe.py. Everything in the generator is in build 11.
 - Cycle builds render all views lit and clay at the kit's samples and resolution; look at the full compare after
   every build.
 - Lead and part builders (user): the builder that reads this Handoff leads; it runs 2-4 part builders on Sonnet 5.5
-  at once (builder_guide.md section 8).
+  at once (builder_guide.md section 8); without an Agent tool the lead runs the part tasks itself and says so.
 - Compare to the reference often, part by part, after every change (builder_guide.md section 6).
+- Refresh the Handoff after every full build (user), so a stop at any point leaves a current Handoff.
 - One render cycle per builder when the task says so, ending with a Handoff; never ask "May I"; no git.
+- User rule: Let conceptual understanding lead every comparison, not the silhouette numbers.
+  1. Start from what each part is. For every part in the inventory, ask first whether it reads as that thing, the way
+     it looks in life and in this art style, from every view and up close.
+  2. Then check the features its nature implies: its inner structure (one surface, or many elements, and how they
+     flow, clump and end); how it attaches; what its material does with light (gloss, wetness, translucency, glow);
+     how it ages.
+  3. Measure those features in the reference and the build: crops, cv.py sample and closeup.
+  4. Treat the overlap and aspect numbers of cv.py compare as a coarse check of the outline only, never the target. A
+     change that raises overlap but makes a part read less as what it is goes the wrong way.
+  5. In the review and the Handoff, rank what needs improving by how much it hurts what each part is, not by pixel area.
+- User rule: no pixel stair-steps along colour boundaries. Check every colour boundary close up; build colour
+  boundaries from the full-resolution source image or smooth vector curves and masks, never from a downscaled crop.
+- User rule: "Don't use masks." Never take an outline, shape, proportion, colour region or texture from a mask of any
+  kind: a silhouette, cut-out alpha, segmentation, threshold, or the compare's overlap mask. Work from the original
+  reference image itself, looking at it and measuring it directly at full resolution.
+- User rule: References stay at original image quality. Build outlines, colour boundaries and textures only from the
+  source image or its native-resolution cut-outs (a cut-out is fine, a resized one isn't). Never use a mask, compare
+  sheet or downscaled image made for the quick check. Judge small details on their own close-up renders at the
+  reference's pixel density, not on enlarged crops of full-body renders.

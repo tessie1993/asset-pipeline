@@ -71,7 +71,21 @@
           "review": "/home/user/asset-pipeline/production/qa/evidence/blue_fox_evolution/blue_fox/blue_fox_review_1.md",
           "at": "2026-10-02T01:35:41+00:00"
         }
-      ]
+      ],
+      "done": {
+        "at": "2026-10-02T09:11:32+00:00",
+        "build": 16,
+        "triangles": 80698,
+        "dimensions_m": [
+          0.154,
+          0.465,
+          0.312
+        ]
+      },
+      "accepted": {
+        "at": "2026-10-02T09:11:37+00:00",
+        "build": 16
+      }
     },
     {
       "id": "aethel_fox",
