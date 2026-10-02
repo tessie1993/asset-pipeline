@@ -1,0 +1,1012 @@
+{
+ "build": 1,
+ "final": false,
+ "at": "2026-10-02T01:38:42+00:00",
+ "views": [
+  {
+   "method": "plain background",
+   "overlap": 0.733,
+   "aspect_reference": 0.416,
+   "aspect_render": 0.436,
+   "aspect_change": 0.048,
+   "missing": [
+    [
+     "bottom-centre",
+     0.17
+    ]
+   ],
+   "extra": [
+    [
+     "top-centre",
+     0.56
+    ],
+    [
+     "middle-left",
+     0.23
+    ],
+    [
+     "middle-right",
+     0.22
+    ],
+    [
+     "top-right",
+     0.11
+    ],
+    [
+     "top-left",
+     0.07
+    ]
+   ],
+   "colour_reference": "#8e9ba9",
+   "colour_render": "#8897a3",
+   "brightness_reference": 0.601,
+   "brightness_render": 0.582,
+   "lighter_darker": [
+    [
+     "middle-left",
+     -0.1
+    ],
+    [
+     "centre",
+     -0.1
+    ],
+    [
+     "bottom-centre",
+     -0.22
+    ]
+   ],
+   "colours_reference": [
+    {
+     "colour": "#79899c",
+     "share": 0.348,
+     "brightness": 0.53
+    },
+    {
+     "colour": "#99bcd2",
+     "share": 0.253,
+     "brightness": 0.713
+    },
+    {
+     "colour": "#cabfb4",
+     "share": 0.244,
+     "brightness": 0.756
+    },
+    {
+     "colour": "#4a546e",
+     "share": 0.156,
+     "brightness": 0.329
+    }
+   ],
+   "colours_render": [
+    {
+     "colour": "#7e8389",
+     "share": 0.315,
+     "brightness": 0.512
+    },
+    {
+     "colour": "#a3aeb5",
+     "share": 0.239,
+     "brightness": 0.674
+    },
+    {
+     "colour": "#47556c",
+     "share": 0.228,
+     "brightness": 0.327
+    },
+    {
+     "colour": "#bee0f1",
+     "share": 0.217,
+     "brightness": 0.855
+    }
+   ],
+   "zones": [
+    {
+     "colour": "#98bad1",
+     "share": 0.264,
+     "overlap": 0.157,
+     "area": 1.17,
+     "missing": [
+      [
+       "centre",
+       0.17
+      ],
+      [
+       "top-centre",
+       0.16
+      ],
+      [
+       "middle-left",
+       0.16
+      ],
+      [
+       "middle-right",
+       0.15
+      ],
+      [
+       "top-left",
+       0.1
+      ],
+      [
+       "top-right",
+       0.09
+      ]
+     ],
+     "extra": [
+      [
+       "top-centre",
+       0.37
+      ],
+      [
+       "middle-right",
+       0.22
+      ],
+      [
+       "top-right",
+       0.19
+      ],
+      [
+       "top-left",
+       0.16
+      ],
+      [
+       "middle-left",
+       0.15
+      ]
+     ]
+    },
+    {
+     "colour": "#6b87a6",
+     "share": 0.245,
+     "overlap": 0.115,
+     "area": 0.71,
+     "missing": [
+      [
+       "bottom-centre",
+       0.47
+      ],
+      [
+       "top-left",
+       0.15
+      ],
+      [
+       "top-right",
+       0.15
+      ],
+      [
+       "bottom-left",
+       0.06
+      ]
+     ],
+     "extra": [
+      [
+       "middle-left",
+       0.17
+      ],
+      [
+       "middle-right",
+       0.12
+      ],
+      [
+       "top-right",
+       0.09
+      ],
+      [
+       "top-left",
+       0.08
+      ],
+      [
+       "bottom-right",
+       0.07
+      ]
+     ]
+    },
+    {
+     "colour": "#d1c8bf",
+     "share": 0.184,
+     "overlap": 0.038,
+     "area": 0.73,
+     "missing": [
+      [
+       "centre",
+       0.34
+      ],
+      [
+       "top-left",
+       0.11
+      ],
+      [
+       "top-right",
+       0.11
+      ],
+      [
+       "middle-right",
+       0.1
+      ],
+      [
+       "middle-left",
+       0.09
+      ]
+     ],
+     "extra": [
+      [
+       "top-centre",
+       0.26
+      ],
+      [
+       "centre",
+       0.18
+      ],
+      [
+       "top-right",
+       0.07
+      ]
+     ]
+    },
+    {
+     "colour": "#a4958c",
+     "share": 0.17,
+     "overlap": 0.154,
+     "area": 1.78,
+     "missing": [
+      [
+       "centre",
+       0.21
+      ],
+      [
+       "bottom-centre",
+       0.14
+      ],
+      [
+       "top-right",
+       0.06
+      ]
+     ],
+     "extra": [
+      [
+       "centre",
+       0.44
+      ],
+      [
+       "top-left",
+       0.17
+      ],
+      [
+       "middle-left",
+       0.15
+      ],
+      [
+       "middle-right",
+       0.15
+      ],
+      [
+       "top-right",
+       0.14
+      ],
+      [
+       "top-centre",
+       0.08
+      ]
+     ]
+    },
+    {
+     "colour": "#4a546c",
+     "share": 0.135,
+     "overlap": 0.167,
+     "area": 1.98,
+     "missing": [
+      [
+       "centre",
+       0.06
+      ],
+      [
+       "bottom-centre",
+       0.06
+      ]
+     ],
+     "extra": [
+      [
+       "bottom-centre",
+       0.55
+      ],
+      [
+       "centre",
+       0.11
+      ],
+      [
+       "bottom-left",
+       0.1
+      ],
+      [
+       "top-left",
+       0.06
+      ],
+      [
+       "bottom-right",
+       0.06
+      ]
+     ]
+    }
+   ],
+   "edges_reference": 0.148,
+   "edges_render": 0.083,
+   "directions_reference": {
+    "horizontal": 0.01,
+    "vertical": 0.78,
+    "diagonal /": 0.13,
+    "diagonal \\": 0.09
+   },
+   "directions_render": {
+    "horizontal": 0.07,
+    "vertical": 0.41,
+    "diagonal /": 0.24,
+    "diagonal \\": 0.29
+   },
+   "view": 1
+  },
+  {
+   "method": "plain background",
+   "overlap": 0.53,
+   "aspect_reference": 1.115,
+   "aspect_render": 1.036,
+   "aspect_change": -0.071,
+   "missing": [
+    [
+     "bottom-right",
+     0.43
+    ],
+    [
+     "middle-right",
+     0.29
+    ],
+    [
+     "top-centre",
+     0.23
+    ],
+    [
+     "top-left",
+     0.22
+    ],
+    [
+     "middle-left",
+     0.11
+    ],
+    [
+     "bottom-centre",
+     0.09
+    ],
+    [
+     "centre",
+     0.07
+    ]
+   ],
+   "extra": [
+    [
+     "top-right",
+     0.25
+    ],
+    [
+     "bottom-centre",
+     0.17
+    ],
+    [
+     "bottom-left",
+     0.12
+    ],
+    [
+     "middle-left",
+     0.08
+    ],
+    [
+     "middle-right",
+     0.07
+    ],
+    [
+     "top-left",
+     0.06
+    ]
+   ],
+   "colour_reference": "#8ea3b5",
+   "colour_render": "#8aa1b3",
+   "brightness_reference": 0.627,
+   "brightness_render": 0.619,
+   "lighter_darker": [
+    [
+     "middle-right",
+     0.09
+    ],
+    [
+     "bottom-left",
+     -0.1
+    ]
+   ],
+   "colours_reference": [
+    {
+     "colour": "#99b7cc",
+     "share": 0.399,
+     "brightness": 0.699
+    },
+    {
+     "colour": "#748aa3",
+     "share": 0.271,
+     "brightness": 0.53
+    },
+    {
+     "colour": "#ced3d1",
+     "share": 0.184,
+     "brightness": 0.823
+    },
+    {
+     "colour": "#4c5b77",
+     "share": 0.145,
+     "brightness": 0.353
+    }
+   ],
+   "colours_render": [
+    {
+     "colour": "#94afc3",
+     "share": 0.31,
+     "brightness": 0.67
+    },
+    {
+     "colour": "#bbd9e8",
+     "share": 0.285,
+     "brightness": 0.832
+    },
+    {
+     "colour": "#738697",
+     "share": 0.24,
+     "brightness": 0.514
+    },
+    {
+     "colour": "#445066",
+     "share": 0.165,
+     "brightness": 0.31
+    }
+   ],
+   "zones": [
+    {
+     "colour": "#8da3b8",
+     "share": 0.255,
+     "overlap": 0.141,
+     "area": 0.77,
+     "missing": [
+      [
+       "middle-right",
+       0.12
+      ],
+      [
+       "top-centre",
+       0.11
+      ],
+      [
+       "bottom-left",
+       0.11
+      ],
+      [
+       "bottom-right",
+       0.11
+      ],
+      [
+       "top-right",
+       0.1
+      ],
+      [
+       "centre",
+       0.09
+      ],
+      [
+       "middle-left",
+       0.08
+      ]
+     ],
+     "extra": [
+      [
+       "centre",
+       0.2
+      ],
+      [
+       "middle-left",
+       0.15
+      ],
+      [
+       "top-right",
+       0.08
+      ],
+      [
+       "middle-right",
+       0.06
+      ]
+     ]
+    },
+    {
+     "colour": "#9fc6db",
+     "share": 0.252,
+     "overlap": 0.161,
+     "area": 0.93,
+     "missing": [
+      [
+       "centre",
+       0.21
+      ],
+      [
+       "middle-left",
+       0.18
+      ],
+      [
+       "top-centre",
+       0.16
+      ],
+      [
+       "top-left",
+       0.13
+      ],
+      [
+       "middle-right",
+       0.07
+      ]
+     ],
+     "extra": [
+      [
+       "top-right",
+       0.28
+      ],
+      [
+       "middle-left",
+       0.14
+      ],
+      [
+       "top-centre",
+       0.11
+      ],
+      [
+       "centre",
+       0.1
+      ]
+     ]
+    },
+    {
+     "colour": "#687e9a",
+     "share": 0.198,
+     "overlap": 0.113,
+     "area": 0.68,
+     "missing": [
+      [
+       "bottom-right",
+       0.21
+      ],
+      [
+       "bottom-left",
+       0.1
+      ],
+      [
+       "middle-right",
+       0.08
+      ],
+      [
+       "middle-left",
+       0.07
+      ],
+      [
+       "bottom-centre",
+       0.07
+      ],
+      [
+       "top-left",
+       0.06
+      ]
+     ],
+     "extra": [
+      [
+       "bottom-left",
+       0.13
+      ],
+      [
+       "bottom-centre",
+       0.11
+      ]
+     ]
+    },
+    {
+     "colour": "#d3cfc9",
+     "share": 0.187,
+     "overlap": 0.075,
+     "area": 0.71,
+     "missing": [
+      [
+       "top-right",
+       0.21
+      ],
+      [
+       "middle-left",
+       0.18
+      ],
+      [
+       "top-centre",
+       0.12
+      ],
+      [
+       "middle-right",
+       0.09
+      ]
+     ],
+     "extra": [
+      [
+       "top-right",
+       0.21
+      ],
+      [
+       "middle-left",
+       0.12
+      ]
+     ]
+    },
+    {
+     "colour": "#48556e",
+     "share": 0.106,
+     "overlap": 0.136,
+     "area": 1.27,
+     "missing": [
+      [
+       "bottom-centre",
+       0.09
+      ],
+      [
+       "bottom-right",
+       0.08
+      ]
+     ],
+     "extra": [
+      [
+       "bottom-left",
+       0.18
+      ],
+      [
+       "bottom-centre",
+       0.18
+      ]
+     ]
+    }
+   ],
+   "edges_reference": 0.119,
+   "edges_render": 0.096,
+   "directions_reference": {
+    "horizontal": 0.17,
+    "vertical": 0.34,
+    "diagonal /": 0.3,
+    "diagonal \\": 0.19
+   },
+   "directions_render": {
+    "horizontal": 0.16,
+    "vertical": 0.3,
+    "diagonal /": 0.39,
+    "diagonal \\": 0.15
+   },
+   "view": 2
+  },
+  {
+   "method": "plain background",
+   "overlap": 0.756,
+   "aspect_reference": 0.475,
+   "aspect_render": 0.401,
+   "aspect_change": -0.154,
+   "missing": [
+    [
+     "top-right",
+     0.29
+    ],
+    [
+     "top-left",
+     0.28
+    ],
+    [
+     "bottom-right",
+     0.17
+    ],
+    [
+     "bottom-left",
+     0.13
+    ],
+    [
+     "bottom-centre",
+     0.12
+    ]
+   ],
+   "extra": [
+    [
+     "top-centre",
+     0.22
+    ]
+   ],
+   "colour_reference": "#7c91a5",
+   "colour_render": "#93a5b6",
+   "brightness_reference": 0.557,
+   "brightness_render": 0.638,
+   "lighter_darker": [
+    [
+     "top-centre",
+     0.18
+    ],
+    [
+     "centre",
+     0.12
+    ],
+    [
+     "middle-right",
+     0.08
+    ]
+   ],
+   "colours_reference": [
+    {
+     "colour": "#69849f",
+     "share": 0.425,
+     "brightness": 0.502
+    },
+    {
+     "colour": "#98aebc",
+     "share": 0.329,
+     "brightness": 0.667
+    },
+    {
+     "colour": "#41536e",
+     "share": 0.151,
+     "brightness": 0.317
+    },
+    {
+     "colour": "#cdcbc9",
+     "share": 0.096,
+     "brightness": 0.796
+    }
+   ],
+   "colours_render": [
+    {
+     "colour": "#70869c",
+     "share": 0.349,
+     "brightness": 0.513
+    },
+    {
+     "colour": "#9db6cc",
+     "share": 0.324,
+     "brightness": 0.7
+    },
+    {
+     "colour": "#dbe1de",
+     "share": 0.225,
+     "brightness": 0.878
+    },
+    {
+     "colour": "#47546c",
+     "share": 0.102,
+     "brightness": 0.326
+    }
+   ],
+   "zones": [
+    {
+     "colour": "#718ca5",
+     "share": 0.325,
+     "overlap": 0.188,
+     "area": 0.81,
+     "missing": [
+      [
+       "centre",
+       0.25
+      ],
+      [
+       "top-left",
+       0.23
+      ],
+      [
+       "top-right",
+       0.22
+      ],
+      [
+       "bottom-right",
+       0.13
+      ],
+      [
+       "middle-right",
+       0.11
+      ],
+      [
+       "bottom-centre",
+       0.11
+      ],
+      [
+       "bottom-left",
+       0.1
+      ],
+      [
+       "middle-left",
+       0.08
+      ]
+     ],
+     "extra": [
+      [
+       "centre",
+       0.2
+      ],
+      [
+       "middle-left",
+       0.19
+      ],
+      [
+       "middle-right",
+       0.14
+      ],
+      [
+       "top-left",
+       0.13
+      ],
+      [
+       "bottom-centre",
+       0.09
+      ],
+      [
+       "top-right",
+       0.08
+      ],
+      [
+       "bottom-left",
+       0.06
+      ]
+     ]
+    },
+    {
+     "colour": "#9db0bc",
+     "share": 0.28,
+     "overlap": 0.255,
+     "area": 0.81,
+     "missing": [
+      [
+       "top-left",
+       0.18
+      ],
+      [
+       "centre",
+       0.16
+      ],
+      [
+       "top-centre",
+       0.14
+      ],
+      [
+       "top-right",
+       0.13
+      ],
+      [
+       "middle-right",
+       0.11
+      ],
+      [
+       "bottom-centre",
+       0.11
+      ],
+      [
+       "middle-left",
+       0.09
+      ]
+     ],
+     "extra": [
+      [
+       "top-right",
+       0.15
+      ],
+      [
+       "centre",
+       0.14
+      ],
+      [
+       "middle-right",
+       0.13
+      ],
+      [
+       "top-left",
+       0.1
+      ],
+      [
+       "middle-left",
+       0.09
+      ]
+     ]
+    },
+    {
+     "colour": "#536c8c",
+     "share": 0.2,
+     "overlap": 0.193,
+     "area": 0.51,
+     "missing": [
+      [
+       "centre",
+       0.24
+      ],
+      [
+       "bottom-centre",
+       0.17
+      ],
+      [
+       "bottom-left",
+       0.12
+      ],
+      [
+       "middle-left",
+       0.09
+      ],
+      [
+       "bottom-right",
+       0.09
+      ],
+      [
+       "middle-right",
+       0.07
+      ]
+     ],
+     "extra": [
+      [
+       "bottom-centre",
+       0.14
+      ]
+     ]
+    },
+    {
+     "colour": "#d1cfce",
+     "share": 0.119,
+     "overlap": 0.251,
+     "area": 1.96,
+     "missing": [
+      [
+       "top-right",
+       0.09
+      ]
+     ],
+     "extra": [
+      [
+       "top-centre",
+       0.38
+      ],
+      [
+       "centre",
+       0.31
+      ],
+      [
+       "middle-right",
+       0.09
+      ]
+     ]
+    },
+    {
+     "colour": "#34425b",
+     "share": 0.076,
+     "overlap": 0.158,
+     "area": 0.81,
+     "missing": [
+      [
+       "bottom-centre",
+       0.11
+      ]
+     ],
+     "extra": [
+      [
+       "bottom-centre",
+       0.19
+      ]
+     ]
+    }
+   ],
+   "edges_reference": 0.074,
+   "edges_render": 0.034,
+   "directions_reference": {
+    "horizontal": 0.01,
+    "vertical": 0.51,
+    "diagonal /": 0.26,
+    "diagonal \\": 0.22
+   },
+   "directions_render": {
+    "horizontal": 0.03,
+    "vertical": 0.72,
+    "diagonal /": 0.11,
+    "diagonal \\": 0.15
+   },
+   "view": 3
+  }
+ ],
+ "mean_overlap": 0.673
+}

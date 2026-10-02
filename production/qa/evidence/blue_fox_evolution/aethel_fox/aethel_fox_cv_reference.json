@@ -1,0 +1,169 @@
+{
+ "views_signature": "747ae393ae06",
+ "at": "2026-10-02T01:37:17+00:00",
+ "views": [
+  {
+   "method": "plain background",
+   "object_px": [
+    466,
+    1119
+   ],
+   "object_box": [
+    25,
+    34,
+    491,
+    1153
+   ],
+   "aspect": 0.416,
+   "fill": 0.574,
+   "symmetry": 0.977,
+   "mean_colour": "#8c99a7",
+   "brightness": 0.595,
+   "colours": [
+    {
+     "colour": "#c3c9c9",
+     "share": 0.286,
+     "brightness": 0.782
+    },
+    {
+     "colour": "#88a8c1",
+     "share": 0.247,
+     "brightness": 0.639
+    },
+    {
+     "colour": "#5c7496",
+     "share": 0.231,
+     "brightness": 0.446
+    },
+    {
+     "colour": "#a49489",
+     "share": 0.153,
+     "brightness": 0.59
+    },
+    {
+     "colour": "#3a3f50",
+     "share": 0.082,
+     "brightness": 0.246
+    }
+   ],
+   "edge_density": 0.074,
+   "directions": {
+    "horizontal": 0.0,
+    "vertical": 0.59,
+    "diagonal /": 0.22,
+    "diagonal \\": 0.19
+   },
+   "view": 1,
+   "view_image": "aethel_fox_ref_view_1.png"
+  },
+  {
+   "method": "plain background",
+   "object_px": [
+    1278,
+    1146
+   ],
+   "object_box": [
+    18,
+    29,
+    1296,
+    1175
+   ],
+   "aspect": 1.115,
+   "fill": 0.466,
+   "symmetry": 0.258,
+   "mean_colour": "#8ca2b4",
+   "brightness": 0.621,
+   "colours": [
+    {
+     "colour": "#9bbed4",
+     "share": 0.316,
+     "brightness": 0.722
+    },
+    {
+     "colour": "#8397ac",
+     "share": 0.271,
+     "brightness": 0.582
+    },
+    {
+     "colour": "#576d8c",
+     "share": 0.189,
+     "brightness": 0.418
+    },
+    {
+     "colour": "#d0d1cc",
+     "share": 0.178,
+     "brightness": 0.817
+    },
+    {
+     "colour": "#2f384b",
+     "share": 0.046,
+     "brightness": 0.216
+    }
+   ],
+   "edge_density": 0.057,
+   "directions": {
+    "horizontal": 0.03,
+    "vertical": 0.43,
+    "diagonal /": 0.24,
+    "diagonal \\": 0.3
+   },
+   "view": 2,
+   "view_image": "aethel_fox_ref_view_2.png"
+  },
+  {
+   "method": "plain background",
+   "object_px": [
+    309,
+    651
+   ],
+   "object_box": [
+    14,
+    20,
+    323,
+    671
+   ],
+   "aspect": 0.475,
+   "fill": 0.608,
+   "symmetry": 0.955,
+   "mean_colour": "#7b90a5",
+   "brightness": 0.554,
+   "colours": [
+    {
+     "colour": "#718ca5",
+     "share": 0.336,
+     "brightness": 0.534
+    },
+    {
+     "colour": "#9cb0bd",
+     "share": 0.301,
+     "brightness": 0.677
+    },
+    {
+     "colour": "#536c8c",
+     "share": 0.196,
+     "brightness": 0.413
+    },
+    {
+     "colour": "#cdcbc9",
+     "share": 0.091,
+     "brightness": 0.797
+    },
+    {
+     "colour": "#2d3b53",
+     "share": 0.076,
+     "brightness": 0.228
+    }
+   ],
+   "edge_density": 0.054,
+   "directions": {
+    "horizontal": 0.04,
+    "vertical": 0.64,
+    "diagonal /": 0.17,
+    "diagonal \\": 0.16
+   },
+   "view": 3,
+   "view_image": "aethel_fox_ref_view_3.png"
+  }
+ ],
+ "proportions": null
+}
