@@ -1,15 +1,15 @@
 {
- "build": 11,
+ "build": 13,
  "final": false,
- "at": "2026-10-02T03:08:06+00:00",
+ "at": "2026-10-02T04:10:28+00:00",
  "samples": 16,
  "resolution": 768,
  "report": {
-  "triangles": 222768,
+  "triangles": 189068,
   "dimensions_m": [
-   0.748,
-   1.265,
-   1.027
+   0.729,
+   1.256,
+   1.013
   ],
   "materials": [
    "M_fur",
@@ -29,11 +29,11 @@
   ],
   "texture_sources": [],
   "glb": "assets/models/blue_fox_evolution/lumina_warden.glb",
-  "glb_bytes": 11406632
+  "glb_bytes": 9576292
  },
  "checks": {
   "parts": {
-   "parts": 75,
+   "parts": 78,
    "floating": [],
    "no_material": [],
    "flat_colour": []
@@ -42,8 +42,8 @@
    "non_manifold_edges": 0,
    "open_edges": 0,
    "loose_vertices": 0,
-   "degenerate_faces": 1236,
-   "mirror_error": 0.0144
+   "degenerate_faces": 0,
+   "mirror_error": 0.015
   }
  },
  "bake": null,
