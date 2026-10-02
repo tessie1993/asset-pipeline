@@ -1,12 +1,12 @@
 ---
 name: scenario-blender-retopology
-description: "Use when turning dense sculpt, voxel or scan output into clean quad topology in Blender, for subdivision, animation or a triangle budget. Also when choosing between QuadriFlow or voxel remesh and manual retopo, placing loops around eyes, mouth and joints, deciding pole placement, setting up a Shrinkwrap cage, fixing volume loss after subdivision, preparing a low poly for baking, or auditing topology for spirals, 6-poles and triangles. Keywords: retopo, retopology, quad remesh, edge flow, bake prep."
+description: "Use when turning a dense sculpt, scan or AI-generated mesh into clean topology in Blender, for animation, subdivision or a game low poly with a triangle budget. Also when choosing between QuadriFlow or voxel remesh and manual retopo, placing loops around eyes, mouth and joints, deciding pole placement, setting up a Shrinkwrap cage, fixing volume loss after subdivision, preparing a low poly for baking, or auditing topology for spirals, 6-poles and triangles. Keywords: retopo, retopology, quad remesh, clean up an AI mesh, edge flow, low poly, bake prep."
 license: MIT
 ---
 
 # Blender retopology
 
-Expert retopology is a plan executed with the fewest loops that capture the forms and let the mesh deform: loops close around eyes, mouth and joints, poles sit where nothing moves, and the subdivided surface, not the cage, matches the sculpt. An agent without a mouse can build every piece of this from data, but it reaches expert quality only on the parts it plans explicitly. Automatic remeshing is a finish for static assets and a start for everything else. Sibling skills that are not in .claude/skills/ are not installed here: do not ask for them; proceed without them.
+Expert retopology is a plan executed with the fewest loops that capture the forms and let the mesh deform: loops close around eyes, mouth and joints, poles sit where nothing moves, and the subdivided surface, not the cage, matches the sculpt. An agent without a mouse can build every piece of this from data, but it reaches expert quality only on the parts it plans explicitly. Automatic remeshing is a finish for static assets and a start for everything else. If a sibling skill named here is missing from your available skills, ask the user to install it (`npx skills add scenario-labs/skills --skill <name>`); unattended, proceed from tool schemas and flag the gap.
 
 **REQUIRED BACKGROUND:** scenario-blender-expert (execution channel, review loop, 5.2 API changes). Toolkit: [`scripts/bx_retopo.py`](scripts/bx_retopo.py) (`import sys; sys.path.append("<skills>/scenario-blender-retopology/scripts"); import bx_retopo as R`), all coordinates in the sculpt's local space.
 
@@ -21,8 +21,6 @@ Expert retopology is a plan executed with the fewest loops that capture the form
 - **Auto-remesh fits static, scanned, background or bake-only assets** (Lampel [00:09:05], Grant Abbitt, Duha, Jamie Dunbar). For deforming characters it lacks the judgment calls: on the sheep, QuadriFlow at expert density gave no rings around eyes or mouth and tore a thin ear.
 
 ## Establish first
-
-Under /image-to-assets these defaults do not apply: the output is one static mid-to-high-poly mesh, its budget is `pack.py budget`, and the style is the user's.
 
 | Input          | Why it changes the plan                                                        | Default when silent                                                                                                 |
 | -------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |

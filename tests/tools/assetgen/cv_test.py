@@ -129,7 +129,7 @@ class CVTestCase(unittest.TestCase):
         cv2.rectangle(reference, (40, 40), (140, 160), (40, 80, 140), -1)
         cv2.rectangle(reference, (240, 50), (300, 160), (40, 80, 140), -1)
         cv2.imwrite(str(image), reference)
-        pack.init(self.root, "demo", image, skip_flow=True)
+        pack.init(self.root, "demo", image, skip_canva=True)
         pack.set_style(self.root, "demo", "the style of the reference image")
         pack.add(self.root, "demo", "thing", name="thing", where="middle", details="a block", references=[image])
         boxes, _ = cv.find_views(cv.read_image(image))

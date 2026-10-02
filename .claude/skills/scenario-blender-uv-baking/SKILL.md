@@ -6,9 +6,7 @@ license: MIT
 
 # UV unwrapping and baking
 
-Under /image-to-assets the kit replaces UVs with world-space box UVs (unless `obj["keep_uv"]`) and bakes its own atlas: unwrapping and packing here matter only for `keep_uv` parts and for high-to-low bakes that feed a material.
-
-Expert-level UVs put seams where the texturing method can afford them, set texel density before texture size, and pack with pixel-true padding. Expert bakes measure their projection distances instead of guessing, and are judged in pixels and under a raking light, never eyeballed once. Every stage below has a measurable gate that [`scripts/bx_uvbake.py`](scripts/bx_uvbake.py) computes. Sibling skills that are not in .claude/skills/ are not installed here: do not ask for them; proceed without them.
+Expert-level UVs put seams where the texturing method can afford them, set texel density before texture size, and pack with pixel-true padding. Expert bakes measure their projection distances instead of guessing, and are judged in pixels and under a raking light, never eyeballed once. Every stage below has a measurable gate that [`scripts/bx_uvbake.py`](scripts/bx_uvbake.py) computes. If a sibling skill named here is missing from your available skills, ask the user to install it (`npx skills add scenario-labs/skills --skill <name>`); unattended, proceed from tool schemas and flag the gap.
 
 **REQUIRED BACKGROUND:** scenario-blender-expert (execution channel, review loop, 5.2 API changes).
 
@@ -58,7 +56,7 @@ Expert-level UVs put seams where the texturing method can afford them, set texel
 | island gap res/128 (8/16/32 px at 1K/2K/4K)                                            | texture resolution                               | Lampel [00:38:01], On Mars 3D [00:11:18]      |
 | FRACTION margin m: gap 2m, border m                                                    | Blender pack                                     | verified                                      |
 | bake margin res/128, 16 px at 2K                                                       | texture resolution                               | On Mars 3D, digest                            |
-| cylinder sides: 6 min, 8 recommended                                                   | low-poly cages only                              | On Mars 3D [00:03:48]                         |
+| cylinder sides: 6 min, 8 recommended                                                   | low poly silhouette                              | On Mars 3D [00:03:48]                         |
 | samples: 16 for normals, 128 for AO, 1 only while iterating                            | antialiasing and noise                           | Gambrell/Marmoset 16, SpeedChar 4x4, verified |
 | test bake 512, final 2048                                                              | iteration loop                                   | SpeedChar [00:59:09]                          |
 | AO distance about 0.2 x bbox diagonal (default 10 units)                               | asset size                                       | [added], verified effect                      |

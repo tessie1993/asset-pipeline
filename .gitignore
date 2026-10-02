@@ -10,6 +10,5 @@
 # Python bytecode
 __pycache__/
 
-# Plugins' own environments and data, such as logins (plugins/<name>/install.sh)
-plugins/*/.venv/
+# Plugins' own data, such as the BlendKit login (plugins/<name>/install.sh)
 plugins/*/.data/

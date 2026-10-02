@@ -409,6 +409,23 @@ def measure_view(region: np.ndarray) -> dict:
             "colours": dominant_colours(bgr, mask), "edge_density": density, "directions": directions}
 
 
+TEXTURE_MAX = 1024  # px, the longer side of a projected texture
+
+
+def texture_crop(region: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """The object's pixels (BGR) with every background pixel set to the colour of the nearest object
+    pixel, so a texture projected from it has no background fringe at the outline; at most
+    :data:`TEXTURE_MAX` pixels on the longer side."""
+    colour = region[..., :3].copy()
+    if mask.any() and not mask.all():
+        background = (mask == 0).astype(np.uint8)
+        _, labels = cv2.distanceTransformWithLabels(background, cv2.DIST_L2, 5, labelType=cv2.DIST_LABEL_PIXEL)
+        nearest = np.flatnonzero(background.ravel() == 0)  # labels count the object pixels in row order
+        flat = colour.reshape(-1, 3)
+        colour = flat[nearest[labels.ravel() - 1]].reshape(colour.shape)
+    return fit_width(colour, TEXTURE_MAX)
+
+
 def proportions(views: list[dict], measures: list[dict]) -> str | None:
     """width : height : depth from a front or back view and a side view at a similar elevation."""
     def near(angle, targets):
@@ -436,13 +453,19 @@ def measure_command(root: Path, pack_name: str, object_id: str) -> list[str]:
         region = reference_view(root, pack_name, view)
         measured = measure_view(region)
         measured["view"] = number
-        # The view exactly as the reference shows it, for tools that take an image file (ImageSorcery).
-        write_image(evidence / f"{object_id}_ref_view_{number}.png", region)
-        measured["view_image"] = f"{object_id}_ref_view_{number}.png"
         measures.append(measured)
         if measured.get("empty"):
             lines.append(f"REF {_view_name(number, view)}: no object found in the box ({measured['method']})")
             continue
+        # The object's outline and pixels, cut tight to it: the kit carves its silhouette hull from the
+        # masks and projects the crops onto the model (kit.silhouette_hull, kit.project_reference).
+        x0, y0, x1, y1 = measured["object_box"]
+        view_mask, _ = object_mask(region)
+        tight_mask = view_mask[y0:y1, x0:x1]
+        write_image(evidence / f"{object_id}_cv_mask_{number}.png", (tight_mask * 255).astype(np.uint8))
+        write_image(evidence / f"{object_id}_cv_crop_{number}.png", texture_crop(region[y0:y1, x0:x1], tight_mask))
+        measured["mask"] = f"{object_id}_cv_mask_{number}.png"
+        measured["crop"] = f"{object_id}_cv_crop_{number}.png"
         colours = ", ".join(f"{c['colour']} {round(c['share'] * 100)}% L{c['brightness']:.2f}"
                             for c in measured["colours"])
         directions = ", ".join(f"{key} {round(value * 100)}%" for key, value in
@@ -677,7 +700,7 @@ def _line(number: int, view: dict, result: dict, build: int) -> str:
                      for name, delta in result["lighter_darker"]) or "none"
     ref_colours = " ".join(c["colour"] for c in result["colours_reference"][:3])
     render_colours = " ".join(c["colour"] for c in result["colours_render"][:3])
-    return (f"CV build {build} {name} [reference outline: {result['method']}]: outline overlap {result['overlap']:.2f} | w/h reference "
+    return (f"CV build {build} {name}: outline overlap {result['overlap']:.2f} | w/h reference "
             f"{result['aspect_reference']:.2f} render {result['aspect_render']:.2f} ({result['aspect_change']:+.0%}) | "
             f"missing in render: {regions(result['missing'])} | extra in render: {regions(result['extra'])} | "
             f"colour reference {result['colour_reference']} L{result['brightness_reference']:.2f} render "

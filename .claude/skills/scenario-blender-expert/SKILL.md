@@ -6,7 +6,7 @@ license: MIT
 
 # Blender expert (router and agent protocol)
 
-Expert-level Blender work is a loop, not a script: build big to small, and at every stage turn the model, measure it and fix it before adding detail. This skill is the protocol every Blender task follows and the map to the domain skills distilled from Blender Studio artists, Blender Conference talks and top instructors (sources in each skill). Sibling skills that are not in .claude/skills/ are not installed here: do not ask for them; proceed without them.
+Expert-level Blender work is a loop, not a script: build big to small, and at every stage turn the model, measure it and fix it before adding detail. This skill is the protocol every Blender task follows and the map to the domain skills distilled from Blender Studio artists, Blender Conference talks and top instructors (sources in each skill). If a sibling skill named here is missing from your available skills, ask the user to install it (`npx skills add scenario-labs/skills --skill <name>`); unattended, proceed from tool schemas and flag the gap.
 
 ## 1. Execution channel
 
@@ -45,7 +45,8 @@ Never report a model, rig, animation or render as done without having looked at 
 | Persona / brief                                     | Skill chain                                                                                                                                                                                                | Deliverable                                                  |
 | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | Character artist, stylized or realistic             | scenario-blender-sculpting, scenario-blender-retopology, scenario-blender-uv-baking, scenario-blender-texturing-shading, scenario-blender-hair                                                             | sculpt, animation-ready low poly, UVs, baked maps, materials |
-| Game asset artist                                   | scenario-blender-hard-surface or scenario-blender-sculpting, scenario-blender-retopology (game budget), scenario-blender-uv-baking, scenario-blender-texturing-shading                                     | mid to high poly + baked PBR set, exported glTF             |
+| AI-mesh finisher (Scenario 3D output to production) | audit the generated mesh, scenario-blender-retopology (or cleanup + remesh), scenario-blender-uv-baking (bake FROM the generated high), scenario-blender-texturing-shading; generation itself: scenario-3d | clean, UV'd, baked asset at a stated budget                  |
+| Game asset artist                                   | scenario-blender-hard-surface or scenario-blender-sculpting, scenario-blender-retopology (game budget), scenario-blender-uv-baking, scenario-blender-texturing-shading                                     | low poly + PBR set, exported glTF/FBX                        |
 | Rigger / character TD                               | scenario-blender-rigging                                                                                                                                                                                   | rig with controls, weights, deformation tests                |
 | Animator                                            | scenario-blender-previs-storyboard (shot planning), scenario-blender-animation                                                                                                                             | blocked, splined, polished shot + playblast                  |
 | Story / previs artist                               | scenario-blender-previs-storyboard, scenario-blender-grease-pencil                                                                                                                                         | shots, cameras, animatic                                     |
@@ -53,7 +54,7 @@ Never report a model, rig, animation or render as done without having looked at 
 | Technical artist / procedural                       | scenario-blender-geometry-nodes                                                                                                                                                                            | node-group assets, procedural systems                        |
 | 2D / 2.5D animator                                  | scenario-blender-grease-pencil                                                                                                                                                                             | GP animation                                                 |
 
-Related skills outside this set: text-image-to-blender-blockout (camera-locked blockouts for render-to-real video). Under /image-to-assets no AI mesh or texture generation is used: every model is built from the reference.
+Related skills outside this set: scenario-3d (generate meshes to finish here), scenario-textures (AI textures), text-image-to-blender-blockout (camera-locked blockouts for render-to-real video).
 
 ## 4. Shared toolkit (`scripts/`, all tested on 5.2.1)
 

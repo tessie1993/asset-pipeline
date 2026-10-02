@@ -1,7 +1,6 @@
 ---
 name: polyhaven-texture-apply
 description: Apply realistic PBR textures from PolyHaven to any Blender object. Supports metals, wood, concrete, fabric, and more. Trigger when asked to texture an object, apply a material from PolyHaven, make something look like metal/wood/marble, or change object surface.
-disable-model-invocation: true
 ---
 
 # PolyHaven Texture Apply

@@ -74,9 +74,9 @@ Techniques for faces, smooth analytic forms, hands, the neck join, armour over c
   lids wrapping them, ears from the profile landmarks. Done when the overlays through calibrated
   reference cameras show landmark errors under about 1 mm. Three-quarter concept views are
   usually not metric (AI or painted views disagree with the blueprints by several percent); use
-  them to judge likeness, never to measure. Build the skin from layered procedural materials
-  whose colour range is measured on the reference (`cv.py sample`), never by projecting the
-  reference.
+  them to judge likeness, never to measure. Texture the skin by projecting the de-lit blueprints
+  through rest-pose UV maps (front, and profile mirrored for the far side), blended by which way
+  the rest normal faces; strip painted brows and lashes and grow them as strands.
 - Smooth analytic forms (SDF heads, bodies): tables of widths or depths need smoothing, or
   linear interpolation shows as shading bands; blend two descriptions of the same surface by
   position weight, not smooth union, which bulges where they coincide.
@@ -244,9 +244,6 @@ tip or muzzle, +Z toward the edge or sights, so it matches the hand socket conve
 
 Parts: separate objects at every hinge (lid, gate, trigger, bolt), with the origin at the pivot.
 Strings on bows and cables on winches are separate so they can flex.
-
-Not for /image-to-assets: there the budget is the builder's `pack.py budget`, mid to high poly, as
-many triangles as the detail needs.
 
 Topology: light and clean; small props under a few hundred triangles, hero weapons a few thousand
 with real edge bevels; no hidden interior geometry.

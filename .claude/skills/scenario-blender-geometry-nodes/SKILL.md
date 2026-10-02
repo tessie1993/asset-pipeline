@@ -6,7 +6,7 @@ license: MIT
 
 # Blender Geometry Nodes (procedural systems and simulations)
 
-Expert Geometry Nodes work means thinking in fields evaluated on domains, keeping systems declarative (data and instructions come in from outside), and shipping tools that artists drive from modifier inputs without opening the tree. For an agent it also means proving every tree with numbers read from the evaluated geometry and a render, because the node editor's red links and warnings are invisible from Python unless you ask for them. Sibling skills that are not in .claude/skills/ are not installed here: do not ask for them; proceed without them.
+Expert Geometry Nodes work means thinking in fields evaluated on domains, keeping systems declarative (data and instructions come in from outside), and shipping tools that artists drive from modifier inputs without opening the tree. For an agent it also means proving every tree with numbers read from the evaluated geometry and a render, because the node editor's red links and warnings are invisible from Python unless you ask for them. If a sibling skill named here is missing from your available skills, ask the user to install it (`npx skills add scenario-labs/skills --skill <name>`); unattended, proceed from tool schemas and flag the gap.
 
 **REQUIRED BACKGROUND:** scenario-blender-expert (execution channel, review loop, 5.2 API changes). Hair node groups (Interpolate, Clump, Curl, Hair Dynamics grooms): scenario-blender-hair.
 
@@ -24,7 +24,7 @@ Expert Geometry Nodes work means thinking in fields evaluated on domains, keepin
 
 | Question                                                             | Why it changes the plan                                                        | Default when silent                                          |
 | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| What consumes the result: shader, another modifier, export, physics? | Crossing a boundary needs a named attribute; export may need realized geometry | Named attributes for anything a shader reads; keep instances (the image-to-assets kit realizes them when it applies modifiers; vary every copy) |
+| What consumes the result: shader, another modifier, export, physics? | Crossing a boundary needs a named attribute; export may need realized geometry | Named attributes for anything a shader reads; keep instances |
 | Does it depend on the previous frame?                                | Simulation zone and baking vs Scene Time function                              | Function of time                                             |
 | One-off authoring step or reusable asset?                            | One-off may be applied (Thommes' hair noise); assets never are                 | Reusable: expose inputs, panels, sensible min/max            |
 | Scale: element counts, viewport cost                                 | Realize, loops and simulations cost; instances are cheap                       | Instances, fields, no loops                                  |
@@ -36,7 +36,7 @@ Expert Geometry Nodes work means thinking in fields evaluated on domains, keepin
 2. **Build with `bx_gn.Builder`** (headless or live, idempotent: a tree of the same name is rebuilt in place). `b.node(kind, prop=..., ins={...})` sets properties before inputs, links sources, assigns constants; `b.zone(...)` pairs zones and adds items; `b.join([...])` keeps list order. GATE: `b.done()` returns (zones paired, every link created).
 3. **Attach and set inputs** with `G.attach(obj, tree, inputs={...})` or `G.set_inputs(md, {...})`; `"attr:NAME"` switches a field input to an attribute or vertex group. GATE: `G.check(md)["ok"]`, no `hard_refs` on an asset.
 4. **Measure.** `G.stats(obj)` (counts, attributes per domain, world bbox with instances), `G.attribute`, `G.instance_transforms`, `G.positions`. Then the two robustness probes: rotate the object 90 degrees (world-space effects keep direction) and double the input resolution (trait selections scale, index ones jump). GATE: numbers match the analytic expectation.
-5. **Look.** `G.snapshot(objs, path, views=..., frames=...)` (Workbench: run under `xvfb-run -a` without a display) renders the current scene state with material colors and shadows (floating instances show); `bx_review.review` for realized meshes. Open every sheet. GATE: [`references/critique.md`](references/critique.md) visual items pass.
+5. **Look.** `G.snapshot(objs, path, views=..., frames=...)` renders the current scene state with material colors and shadows (floating instances show); `bx_review.review` for realized meshes. Open every sheet. GATE: [`references/critique.md`](references/critique.md) visual items pass.
 6. **Simulations.** Step every frame in order with `G.step(range(...))`, or `G.bake(obj)` for random access; assert bounds, monotonic states, counts, no NaN. GATE: a direct jump to a late frame equals the stepped result only after a bake.
 7. **Package** (assets): inputs grouped in panels with defaults, min/max and subtypes; `tree.is_modifier = True; tree.asset_mark()`; drop it on a different object (Thommes' Suzanne test). GATE: works on the second object with no tree edit.
 

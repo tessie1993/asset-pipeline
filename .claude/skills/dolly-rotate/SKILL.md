@@ -1,7 +1,6 @@
 ---
 name: dolly-rotate
 description: Camera moves forward while rotating around the product. More dynamic than a straight zoom.
-disable-model-invocation: true
 ---
 
 ## Dolly + Rotate Camera Animation

@@ -1,7 +1,6 @@
 ---
 name: dynamic-full-loop
 description: Dynamic camera loop with speed ramping - slow reveals on each face, fast whips between. Shows all sides including top and bottom.
-disable-model-invocation: true
 ---
 
 ## Dynamic Full Loop Camera Animation

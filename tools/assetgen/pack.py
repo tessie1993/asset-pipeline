@@ -2,17 +2,11 @@
 """Pack bookkeeping for the image-to-assets pipeline (``.claude/skills/image-to-assets``).
 
 A pack is the image the user gives and the objects chosen from it. Everything about a pack lives
-in ``design/asset-packs/<pack>/``: ``pack.json`` (objects, art style, each object's reference
-images and recorded views), the source image, ``flow/NN_<id>_<k>.<ext>`` (Google Flow's drawings of
-each object, one per side) or, in a pack that skips Flow, ``references/`` (the user's own reference
-images). This tool keeps that manifest and prints what the pipeline sends (the Flow Grid Architect
-set-up, the builder briefs, the part builders' job cards) from ``tools/assetgen/templates/``, so no
-step is typed from memory.
-
-Every builder does one render cycle and is its own reviewer: it compares its build with the
-reference, writes its review (``## Cycle <n>``) and a ``## Handoff`` in its notes, and a fresh
-builder continues from that Handoff alone (``brief`` prints it). A builder's ``done`` goes to the
-user's review.
+in ``design/asset-packs/<pack>/``: ``pack.json`` (objects, art style, Canva ids, each object's
+reference images and recorded views), the source image, ``canva/NN_<id>.png`` (Canva's drawing of
+each object) or, in a pack that skips Canva, ``references/`` (the user's own reference images).
+This tool keeps that manifest and prints the texts the pipeline sends (the Canva prompt, the
+builder brief) from ``tools/assetgen/templates/``, so no step is typed from memory.
 
 Nothing here fixes what an object is, how it looks, how big it is or from which angles it is seen:
 the objects and the look come from the image and the user's answers; each builder analyses its
@@ -21,15 +15,19 @@ reference and records the views it shows (``views``) and the triangle budget it 
 
 Usage::
 
-    python3 tools/assetgen/pack.py init <pack> <image> [--skip-flow]
+    python3 tools/assetgen/pack.py init <pack> <image> [--skip-canva]
     python3 tools/assetgen/pack.py style <pack> "<art style in the user's words>"
     python3 tools/assetgen/pack.py add <pack> <id> --name N --where W --details D \
         [--mount floor|wall] [--reference IMAGE ...] [--budget TRIANGLES]
     python3 tools/assetgen/pack.py run-start <pack>
-    python3 tools/assetgen/pack.py flow-call <pack> <id>
-    python3 tools/assetgen/pack.py flow-record <pack> <id> (--image FILE [--image FILE ...] | --refused REASON)
+    python3 tools/assetgen/pack.py prompt <pack> <id>
+    python3 tools/assetgen/pack.py canva <pack> [--source-media ID] [--design ID] [--transaction ID]
+    python3 tools/assetgen/pack.py record <pack> <id> (--media ID [--job ID] | --refused REASON)
+    python3 tools/assetgen/pack.py cutout <pack> <id> (--media ID | --failed REASON)
+    python3 tools/assetgen/pack.py sheets <pack>
+    python3 tools/assetgen/pack.py canva-calls <pack> <stage> [--page-ids ID ...]
+    python3 tools/assetgen/pack.py canva-download <pack> <url> ...
     python3 tools/assetgen/pack.py brief <pack> <id>
-    python3 tools/assetgen/pack.py job-card <pack> <id> <part>
     python3 tools/assetgen/pack.py views <pack> <id> --view REF AZIMUTH ELEVATION X0 Y0 X1 Y1 [--view ...] \
         [--lens MM | --ortho]
     python3 tools/assetgen/pack.py skills-list
@@ -38,12 +36,13 @@ Usage::
     python3 tools/assetgen/pack.py kit-api
     python3 tools/assetgen/pack.py material-search <words...> [--previews DIR] [--limit N]
     python3 tools/assetgen/pack.py done <pack> <id>
+    python3 tools/assetgen/pack.py critic-brief <pack> <id>
+    python3 tools/assetgen/pack.py reviewed <pack> <id> ACCEPT|REFINE|REQUEST-INPUT
     python3 tools/assetgen/pack.py accept <pack> <id>
     python3 tools/assetgen/pack.py reopen <pack> <id>
     python3 tools/assetgen/pack.py status <pack>
     python3 tools/assetgen/pack.py run-end
     python3 tools/assetgen/pack.py export <pack> <folder outside the repository>
-    python3 tools/assetgen/pack.py finish <pack>
     python3 tools/assetgen/pack.py discard <pack>
 """
 from __future__ import annotations
@@ -75,14 +74,8 @@ KIT_README = Path("tools/blender/assetgen/README.md")
 BLENDER_NOTES = Path("tools/blender/assetgen/blender-5.2-notes.md")
 CV_TOOL = Path("tools/assetgen/cv.py")
 SKILLS_DIR = Path(".claude/skills")
-PIPELINE_SKILL = "image-to-assets"  # the orchestrator's skill, not for builders
-GUIDES_DIR = SKILLS_DIR / PIPELINE_SKILL / "references"  # the builders' and part builders' guides
 RUN_LOCK = Path(".scratch/assetgen/run.json")  # read by the hooks in .claude/hooks/
 PREVIEWS_DIR = Path(".scratch/assetgen/previews")
-WORK_DIR = Path(".scratch/assetgen/work")  # each builder's helper scripts and temporary files
-BAKE_DIR = Path(".scratch/assetgen/bake")  # baked textures, written by the kit (the .glb carries them)
-# What `finish` keeps of an object besides its .glb and baked textures: its renders.
-RENDER_PATTERNS = ("{id}_view_*.png", "{id}_clay_*.png", "{id}_turn_*.png", "{id}_turnaround.png", "{id}_godot_*.png")
 
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
@@ -90,26 +83,26 @@ IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
 # that hang on a wall.
 MOUNTS = {"floor": "bottom", "wall": "back"}
 # Words that describe a look rather than an object. The look comes only from the user's art style
-# (`style`), so an object's name, place and details must not carry one into the Flow prompts.
+# (`style`), so an object's name, place and details must not carry one into the Canva prompt.
 LOOK_WORDS = ("3d", "3-d", "render", "rendered", "realistic", "photorealistic", "hyperrealistic", "photoreal",
               "stylized", "stylised", "cartoon", "cartoony", "toon", "cute", "cosy", "cozy", "low poly",
               "low-poly", "lowpoly", "high poly", "anime", "chibi", "pixar", "cinematic")
 LOOK_PATTERN = re.compile(r"(?<![a-z0-9])(" + "|".join(re.escape(word) for word in LOOK_WORDS) + r")(?![a-z0-9])")
-# Google Flow draws each object from every side with Grid Architect (the google-flow MCP server's
-# flow_use_grid_architect), which uploads the source image as the reference and stops before
-# generating: the user looks at the set-up, clicks Generate in Flow (it spends their credits) and
-# downloads the images, one per side. Nothing generates on its own.
-FLOW_SERVER = "google-flow"
-FLOW_TOOL = f"mcp__{FLOW_SERVER}__flow_use_grid_architect"
-FLOW_ENGINE = "Nano Banana Pro"
-FLOW_RATIO = "1:1"
+# Canva is asked for a landscape image (several views side by side); each generated image is placed
+# on its own page of this size for the full-size export. The views in it are found by the builder.
+CANVA_ASPECT_RATIO = "LANDSCAPE_16_9"
+CANVA_PAGE = (1680, 945)
 MIN_VIEW_PX = 16
 DEFAULT_LENS_MM = 85.0  # the renders' camera unless the builder records another lens or --ortho
 BUILD_CYCLES = 8  # the standard number of build -> render -> compare cycles per object
-# One render cycle per builder: a builder makes this many cycle builds (plus the final build when its
-# cycle ends the object); then it writes its review and a Handoff in its notes and a fresh builder
-# continues from the Handoff alone, so no builder's context fills up with earlier cycles.
-BUILDS_PER_BUILDER = 1
+# Context budget: a builder makes at most this many cycle builds (plus one final build); then it writes
+# a handoff in its notes and a fresh builder continues from them, so no builder's context fills up
+# with every earlier cycle's images and code.
+BUILDS_PER_BUILDER = 5
+# Fresh-context reviews: after a builder's final build a critic that did not build the object judges
+# it against the reference; a REFINE review goes back to a builder, at most this many rounds.
+CRITIC_ROUNDS = 3
+CRITIC_ROUTES = ("ACCEPT", "REFINE", "REQUEST-INPUT")
 AGENTS_DIR = Path(".scratch/assetgen/agents")  # per-builder build counts, kept by the build gate hook
 
 POLYHAVEN_ASSETS = f"{downloads.POLYHAVEN_API}/assets?t=textures"
@@ -123,14 +116,16 @@ CATALOG_DIR = Path(".scratch/assetgen/catalogs")
 CATALOG_MAX_AGE_S = 24 * 3600
 SEARCH_LIMIT = 6
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+CANVA_STAGES = ("create", "open", "add-pages", "read-pages", "place", "check", "commit", "export")
+BLANK_DESIGN_BRIEF = ("A completely blank one-page landscape design with a plain white background and "
+                      "no text, no images and no decoration. It is only used to place existing images and "
+                      "download them.")
 
 # The analysis sections of a builder's notes (templates/builder_notes.md); each must have content
 # before the first build (the build gate hook checks it).
 ANALYSIS_SECTIONS = ("What it is", "Views", "Size and proportions", "Close observation", "Parts inventory",
                      "Materials and shaders", "Details and nuances", "Skills, add-ons and tools", "Build plan")
 REPORT_SECTION = "Report"
-HANDOFF_SECTION = "Handoff"  # `## Handoff` in a builder's notes: all the next builder reads
-SHARED_PART = "common"  # <id>_parts/common.py: what the part modules share (the lead's)
 
 
 class PackError(RuntimeError):
@@ -168,9 +163,9 @@ def find_object(manifest: dict, object_id: str) -> dict:
     raise PackError(f"{manifest['pack']} has no object {object_id!r}; add it with pack.py add")
 
 
-def flow_name(entry: dict, index: int, suffix: str) -> str:
-    """File name of the object's ``index``-th Flow image: ``NN_<id>_<index><suffix>``."""
-    return f"{entry['number']:02d}_{entry['id']}_{index}{suffix}"
+def sheet_name(entry: dict) -> str:
+    """File name of the object's Canva image: ``NN_<id>.png``."""
+    return f"{entry['number']:02d}_{entry['id']}.png"
 
 
 def evidence_dir(root: Path, pack: str, object_id: str) -> Path:
@@ -190,16 +185,6 @@ def glb_path(root: Path, pack: str, object_id: str) -> Path:
     return root / MODELS_DIR / pack / f"{object_id}.glb"
 
 
-def work_dir(root: Path, pack: str, object_id: str) -> Path:
-    """A builder's own scratch folder: helper scripts and temporary files, deleted by ``finish``."""
-    return root / WORK_DIR / pack / object_id
-
-
-def textures_dir(root: Path, pack: str, object_id: str) -> Path:
-    """Where ``finish`` keeps an object's baked textures (the .glb carries them too)."""
-    return root / MODELS_DIR / pack / f"{object_id}_textures"
-
-
 def build_report_path(root: Path, pack: str, object_id: str) -> Path:
     """Written by the kit after every build that renders: build number, views, BUILT report."""
     return evidence_dir(root, pack, object_id) / f"{object_id}_build.json"
@@ -215,23 +200,9 @@ def cv_reference_path(root: Path, pack: str, object_id: str) -> Path:
     return evidence_dir(root, pack, object_id) / f"{object_id}_cv_reference.json"
 
 
-def parts_dir(root: Path, pack: str, object_id: str) -> Path:
-    """The generator's part modules (``<part>.py`` and ``common.py``), once a lead has split it."""
-    return root / GENERATORS_DIR / pack / f"{object_id}_parts"
-
-
-def part_module_path(root: Path, pack: str, object_id: str, part: str) -> Path:
-    return parts_dir(root, pack, object_id) / f"{part}.py"
-
-
-def parts_work_dir(root: Path, pack: str, object_id: str) -> Path:
-    """The lead's test harness (``base.blend``, ``harness.py``) and one folder per part job."""
-    return work_dir(root, pack, object_id) / "parts"
-
-
-def job_card_path(root: Path, pack: str, object_id: str, part: str) -> Path:
-    """A part builder's job card; its folder is the part builder's work folder."""
-    return parts_work_dir(root, pack, object_id) / part / "job.md"
+def review_path(root: Path, pack: str, object_id: str, number: int) -> Path:
+    """The critic's review of round ``number``."""
+    return evidence_dir(root, pack, object_id) / f"{object_id}_review_{number}.md"
 
 
 def read_json(path: Path) -> dict | None:
@@ -327,18 +298,18 @@ def _add_reference(root: Path, manifest: dict, object_id: str, image: Path, inde
 # Pack, objects, style
 # --------------------------------------------------------------------------------- #
 
-def init(root: Path, pack: str, image: Path, skip_flow: bool = False) -> dict:
+def init(root: Path, pack: str, image: Path, skip_canva: bool = False) -> dict:
     """Create ``pack`` from the source ``image``: its folder, a copy of the image and an empty
-    manifest. With ``skip_flow`` every object is built from the user's own reference images."""
+    manifest. With ``skip_canva`` every object is built from the user's own reference images."""
     _check_id(pack, "pack name")
     folder = pack_dir(root, pack)
     if (folder / "pack.json").exists():
         raise PackError(f"pack {pack} already exists")
     image = _check_image(image, "source image")
-    (folder / ("references" if skip_flow else "flow")).mkdir(parents=True, exist_ok=True)
+    (folder / ("references" if skip_canva else "canva")).mkdir(parents=True, exist_ok=True)
     source_name = "source" + image.suffix.lower()
     shutil.copyfile(image, folder / source_name)
-    manifest = {"pack": pack, "source": source_name, "skip_flow": skip_flow, "objects": []}
+    manifest = {"pack": pack, "source": source_name, "skip_canva": skip_canva, "canva": {}, "objects": []}
     save(root, manifest)
     return manifest
 
@@ -352,7 +323,7 @@ def add(root: Path, pack: str, object_id: str, name: str, where: str, details: s
         mount: str = "floor", references: list[Path] | None = None, budget: int | None = None) -> dict:
     """Add an object chosen from the source image; it gets the next number.
 
-    In a pack that skips Flow the object needs at least one reference image (it may be the
+    In a pack that skips Canva the object needs at least one reference image (it may be the
     source image itself, or several images of the object). ``budget`` is a triangle budget the
     user gave; without one the builder decides it from the object's detail."""
     manifest = load(root, pack)
@@ -367,11 +338,11 @@ def add(root: Path, pack: str, object_id: str, name: str, where: str, details: s
                         f"materials and colours; the look comes only from the art style (pack.py style). "
                         f"Leave out: {', '.join(found)}")
     references = [_check_image(Path(path), "reference image") for path in (references or [])]
-    if manifest["skip_flow"] and not references:
-        raise PackError(f"{pack} skips Flow: give the object's reference image(s) with --reference")
-    if not manifest["skip_flow"] and references:
-        raise PackError(f"{pack} uses Google Flow: its references are Flow's images; --reference is for packs "
-                        "made with --skip-flow")
+    if manifest["skip_canva"] and not references:
+        raise PackError(f"{pack} skips Canva: give the object's reference image(s) with --reference")
+    if not manifest["skip_canva"] and references:
+        raise PackError(f"{pack} uses Canva: its reference is the Canva image; --reference is for packs "
+                        "made with --skip-canva")
     if budget is not None and budget <= 0:
         raise PackError(f"the triangle budget must be a positive number, not {budget}")
     entry = {
@@ -381,15 +352,15 @@ def add(root: Path, pack: str, object_id: str, name: str, where: str, details: s
                        for index, path in enumerate(references, start=1)],
         "views": [], "budget": budget, "budget_why": "given by the user" if budget else None,
     }
-    if not manifest["skip_flow"]:
-        entry["flow"] = {}
+    if not manifest["skip_canva"]:
+        entry["canva"] = {}
     manifest["objects"].append(entry)
     save(root, manifest)
     return entry
 
 
 def set_style(root: Path, pack: str, style: str) -> str:
-    """Record the art style the user asked for; every Flow set-up and brief of the pack uses it."""
+    """Record the art style the user asked for; every Canva prompt and brief of the pack uses it."""
     style = " ".join(style.split())
     if not style:
         raise PackError("the art style is empty; ask the user which art style they want")
@@ -400,60 +371,175 @@ def set_style(root: Path, pack: str, style: str) -> str:
 
 
 # --------------------------------------------------------------------------------- #
-# Google Flow: each object drawn from every side (Grid Architect, generated by the user)
+# Canva
 # --------------------------------------------------------------------------------- #
 
-def _flow_pack(root: Path, pack: str) -> dict:
+def _canva_pack(root: Path, pack: str) -> dict:
     manifest = load(root, pack)
-    if manifest["skip_flow"]:
-        raise PackError(f"{pack} skips Flow: no Flow step runs for it")
-    if not manifest.get("style"):
-        raise PackError(f"{pack} has no art style yet; ask the user, then run pack.py style {pack} \"<style>\"")
+    if manifest["skip_canva"]:
+        raise PackError(f"{pack} skips Canva: no Canva step runs for it")
     return manifest
 
 
-def flow_call(root: Path, pack: str, object_id: str) -> dict:
-    """The exact Grid Architect set-up for one object, ``{"tool", "arguments"}``: the theme prompt,
-    one shot per side, the engine and ratio, and the source image as the only reference. The guard
-    hook refuses any other Flow call during a run. It stops before generating."""
-    manifest = _flow_pack(root, pack)
+def prompt(root: Path, pack: str, object_id: str) -> str:
+    """The Canva prompt for one object, sent with the source image as the reference."""
+    manifest = _canva_pack(root, pack)
+    if not manifest.get("style"):
+        raise PackError(f"{pack} has no art style yet; ask the user, then run pack.py style {pack} \"<style>\"")
     entry = find_object(manifest, object_id)
-    fields = {"name": entry["name"], "details": entry["details"], "where": entry["where"], "style": manifest["style"]}
-    theme = Template((TEMPLATES / "flow_theme_prompt.txt").read_text(encoding="utf-8")).substitute(fields).strip()
-    shots = [Template(line).substitute(fields).strip() for line in
-             (TEMPLATES / "flow_shot_prompts.txt").read_text(encoding="utf-8").splitlines() if line.strip()]
-    return {"tool": FLOW_TOOL, "arguments": {
-        "theme_prompt": theme, "shot_prompts": shots, "engine": FLOW_ENGINE, "ratio": FLOW_RATIO,
-        "references": [str((pack_dir(root, pack) / manifest["source"]).resolve())],
-        "project_name": f"image-to-assets {pack}", "campaign": f"image-to-assets-{pack}"}}
+    text = Template((TEMPLATES / "canva_prompt.txt").read_text(encoding="utf-8"))
+    return text.substitute(name=entry["name"], details=entry["details"], where=entry["where"],
+                           style=manifest["style"]).strip()
 
 
-def flow_record(root: Path, pack: str, object_id: str, images: list[Path] | None, refused: str | None) -> dict:
-    """Record an object's Flow result: the images the user generated and downloaded (copied into the
-    pack, in the order given, as the object's references), or Flow's refusal."""
-    if bool(images) == bool(refused):
-        raise PackError("give the images Flow made (--image, one per file) or Flow's refusal (--refused), not both")
-    manifest = _flow_pack(root, pack)
-    entry = find_object(manifest, object_id)
-    if refused:
-        entry["flow"] = {"refused": refused, "at": _now()}
-        save(root, manifest)
-        return entry["flow"]
-    images = [_check_image(Path(image), "Flow image") for image in images]
-    folder = pack_dir(root, pack)
-    for old in (folder / "flow").glob(f"{entry['number']:02d}_{entry['id']}_*"):
-        old.unlink()
-    files = []
-    for index, image in enumerate(images, start=1):
-        target = folder / "flow" / flow_name(entry, index, image.suffix.lower())
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(image, target)
-        files.append(str(target.relative_to(folder)))
-    entry["flow"] = {"images": files, "from": [str(image) for image in images], "at": _now()}
-    entry["references"] = files
-    entry["views"] = []  # new images: their views are recorded again
+def set_canva(root: Path, pack: str, source_media: str | None, design: str | None,
+              transaction: str | None = None) -> dict:
+    """Record the pack-level Canva ids: the uploaded source image, the scratch export design and
+    the design's open editing transaction."""
+    manifest = _canva_pack(root, pack)
+    if source_media:
+        manifest["canva"]["source_media_id"] = source_media
+    if design:
+        manifest["canva"]["export_design_id"] = design
+    if transaction:
+        manifest["canva"]["transaction_id"] = transaction
     save(root, manifest)
-    return entry["flow"]
+    return manifest["canva"]
+
+
+def record(root: Path, pack: str, object_id: str, media: str | None, job: str | None,
+           refused: str | None) -> dict:
+    """Record an object's Canva result: its generated image's media id, or Canva's refusal."""
+    if bool(media) == bool(refused):
+        raise PackError("pass exactly one of --media or --refused")
+    manifest = _canva_pack(root, pack)
+    entry = find_object(manifest, object_id)
+    entry["canva"] = {"media_id": media, "job_id": job} if media else {"refused": refused}
+    save(root, manifest)
+    return entry["canva"]
+
+
+def cutout(root: Path, pack: str, object_id: str, media: str | None, failed: str | None) -> dict:
+    """Record the background-removed copy of an object's generated image (Canva
+    ``remove-background``), or why removing the background failed."""
+    if bool(media) == bool(failed):
+        raise PackError("pass exactly one of --media or --failed")
+    manifest = _canva_pack(root, pack)
+    entry = find_object(manifest, object_id)
+    if not entry["canva"].get("media_id"):
+        raise PackError(f"{object_id} has no generated image to cut out; record it first")
+    if media:
+        entry["canva"].pop("cutout_failed", None)
+        entry["canva"]["cutout_media_id"] = media
+    else:
+        entry["canva"].pop("cutout_media_id", None)
+        entry["canva"]["cutout_failed"] = failed
+    save(root, manifest)
+    return entry["canva"]
+
+
+def sheets(root: Path, pack: str) -> list[dict]:
+    """Per object that Canva made an image for, in number order: the media id to export (the
+    background-removed copy; the generated image only where removal failed and that was recorded),
+    the page it gets in the scratch export design (page 1 is the design's own blank page, so object
+    pages start at 2, added in this order) and the file its export is saved as."""
+    manifest = _canva_pack(root, pack)
+    folder = pack_dir(root, pack) / "canva"
+    rows, missing = [], []
+    for entry in manifest["objects"]:
+        canva = entry["canva"]
+        if not canva.get("media_id"):
+            continue
+        media = canva.get("cutout_media_id") or (canva["media_id"] if canva.get("cutout_failed") else None)
+        if media is None:
+            missing.append(entry["id"])
+            continue
+        rows.append({"page": len(rows) + 2, "id": entry["id"], "media_id": media,
+                     "file": str((folder / sheet_name(entry)).relative_to(root))})
+    if missing:
+        raise PackError(f"background not removed yet for {', '.join(missing)}: run remove-background, then "
+                        "pack.py cutout <pack> <id> --media <id> (or --failed <reason>)")
+    return rows
+
+
+def _canva_id(manifest: dict, key: str, flag: str) -> str:
+    value = manifest["canva"].get(key)
+    if not value:
+        raise PackError(f"record it first: pack.py canva {manifest['pack']} {flag} <id>")
+    return value
+
+
+def canva_calls(root: Path, pack: str, stage: str, page_ids: list[str] | None = None) -> list[dict]:
+    """The exact Canva calls of one stage of the full-size download, as ``{"tool", "arguments"}``.
+
+    No Canva tool downloads a media file; ``export-design`` exports designs, one PNG per page. So
+    each generated image is placed, unedited and filling its page, on its own page of one blank
+    scratch design, and those pages are exported. Stages, in order: create, open, add-pages,
+    read-pages, place, check, commit, export.
+    """
+    if stage not in CANVA_STAGES:
+        raise PackError(f"stage must be one of {CANVA_STAGES}, not {stage!r}")
+    manifest = _canva_pack(root, pack)
+    rows = sheets(root, pack)
+    pages = [row["page"] for row in rows]
+    width, height = CANVA_PAGE
+    if stage == "create":
+        return [{"tool": "create-design",
+                 "arguments": {"brief": BLANK_DESIGN_BRIEF, "format": "Presentation (16:9)"}}]
+    design = _canva_id(manifest, "export_design_id", "--design")
+    if stage == "open":
+        return [{"tool": "read-design", "arguments": {
+            "design_id": design, "open_transaction": True,
+            "filter": {"fields": ["design_metadata", "page_metadata"]}}}]
+    if stage == "export":
+        return [{"tool": "get-export-formats", "arguments": {"design_id": design}},
+                {"tool": "export-design", "arguments": {"design_id": design, "format": {
+                    "type": "png", "pages": pages, "width": width, "height": height,
+                    "lossless": True, "export_quality": "pro", "transparent_background": True}}}]
+    transaction = _canva_id(manifest, "transaction_id", "--transaction")
+    if stage == "add-pages":
+        return [{"tool": "edit-design", "arguments": {
+            "transaction_id": transaction, "page_index": 1, "finalize": "keep_open",
+            "operations": [{"type": "add_page", "width": width, "height": height,
+                            "title": Path(row["file"]).stem} for row in rows]}}]
+    if stage in ("read-pages", "check"):
+        return [{"tool": "read-design", "arguments": {
+            "design_id": design, "transaction_id": transaction,
+            "filter": {"fields": ["design_content"], "page_indices": pages}}}]
+    if stage == "commit":
+        return [{"tool": "edit-design", "arguments": {"transaction_id": transaction, "finalize": "commit"}}]
+    if not page_ids or len(page_ids) != len(rows):
+        raise PackError(f"place needs --page-ids with {len(rows)} ids, in page order {pages} "
+                        "(from the read-pages result)")
+    return [{"tool": "edit-design", "arguments": {
+        "transaction_id": transaction, "page_index": row["page"], "finalize": "keep_open",
+        "operations": [{"type": "insert_fill", "page_id": page_id, "asset_type": "image",
+                        "asset_id": row["media_id"], "alt_text": Path(row["file"]).stem,
+                        "left": 0, "top": 0, "width": width, "height": height}]}}
+        for row, page_id in zip(rows, page_ids)]
+
+
+def canva_download(root: Path, pack: str, urls: list[str]) -> list[str]:
+    """Download the export URLs (in page order) to the objects' Canva image files, each of which
+    becomes that object's reference; returns the files written."""
+    manifest = _canva_pack(root, pack)
+    rows = sheets(root, pack)
+    if len(urls) != len(rows):
+        raise PackError(f"expected {len(rows)} export URLs (pages {[row['page'] for row in rows]}), got {len(urls)}")
+    payloads = []
+    for row, url in zip(rows, urls):
+        data = downloads.get_bytes(url)
+        if not data.startswith(PNG_SIGNATURE):
+            raise PackError(f"{row['id']}: the export is not a PNG; nothing saved")
+        payloads.append((row, data))
+    folder = pack_dir(root, pack)
+    for row, data in payloads:
+        (root / row["file"]).write_bytes(data)
+        entry = find_object(manifest, row["id"])
+        entry["references"] = [str((root / row["file"]).relative_to(folder))]
+        entry["views"] = []  # a new image: its views are recorded again
+    save(root, manifest)
+    return [row["file"] for row in rows]
 
 
 # --------------------------------------------------------------------------------- #
@@ -517,7 +603,7 @@ def views_signature(entry: dict) -> str:
 
 
 def _frontmatter(text: str) -> dict:
-    """``name``, ``description`` and ``disable-model-invocation`` from a SKILL.md front matter block."""
+    """``name`` and ``description`` from a SKILL.md front matter block."""
     fields = {}
     lines = text.splitlines()
     if not lines or lines[0].strip() != "---":
@@ -526,28 +612,15 @@ def _frontmatter(text: str) -> dict:
         if line.strip() == "---":
             break
         key, _, value = line.partition(":")
-        if key.strip() in ("name", "description", "disable-model-invocation"):
+        if key.strip() in ("name", "description"):
             fields[key.strip()] = value.strip().strip('"').strip("'")
     return fields
 
 
-def builder_skill(skill_md: Path) -> bool:
-    """Whether a builder may use the skill: not the pipeline's own skill (the orchestrator's), and
-    not one marked ``disable-model-invocation: true`` (those are run only by hand: camera videos,
-    product shots, AI generation services, tools that need a live Blender window)."""
-    if skill_md.parent.name == PIPELINE_SKILL:
-        return False
-    fields = _frontmatter(skill_md.read_text(encoding="utf-8"))
-    return fields.get("disable-model-invocation", "").lower() != "true"
-
-
 def skills_list(root: Path) -> list[dict]:
-    """The installed skills a builder may use (``.claude/skills/<name>/SKILL.md``, see
-    :func:`builder_skill`): name, description, path."""
+    """Every installed skill (``.claude/skills/<name>/SKILL.md``): name, description, path."""
     rows = []
     for skill_md in sorted((root / SKILLS_DIR).glob("*/SKILL.md")):
-        if not builder_skill(skill_md):
-            continue
         fields = _frontmatter(skill_md.read_text(encoding="utf-8"))
         rows.append({"name": skill_md.parent.name, "description": fields.get("description", ""),
                      "path": str(skill_md)})
@@ -560,9 +633,6 @@ def set_skills(root: Path, pack: str, object_id: str, names: list[str]) -> list[
     missing = [name for name in names if not (root / SKILLS_DIR / name / "SKILL.md").is_file()]
     if missing:
         raise PackError(f"not installed in {SKILLS_DIR}: {', '.join(missing)} (see pack.py skills-list)")
-    manual = [name for name in names if not builder_skill(root / SKILLS_DIR / name / "SKILL.md")]
-    if manual:
-        raise PackError(f"not for builders (run only by hand): {', '.join(manual)} (see pack.py skills-list)")
     manifest = load(root, pack)
     entry = find_object(manifest, object_id)
     entry["skills"] = sorted(set(names))
@@ -811,29 +881,6 @@ def has_cycle(text: str, number: int) -> bool:
     return bool(_filled(rest[:end.start()] if end else rest))
 
 
-def cycles_written(text: str) -> int:
-    """How many filled ``## Cycle <n>`` sections (the builders' own reviews) the notes have."""
-    numbers = {int(number) for number in re.findall(r"^## Cycle (\d+)\b", text, flags=re.MULTILINE)}
-    return sum(1 for number in numbers if has_cycle(text, number))
-
-
-def handoff(text: str) -> str | None:
-    """The notes' current Handoff: the last ``## Handoff`` section (its heading may go on, such as
-    ``## Handoff (build 4)``), without HTML comments, up to the next ``#`` or ``##`` heading. None
-    when there is none or it holds nothing but headings (the notes template's skeleton is a comment)."""
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
-    found = list(re.finditer(rf"^## {HANDOFF_SECTION}\b[^\n]*$", text, flags=re.MULTILINE))
-    if not found:
-        return None
-    rest = text[found[-1].end():]
-    end = re.search(r"^#{1,2} ", rest, flags=re.MULTILINE)
-    body = rest[:end.start()] if end else rest
-    if not any(line.strip() and not line.lstrip().startswith("#") and not SEPARATOR.fullmatch(line)
-               for line in body.splitlines()):
-        return None
-    return (found[-1].group(0) + body).strip()
-
-
 # --------------------------------------------------------------------------------- #
 # Brief, completion, status
 # --------------------------------------------------------------------------------- #
@@ -841,11 +888,11 @@ def handoff(text: str) -> str | None:
 def _references_text(root: Path, pack: str, manifest: dict, entry: dict) -> str:
     lines = []
     for number, path in enumerate(reference_paths(root, pack, entry), start=1):
-        if manifest["skip_flow"]:
+        if manifest["skip_canva"]:
             kind = ("the user's image (the object is " + entry["where"] + " in it)"
                     if path.name == manifest["source"] else "the user's reference image of the object")
         else:
-            kind = "Google Flow's drawing of the object from one side, in the user's art style"
+            kind = "Canva's drawing of the object, background removed, in the user's art style"
         lines.append(f"{number}. {path} — {kind}")
     return "\n".join(lines)
 
@@ -868,45 +915,23 @@ def _budget_text(entry: dict) -> str:
             "`pack.py budget`")
 
 
-def _reference_views_text(evidence: Path, object_id: str) -> str:
-    views = sorted(evidence.glob(f"{object_id}_ref_view_*.png"))
-    if not views:
-        return str(evidence / f"{object_id}_ref_view_<n>.png") + " (one per recorded view; `cv.py measure` writes them)"
-    return ", ".join(str(path) for path in views)
-
-
 def brief(root: Path, pack: str, object_id: str) -> str:
-    """The instructions for the builder of the object's next render cycle. When the notes hold a
-    Handoff, that is all a follow-up builder gets: the Handoff section and the paths to look at
-    (``templates/builder_followup.md``). Otherwise the full first-build brief
-    (``templates/builder_brief.md``). Creates the object's notes from the template the first time."""
+    """The instructions for the builder that models one object. Creates the object's notes from
+    the template the first time."""
     manifest = load(root, pack)
     entry = find_object(manifest, object_id)
     if not manifest.get("style"):
         raise PackError(f"{pack} has no art style yet; run pack.py style {pack} \"<style>\"")
     if not entry.get("references"):
-        raise PackError(f"{object_id} has no reference image yet: record its Flow images first "
-                        "(pack.py flow-record)")
+        raise PackError(f"{object_id} has no reference image yet: download its Canva image first "
+                        "(pack.py canva-download)")
     notes = notes_path(root, pack, object_id)
     if not notes.exists():
         notes.parent.mkdir(parents=True, exist_ok=True)
         text = Template((TEMPLATES / "builder_notes.md").read_text(encoding="utf-8"))
         notes.write_text(text.substitute(id=object_id, name=entry["name"]), encoding="utf-8")
-    evidence = evidence_dir(root, pack, object_id)
-    current = handoff(notes.read_text(encoding="utf-8"))
-    if current is not None:
-        build = read_json(build_report_path(root, pack, object_id)) or {}
-        text = Template((TEMPLATES / "builder_followup.md").read_text(encoding="utf-8"))
-        return text.substitute(
-            repo=root, pack=pack, id=object_id, name=entry["name"], style=manifest["style"],
-            ref_views=_reference_views_text(evidence, object_id),
-            references=", ".join(str(path) for path in reference_paths(root, pack, entry)),
-            compare=evidence / f"{object_id}_compare.png", guides=root / GUIDES_DIR,
-            generator=generator_path(root, pack, object_id), parts=parts_dir(root, pack, object_id),
-            notes=notes, evidence=evidence, scratch=work_dir(root, pack, object_id),
-            builds=build.get("build", 0), cycles=BUILD_CYCLES, handoff=current,
-        ).strip()
     origin = MOUNTS[entry["mount"]]
+    evidence = evidence_dir(root, pack, object_id)
     text = Template((TEMPLATES / "builder_brief.md").read_text(encoding="utf-8"))
     return text.substitute(
         repo=root, pack=pack, id=object_id, name=entry["name"], where=entry["where"],
@@ -917,32 +942,9 @@ def brief(root: Path, pack: str, object_id: str) -> str:
         run_origin="" if origin == "bottom" else f', origin="{origin}"',
         mount="hangs on a wall (origin at the centre of its back)" if origin == "back"
               else "stands on the ground (origin at the centre of its base)",
-        previews=root / PREVIEWS_DIR / pack / object_id, scratch=work_dir(root, pack, object_id),
-        builds_per_builder=BUILDS_PER_BUILDER, guides=root / GUIDES_DIR, parts=parts_dir(root, pack, object_id),
+        previews=root / PREVIEWS_DIR / pack / object_id, builds_per_builder=BUILDS_PER_BUILDER,
         compare=evidence / f"{object_id}_compare.png", blender_notes=root / BLENDER_NOTES,
     ).strip()
-
-
-def job_card(root: Path, pack: str, object_id: str, part: str) -> Path:
-    """Write a part builder's job card from ``templates/job_card.md`` (once; an existing card is
-    kept) for the lead to fill, and return its path. The card's folder is the part builder's work
-    folder; its **You may write** field lists the files the hooks let that part builder change."""
-    _check_id(part, "part name")
-    if part == SHARED_PART:
-        raise PackError(f"{SHARED_PART}.py holds what the parts share and stays with the lead; name the part by "
-                        "what it is")
-    manifest = load(root, pack)
-    find_object(manifest, object_id)
-    card = job_card_path(root, pack, object_id, part)
-    if not card.exists():
-        card.parent.mkdir(parents=True, exist_ok=True)
-        text = Template((TEMPLATES / "job_card.md").read_text(encoding="utf-8"))
-        rel = lambda path: path.relative_to(root).as_posix()  # noqa: E731
-        card.write_text(text.substitute(
-            pack=pack, id=object_id, part=part, module=rel(part_module_path(root, pack, object_id, part)),
-            folder=rel(card.parent), harness=rel(parts_work_dir(root, pack, object_id) / "harness.py"),
-        ), encoding="utf-8")
-    return card
 
 
 def report_problems(root: Path, pack: str, object_id: str) -> list[str]:
@@ -991,6 +993,52 @@ def done(root: Path, pack: str, object_id: str) -> dict:
     return entry["done"]
 
 
+def critic_brief(root: Path, pack: str, object_id: str) -> str:
+    """The instructions for the critic of the object's next review round."""
+    manifest = load(root, pack)
+    entry = find_object(manifest, object_id)
+    if "done" not in entry:
+        raise PackError(f"{object_id} is not done yet: the critic reviews a finished final build")
+    previous = entry.get("reviews", [])
+    number = len(previous) + 1
+    if number > CRITIC_ROUNDS:
+        raise PackError(f"{object_id} has had all {CRITIC_ROUNDS} review rounds; the user reviews it now")
+    evidence = evidence_dir(root, pack, object_id)
+    if previous:
+        last = review_path(root, pack, object_id, previous[-1]["round"])
+        earlier = (f"VERIFY FIRST: the previous review is {last}. For each of its Fixes, say whether the build "
+                   f"now shows it done (DONE / NOT DONE / PARTLY, with the view and box), in a section "
+                   f"`## Fixes checked` before the verdicts.")
+    else:
+        earlier = "This is the first review round."
+    text = Template((TEMPLATES / "critic_brief.md").read_text(encoding="utf-8"))
+    return text.substitute(
+        repo=root, pack=pack, id=object_id, name=entry["name"], style=manifest["style"],
+        references=_references_text(root, pack, manifest, entry), views=_views_text(entry),
+        notes=notes_path(root, pack, object_id), evidence=evidence, compare=evidence / f"{object_id}_compare.png",
+        turnaround=evidence / f"{object_id}_turnaround.png", review=review_path(root, pack, object_id, number),
+        round=number, rounds=CRITIC_ROUNDS, build=entry["done"]["build"], previous=earlier,
+    ).strip()
+
+
+def reviewed(root: Path, pack: str, object_id: str, route: str) -> dict:
+    """Record the route of the critic's review just written (``ACCEPT``, ``REFINE`` or ``REQUEST-INPUT``)."""
+    if route not in CRITIC_ROUTES:
+        raise PackError(f"the route must be one of {', '.join(CRITIC_ROUTES)}")
+    manifest = load(root, pack)
+    entry = find_object(manifest, object_id)
+    if "done" not in entry:
+        raise PackError(f"{object_id} is not done: there is no build to review")
+    number = len(entry.get("reviews", [])) + 1
+    path = review_path(root, pack, object_id, number)
+    if not path.exists():
+        raise PackError(f"the critic's review {path} does not exist yet")
+    record = {"round": number, "build": entry["done"]["build"], "route": route, "review": str(path), "at": _now()}
+    entry.setdefault("reviews", []).append(record)
+    save(root, manifest)
+    return record
+
+
 def accept(root: Path, pack: str, object_id: str) -> dict:
     """Record that the user accepted the object as it is now."""
     manifest = load(root, pack)
@@ -1003,11 +1051,9 @@ def accept(root: Path, pack: str, object_id: str) -> dict:
 
 
 def reopen(root: Path, pack: str, object_id: str) -> dict:
-    """The object goes back to a builder with the user's changes: done and accepted are cleared;
-    the notes stay, and the next builder continues from their Handoff with the user's words."""
+    """The object goes back to a builder (the critic's REFINE or the user's changes): done and
+    accepted are cleared; the reviews stay, the next builder reads them."""
     manifest = load(root, pack)
-    if manifest.get("finished"):
-        raise PackError(f"{pack} is finished: its generators and notes were deleted; start a new pack to rebuild")
     entry = find_object(manifest, object_id)
     entry.pop("done", None)
     entry.pop("accepted", None)
@@ -1030,16 +1076,21 @@ def last_builder_activity(root: Path, pack: str, object_id: str) -> float | None
 
 def next_step(manifest: dict, entry: dict, godot: bool) -> str:
     """What the orchestrator does next for the object (the run can resume from this alone)."""
-    if manifest.get("finished"):
-        return "finished"
-    if "refused" in entry.get("flow", {}):
+    canva = entry.get("canva", {})
+    if "refused" in canva:
         return "refused"
     if not entry.get("references"):
-        return "flow"
+        return "canva"
     if "done" not in entry:
-        return "build"  # the next builder's cycle (its brief is the Handoff, once there is one)
-    # A builder's done goes straight to the user's review. Packs from before builders reviewed
-    # their own builds may still hold "reviews" in pack.json: they are ignored.
+        return "build"
+    rounds = entry.get("reviews", [])
+    reviewed_now = bool(rounds) and rounds[-1]["build"] == entry["done"]["build"]
+    if not reviewed_now and len(rounds) < CRITIC_ROUNDS:
+        return "critic"
+    if reviewed_now and rounds[-1]["route"] == "REFINE" and len(rounds) < CRITIC_ROUNDS:
+        return "refine"
+    if reviewed_now and rounds[-1]["route"] == "REQUEST-INPUT":
+        return "ask"
     if "accepted" not in entry:
         return "review"
     if not godot:
@@ -1047,7 +1098,7 @@ def next_step(manifest: dict, entry: dict, godot: bool) -> str:
     return "ok"
 
 
-STATUS_COLUMNS = ("reference", "views", "skills", "budget", "builds", "cycles", "cv", "triangles", "size_m", "done",
+STATUS_COLUMNS = ("reference", "views", "skills", "budget", "builds", "cv", "triangles", "size_m", "done", "critic",
                   "accepted", "godot", "active", "next")
 
 
@@ -1059,22 +1110,18 @@ def status(root: Path, pack: str) -> list[dict]:
         object_id = entry["id"]
         evidence = evidence_dir(root, pack, object_id)
         build = read_json(build_report_path(root, pack, object_id)) or {}
-        if not build and manifest.get("finished") and "done" in entry:  # the build log is gone, the done record stays
-            done_record = entry["done"]
-            build = {"build": done_record.get("build", 0), "report": {"triangles": done_record.get("triangles", "-"),
-                                                                     "dimensions_m": done_record.get("dimensions_m") or []}}
         cv = read_json(cv_report_path(root, pack, object_id)) or {}
         godot = any(evidence.glob(f"{object_id}_godot_*.png"))
         minutes = last_builder_activity(root, pack, object_id)
-        notes = notes_path(root, pack, object_id)
-        cycles = cycles_written(notes.read_text(encoding="utf-8")) if notes.exists() else "-"
         rows.append({
             "id": object_id, "reference": bool(entry.get("references")), "views": len(entry.get("views", [])),
             "skills": "skills" in entry, "budget": entry.get("budget") or False, "builds": build.get("build", 0),
-            "cv": bool(build) and (cv.get("build") == build.get("build") or bool(manifest.get("finished"))),
+            "cv": bool(build) and cv.get("build") == build.get("build"),
             "triangles": build.get("report", {}).get("triangles", "-"),
             "size_m": "x".join(f"{value:g}" for value in build.get("report", {}).get("dimensions_m", [])) or "-",
-            "cycles": cycles, "done": "done" in entry, "accepted": "accepted" in entry,
+            "done": "done" in entry,
+            "critic": (f"{entry['reviews'][-1]['round']}:{entry['reviews'][-1]['route']}" if entry.get("reviews") else "-"),
+            "accepted": "accepted" in entry,
             "godot": godot, "active": "-" if minutes is None else f"{minutes:g}m",
             "next": next_step(manifest, entry, godot),
         })
@@ -1121,22 +1168,10 @@ def run_end(root: Path) -> dict:
     return state
 
 
-def outputs(root: Path, pack: str, object_id: str) -> list[Path]:
-    """An object's outputs: its .glb, its baked textures and its renders (lit and clay views,
-    turnaround, Godot screenshots), the ones that exist."""
-    evidence = evidence_dir(root, pack, object_id)
-    kept = [glb_path(root, pack, object_id)]
-    textures = textures_dir(root, pack, object_id)
-    if not textures.is_dir():
-        textures = root / BAKE_DIR / pack / object_id
-    kept += sorted(textures.glob("*.png")) if textures.is_dir() else []
-    kept += sorted({path for pattern in RENDER_PATTERNS for path in evidence.glob(pattern.format(id=object_id))})
-    return [path for path in kept if path.is_file()]
-
-
 def export(root: Path, pack: str, destination: Path) -> Path:
-    """Copy the pack's outputs into ``destination/<pack>/`` (outside the repository) and zip it;
-    returns the zip. Per object: the .glb, ``textures/`` (the baked maps) and ``renders/``."""
+    """Copy the pack's deliverables into ``destination/<pack>/`` (outside the repository) and zip
+    it; returns the zip. Per object: the .glb, its reference images, the comparison, the turnaround
+    and the Godot screenshots that exist."""
     destination = destination.resolve()
     if destination == root.resolve() or root.resolve() in destination.parents:
         raise PackError(f"{destination} is inside the repository; export to a folder outside it")
@@ -1145,72 +1180,22 @@ def export(root: Path, pack: str, destination: Path) -> Path:
     if folder.exists():
         shutil.rmtree(folder)
     folder.mkdir(parents=True)
+    shutil.copyfile(pack_dir(root, pack) / manifest["source"], folder / manifest["source"])
     for entry in manifest["objects"]:
         object_id = entry["id"]
-        glb = glb_path(root, pack, object_id)
-        files = outputs(root, pack, object_id)
-        if glb not in files:
-            continue
-        for path in files:
-            if path == glb:
-                target = folder / object_id / path.name
-            elif path.parent == evidence_dir(root, pack, object_id):
-                target = folder / object_id / "renders" / path.name
-            else:
-                target = folder / object_id / "textures" / path.name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(path, target)
+        evidence = evidence_dir(root, pack, object_id)
+        files = [glb_path(root, pack, object_id), evidence / f"{object_id}_compare.png",
+                 evidence / f"{object_id}_turnaround.png"]
+        files += sorted(evidence.glob(f"{object_id}_godot_*.png"))
+        present = [path for path in files if path.exists()]
+        if present:
+            (folder / object_id).mkdir()
+            for path in present:
+                shutil.copyfile(path, folder / object_id / path.name)
+            for number, path in enumerate(reference_paths(root, pack, entry), start=1):
+                if path.exists():
+                    shutil.copyfile(path, folder / object_id / f"{object_id}_reference_{number}{path.suffix}")
     return Path(shutil.make_archive(str(folder), "zip", root_dir=destination, base_dir=pack))
-
-
-def finish(root: Path, pack: str) -> dict:
-    """After the run: keep each object's outputs (its .glb, baked textures moved next to it into
-    ``assets/models/<pack>/<id>_textures/``, and its renders) and delete everything else the run
-    wrote: the notes with their reviews and Handoffs and every other .md, the generators with their
-    part modules (``<id>_parts/``) and helper scripts, the job cards and test harnesses, the CV and
-    compare images, the build logs and the pack's scratch. No working file of this run is left to
-    steer a later one. The pack's inputs (``pack.json``, the source image, the reference images) stay."""
-    if (root / RUN_LOCK).exists():
-        raise PackError("a run is in progress; end it first (pack.py run-end)")
-    manifest = load(root, pack)
-    kept = []
-    for entry in manifest["objects"]:
-        object_id = entry["id"]
-        baked = root / BAKE_DIR / pack / object_id
-        maps = sorted(baked.glob("*.png")) if baked.is_dir() else []
-        if maps:
-            target = textures_dir(root, pack, object_id)
-            target.mkdir(parents=True, exist_ok=True)
-            for path in maps:
-                shutil.copyfile(path, target / path.name)
-        kept += outputs(root, pack, object_id)
-    keep = {path.resolve() for path in kept}
-    removed = []
-    for entry in manifest["objects"]:  # the part modules and the part builders' job cards and harness
-        for folder in (parts_dir(root, pack, entry["id"]), parts_work_dir(root, pack, entry["id"])):
-            if folder.exists():
-                removed.append(folder.relative_to(root).as_posix() + "/")
-                shutil.rmtree(folder)
-    for area in (root / GENERATORS_DIR / pack, root / MODELS_DIR / pack, root / EVIDENCE_DIR / pack):
-        for path in sorted(area.rglob("*"), reverse=True) if area.exists() else []:
-            if path.is_file() and path.resolve() not in keep:
-                removed.append(path.relative_to(root).as_posix())
-                path.unlink()
-            elif path.is_dir() and not any(path.iterdir()):
-                path.rmdir()
-        if area.exists() and not any(area.iterdir()):
-            area.rmdir()
-    for path in sorted(pack_dir(root, pack).rglob("*.md")):
-        removed.append(path.relative_to(root).as_posix())
-        path.unlink()
-    for scratch in (BAKE_DIR, WORK_DIR, PREVIEWS_DIR):
-        folder = root / scratch / pack
-        if folder.exists():
-            removed.append(folder.relative_to(root).as_posix() + "/")
-            shutil.rmtree(folder)
-    manifest["finished"] = {"at": _now(), "kept": sorted(path.relative_to(root).as_posix() for path in kept)}
-    save(root, manifest)
-    return {"kept": manifest["finished"]["kept"], "removed": removed}
 
 
 def pack_areas(root: Path, pack: str) -> list[Path]:
@@ -1242,8 +1227,8 @@ def _parser() -> argparse.ArgumentParser:
     command = commands.add_parser("init", help="create a pack from the user's image")
     command.add_argument("pack")
     command.add_argument("image", type=Path)
-    command.add_argument("--skip-flow", action="store_true",
-                         help="no Google Flow: every object is built from the user's own reference image(s)")
+    command.add_argument("--skip-canva", action="store_true",
+                         help="no Canva: every object is built from the user's own reference image(s)")
     command = commands.add_parser("add", help="add an object chosen from the image")
     command.add_argument("pack")
     command.add_argument("id")
@@ -1251,24 +1236,35 @@ def _parser() -> argparse.ArgumentParser:
     command.add_argument("--where", required=True, help="where it is in the source image")
     command.add_argument("--details", required=True, help="its parts, materials and colours seen in the image")
     command.add_argument("--mount", default="floor", choices=sorted(MOUNTS))
-    command.add_argument("--reference", type=Path, nargs="+", help="skip flow: the object's reference image(s)")
+    command.add_argument("--reference", type=Path, nargs="+", help="skip canva: the object's reference image(s)")
     command.add_argument("--budget", type=int, help="triangle budget, only when the user gave one")
-    for name in ("brief", "done", "accept", "reopen"):
+    for name in ("prompt", "brief", "done", "accept", "reopen", "critic-brief"):
         command = commands.add_parser(name)
         command.add_argument("pack")
         command.add_argument("id")
-    command = commands.add_parser("job-card", help="write a part builder's job card from the template, for the lead to fill")
+    command = commands.add_parser("canva", help="record the pack-level Canva ids")
+    command.add_argument("pack")
+    command.add_argument("--source-media")
+    command.add_argument("--design")
+    command.add_argument("--transaction")
+    command = commands.add_parser("canva-calls", help="print the exact Canva calls of one download stage")
+    command.add_argument("pack")
+    command.add_argument("stage", choices=CANVA_STAGES)
+    command.add_argument("--page-ids", nargs="+", help="place: the new pages' ids, in page order")
+    command = commands.add_parser("canva-download", help="download the export URLs to the objects' images")
+    command.add_argument("pack")
+    command.add_argument("urls", nargs="+")
+    command = commands.add_parser("record", help="record an object's Canva result")
     command.add_argument("pack")
     command.add_argument("id")
-    command.add_argument("part", help="the part's module name (snake_case, named by what the part is)")
-    command = commands.add_parser("flow-call", help="print the exact Google Flow Grid Architect set-up for one object")
+    command.add_argument("--media")
+    command.add_argument("--job")
+    command.add_argument("--refused")
+    command = commands.add_parser("cutout", help="record an object's background-removed image")
     command.add_argument("pack")
     command.add_argument("id")
-    command = commands.add_parser("flow-record", help="record an object's Google Flow images (or refusal)")
-    command.add_argument("pack")
-    command.add_argument("id")
-    command.add_argument("--image", type=Path, action="append", help="an image the user generated in Flow (repeat per file)")
-    command.add_argument("--refused", help="Flow's refusal message")
+    command.add_argument("--media")
+    command.add_argument("--failed")
     command = commands.add_parser("views", help="record the views of the object its reference images show")
     command.add_argument("pack")
     command.add_argument("id")
@@ -1288,6 +1284,10 @@ def _parser() -> argparse.ArgumentParser:
     command.add_argument("triangles", type=int)
     command.add_argument("--why", required=True)
     commands.add_parser("kit-api", help="print the kit's public functions with signatures and docstrings")
+    command = commands.add_parser("reviewed", help="record the route of the critic's review just written")
+    command.add_argument("pack")
+    command.add_argument("id")
+    command.add_argument("route", choices=CRITIC_ROUTES)
     command = commands.add_parser("material-search",
                                   help="find texture sets and materials on Poly Haven, ambientCG, cgbookcase and Blendkit")
     command.add_argument("words", nargs="+")
@@ -1299,8 +1299,6 @@ def _parser() -> argparse.ArgumentParser:
     command = commands.add_parser("export", help="copy the deliverables to one folder outside the repo, zipped")
     command.add_argument("pack")
     command.add_argument("destination", type=Path)
-    command = commands.add_parser("finish", help="after the run: keep the models, textures and renders, delete the rest")
-    command.add_argument("pack")
     command = commands.add_parser("discard", help="delete the pack's working files from the repository")
     command.add_argument("pack")
     command = commands.add_parser("run-start", help="start a run: the pipeline is locked until run-end")
@@ -1309,6 +1307,8 @@ def _parser() -> argparse.ArgumentParser:
     command.add_argument("pack", nargs="?", help="the run's pack (optional; checked when given)")
     command = commands.add_parser("status", help="show where each object stands")
     command.add_argument("pack")
+    command = commands.add_parser("sheets", help="export page and file name per Canva image")
+    command.add_argument("pack")
     return parser
 
 
@@ -1316,16 +1316,27 @@ def main(argv: list[str] | None = None, root: Path = REPO_ROOT) -> int:
     args = _parser().parse_args(argv)
     try:
         if args.command == "init":
-            print(json.dumps(init(root, args.pack, args.image, args.skip_flow), indent=2))
+            print(json.dumps(init(root, args.pack, args.image, args.skip_canva), indent=2))
         elif args.command == "add":
             print(json.dumps(add(root, args.pack, args.id, args.name, args.where, args.details,
                                  args.mount, args.reference, args.budget), indent=2))
         elif args.command == "style":
             print(set_style(root, args.pack, args.style))
-        elif args.command == "flow-call":
-            print(json.dumps(flow_call(root, args.pack, args.id), indent=2))
-        elif args.command == "flow-record":
-            print(json.dumps(flow_record(root, args.pack, args.id, args.image, args.refused), indent=2))
+        elif args.command == "prompt":
+            print(prompt(root, args.pack, args.id))
+        elif args.command == "canva":
+            print(json.dumps(set_canva(root, args.pack, args.source_media, args.design, args.transaction), indent=2))
+        elif args.command == "canva-calls":
+            print(json.dumps(canva_calls(root, args.pack, args.stage, args.page_ids), indent=2))
+        elif args.command == "canva-download":
+            print("\n".join(canva_download(root, args.pack, args.urls)))
+        elif args.command == "record":
+            print(json.dumps(record(root, args.pack, args.id, args.media, args.job, args.refused), indent=2))
+        elif args.command == "cutout":
+            print(json.dumps(cutout(root, args.pack, args.id, args.media, args.failed), indent=2))
+        elif args.command == "sheets":
+            for row in sheets(root, args.pack):
+                print(f"page {row['page']:>3}  {row['media_id']:<14} {row['file']}")
         elif args.command == "views":
             print(json.dumps(set_views(root, args.pack, args.id, args.view, args.lens, args.ortho), indent=2))
         elif args.command == "skills-list":
@@ -1341,17 +1352,19 @@ def main(argv: list[str] | None = None, root: Path = REPO_ROOT) -> int:
             print(kit_api(root), end="")
         elif args.command == "material-search":
             print(json.dumps(material_search(args.words, args.previews, args.limit, root), indent=2))
+        elif args.command == "critic-brief":
+            print(critic_brief(root, args.pack, args.id))
+        elif args.command == "reviewed":
+            print(json.dumps(reviewed(root, args.pack, args.id, args.route), indent=2))
         elif args.command == "brief":
             print(brief(root, args.pack, args.id))
-        elif args.command == "job-card":
-            print(job_card(root, args.pack, args.id, args.part))
         elif args.command == "done":
             print(json.dumps(done(root, args.pack, args.id), indent=2))
         elif args.command == "accept":
             print(json.dumps(accept(root, args.pack, args.id), indent=2))
         elif args.command == "reopen":
             reopen(root, args.pack, args.id)
-            print(f"{args.id} reopened: start its builder with the user's words")
+            print(f"{args.id} reopened: start its builder with the critic's review or the user's words")
         elif args.command == "status":
             print("id".ljust(20) + "".join(column.ljust(10) for column in STATUS_COLUMNS))
             for row in status(root, args.pack):
@@ -1368,9 +1381,6 @@ def main(argv: list[str] | None = None, root: Path = REPO_ROOT) -> int:
             print(json.dumps({key: state[key] for key in ("pack", "started", "check")}, indent=2))
         elif args.command == "export":
             print(export(root, args.pack, args.destination))
-        elif args.command == "finish":
-            result = finish(root, args.pack)
-            print("\n".join([f"kept {path}" for path in result["kept"]] + [f"removed {path}" for path in result["removed"]]))
         elif args.command == "discard":
             print("\n".join(discard(root, args.pack)) or "nothing to remove")
     except (PackError, downloads.FetchError) as error:

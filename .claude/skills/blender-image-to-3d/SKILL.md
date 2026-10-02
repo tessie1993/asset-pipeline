@@ -1,23 +1,9 @@
 ---
 name: blender-image-to-3d
-description: "Method for building a game asset in Blender from reference images through gated phases (brief, blockout, forms, detail, materials, bake, export) with renders and silhouette checks against the reference. Read by the /image-to-assets builders. To turn an image into models, run /image-to-assets."
+description: "Method for building a game asset in Blender from reference images through gated phases (brief, blockout, forms, detail, materials, bake, export) with renders and silhouette checks against the reference. Read by the /image-to-assets builders and critic. To turn an image into models, run /image-to-assets."
 user-invocable: false
 license: MIT
 ---
-
-## Under /image-to-assets
-
-- Take the phases, gates and category notes as method.
-- Build only in the kit generator (`tools/blender/assetgen/kit.py`): the kit bakes and exports.
-  Do not run `init_master`, `bake_maps`, `export_delivery` or `roundtrip` except into `.scratch`
-  for analysis.
-- Never ask the user: the brief settles target (Godot GLB), scale, budget and views.
-- Views and resolution come from `pack.py views`; detail is not culled for a game camera.
-- Return only visible geometry from `build()`.
-- Skip LODs and Phases 6-8 (rig, motion, animation).
-- Headless only: no live MCP session.
-- Where any number here differs from the builder brief's definition of good, the brief's numbers
-  win.
 
 # Blender image to 3D
 
@@ -37,9 +23,9 @@ as inferred. Say so when a single image forces inference; do not present a guess
 - Blender 4.2 or newer (used through 5.2), run headless: `blender --background --python <script> -- <args>`.
   Blender 5.x changed several APIs these builds touch; `references/blender-5-notes.md` lists them
   with runtime, baking and review lessons.
-  Resolve the binary once: `$BLENDER_BIN`, then `blender` on PATH. Workbench renders need a
-  display: on a headless Linux box run them as `xvfb-run -a blender -b ...`, or pass
-  `--engine cycles` to review_render.py.
+  Resolve the binary once: `$BLENDER_BIN`, then `blender` on PATH, then
+  `/Applications/Blender.app/Contents/MacOS/Blender`. Workbench renders need no GPU on macOS or
+  Windows; on a headless Linux box without a GPU, pass `--engine cycles` to review_render.py.
 - A live Blender session through an MCP server (execute-Python tool) is optional and useful for
   inspection. Even then, build through the numbered scripts and save the same master file, so the
   build stays reproducible. In a live session, `exec(open(path).read())` a script and call its

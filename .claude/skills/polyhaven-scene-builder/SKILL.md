@@ -1,7 +1,6 @@
 ---
 name: polyhaven-scene-builder
 description: Build complete product scenes using PolyHaven assets — HDRI environment, textured ground/pedestal, and optional props from the 3D model library. Trigger when asked to build a product scene, create a showcase setup, add a pedestal, or compose a product shot.
-disable-model-invocation: true
 ---
 
 # PolyHaven Scene Builder

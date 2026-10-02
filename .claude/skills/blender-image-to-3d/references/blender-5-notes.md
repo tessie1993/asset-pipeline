@@ -56,8 +56,7 @@ user's viewport disagree.
   Grey-looking leather was specular sheen and edge-wear masks firing over whole thin straps, not
   the base colour.
 - Painted concept metal usually reads brown-lit: give glossy rays their own warm studio (Light
-  Path "Is Glossy Ray" in the world shader) while diffuse rays keep a dark environment (not under
-  /image-to-assets: match colour and gloss in the material, which is what gets baked).
+  Path "Is Glossy Ray" in the world shader) while diffuse rays keep a dark environment.
 - The Standard view transform keeps saturated skin and hair close to a painted sheet; AgX washes
   them out. Pick one for the look and keep it for every comparison.
 - When a colour looks wrong, test hypotheses one at a time on a small render border (lighting,
