@@ -1,11 +1,11 @@
 {
- "build": 3,
+ "build": 4,
  "final": false,
- "at": "2026-10-02T02:58:47+00:00",
+ "at": "2026-10-02T03:38:33+00:00",
  "samples": 16,
  "resolution": 768,
  "report": {
-  "triangles": 117868,
+  "triangles": 116574,
   "dimensions_m": [
    0.223,
    0.613,
@@ -19,6 +19,7 @@
    "M_ear_tuft",
    "M_eye",
    "M_eyelid",
+   "M_eyelid_lower",
    "M_nose",
    "M_cord",
    "M_silver",
@@ -28,11 +29,11 @@
   ],
   "texture_sources": [],
   "glb": "assets/models/blue_fox_evolution/aethel_fox.glb",
-  "glb_bytes": 4815972
+  "glb_bytes": 4855220
  },
  "checks": {
   "parts": {
-   "parts": 104,
+   "parts": 105,
    "floating": [],
    "no_material": [],
    "flat_colour": []
