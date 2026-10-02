@@ -47,6 +47,7 @@ ap.add_argument("--res", type=int, default=768)
 ap.add_argument("--shot_res", type=int, default=600)
 ap.add_argument("--threads", type=int, default=1)
 ap.add_argument("--clay", action="store_true", help="also render clay for the views")
+ap.add_argument("--outdir", default=None, help="folder for the renders (default parts/out)")
 args = ap.parse_args(argv)
 T0 = time.time()
 
@@ -89,9 +90,13 @@ if args.base:
     for mp in B.BROW_NODES:
         mp.label = "brow_map"
     sc0 = Vector((0.0080, 0.0046, 0.006))
-    f = sc[0] / sc0[0]
+    # the fox's 0.50 m scale: a body vertex's Y over its pre-scale Y (the pys attribute)
+    _b = bpy.data.objects["Body"]
+    _pys = _b.data.attributes["pys"].data
+    _i = max(range(len(_b.data.vertices)), key=lambda i: abs(_b.data.vertices[i].co.y))
+    f = _b.data.vertices[_i].co.y / (_pys[_i].value * B.MARK_SPAN + B.SIDE_Y0)
     bpy.context.scene["fox_f"] = f
-    bpy.context.scene["brow_loc0"] = list(loc / f)
+    bpy.context.scene["brow_loc0"] = list(loc)   # pre-scale (the shader reads pre-scale attributes)
     bpy.context.scene["brow_rot"] = list(rot)
     bpy.context.scene["brow_sc0"] = list(sc0)
     for o in meshes():
@@ -198,7 +203,7 @@ dims = hi - lo
 obj = kit._finalize("aethel_fox", objs, "bottom")
 log(f"joined; tris {tris} (part {part_tris}); dims {dims.round(4).tolist()}")
 
-OUT = WORK / "out"
+OUT = Path(args.outdir).resolve() if args.outdir else WORK / "out"
 OUT.mkdir(exist_ok=True)
 views = kit.active_pack().views("aethel_fox")
 setting = kit.active_pack().camera("aethel_fox")

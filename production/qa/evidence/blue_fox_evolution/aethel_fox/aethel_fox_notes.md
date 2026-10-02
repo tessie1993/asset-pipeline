@@ -14,6 +14,69 @@ The Handoff's Understanding section (kept and updated) carries the analysis of w
 
 ## Analysis
 
+(Cycle 6 lead: the original Analysis was lost in cycle 4 (recovery note above). These sections are rewritten
+from the reference views at full resolution and the Handoff's Understanding; the parts inventory follows.)
+
+### What it is
+Aethel Fox, the phase-2 evolution of a stylised blue fox: a slim young fox standing square on long thin legs,
+head up, facing -Y, 0.50 m to the top of its tail. Anime / painted game art: soft cel shading, thin navy ink
+outlines, clean smooth forms with painted fur strokes. One furred body over a skeleton (skull, neck, ribcage,
+pelvis, four legs with paws and toes), very tall ears with painted spiral bowls and cream ear tufts, a
+braided leather cord collar with a blue cabochon gem in a silver bezel and silver-white antler branches over
+the shoulders, glowing cyan spiral markings, and one huge fur plume tail curling up over the back into a cream
+tip. Alive and groomed: nothing worn or dirty.
+
+### Views
+Three reference views cut from the sheet (design/asset-packs/blue_fox_evolution/source.jpg, 4096 px):
+view 1 front (az 0, el -8; 515 x 1180 px), view 2 three-quarter side (az 62, el 6; 1318 x 1175 px, with a small
+back-view fox at its lower right), view 3 back (az 180, el 20; 340 x 695 px). The side view is the main one;
+the front decides the face, chest bib and ears; the back the tail's egg shape and the ear splay. Side and
+back disagree about the cream tip (side wins), front and back about ear splay.
+
+### Size and proportions
+Total height 0.50 m (tail top); body 0.223 x 0.613 x 0.50 m. Pre-scale frame (x1.04 after the build): chest
+front Y -0.19, rump Y 0.115, back line Z 0.245, chest bottom Z 0.13, legs ~0.20 m long (radius 0.013-0.018),
+head: nose Y -0.24 Z 0.30, eye Z 0.327, crown Z 0.39; ears 0.14 long to tips (0.104, -0.151, 0.452); tail root
+(0, 0.110, 0.199), tail top 0.4806. Head about 1/4 of the height to the ear tips; legs as long as the torso is
+deep.
+
+### Close observation
+Every outline in the drawing is one clean smooth curve with a thin navy line: the body is smooth; fur shows as
+a few painted strokes and soft points only where the drawing draws them (two-point cheek ruff, a few fine
+strokes at the bib edge and elbow). The cream bib is a painted region: from the jaw down the throat and chest
+to a soft V point between the front legs, its edge a smooth curve. The belly is cream underneath, the inner
+thighs tan, a tan patch under the tail. The eye is a long almond (tear duct lowest, outer corner high, long
+rising wing), iris grey with a dark ring and a white catch light. The tail is a plume of broad flowing locks
+painted with cream S-shaped flames ending in curls, glowing cyan swirls and dots on its lower third, a cream
+tip curling up at its end; the outline is smooth with a few flame points at the lower back edge and the crown.
+User (after approval, cycle 6): the reference is low quality and was copied too literally: build intent, not
+pixels.
+
+### Materials and shaders
+Fur: painted stylised fur (Principled, roughness 0.74-0.86, fur-stroke noise in colour, roughness and bump),
+blue from navy lower legs (#3c4f76) to light head (#a3cfe3), cream #c6bcb3-#dcd2c5, tan #8f8079; glowing cyan
+markings (emission #3fb8dc-#a8f0ff). Ears: blue outer with darker rim, inner tan with blue spirals and an
+indigo zone with a cyan glow. Eyes: sclera, grey iris, pupil, glossy cornea. Nose dark brown-grey. Cord: brown
+braided leather. Silver: bezel, bail, antlers (pale silver-white, polished). Gem: deep blue cabochon with
+transmission look. Tail: painted atlas on every lock, root slightly deeper blue, tips lighter.
+
+### Details and nuances
+Toes: four per paw with creases. Fur strokes in the shader. Glowing markings differ left and right. Antler
+tines each different, rounded polished tips. Tail locks each their own width, length, twist; cream flames each
+their own curl. Ear tufts: 5 cream locks per ear, each a little different. No dirt or wear.
+
+### Skills, add-ons and tools
+scenario-blender-sculpting (bx_sculpt signed-distance Clay for the body), kit.quad_remesh (Instant Meshes),
+kit.mark (cream regions cut on smooth fields), swept tubes (common.sweep) for cord, antlers, ear tufts,
+lofted meshes for ears, eye lens and tail locks, painted images (poly_paint) for markings and the tail atlas,
+cv.py compare / closeup and the part harness (part_tools/) for checks.
+
+### Build plan
+Body clay (torso, neck, head, legs, paws) -> quad remesh -> surface relax (cycle 6) -> cream marking ->
+attributes; ears, eyes on the finished mesh (EyeBed), eyelids, nose, mouth; collar (cord, pendant, antlers);
+tail (underfur + layered guard-hair locks + painted atlas); scale to 0.50 m. Cycle 6: smoothing pass on every
+part (user request), then the kit build, compare, review, Handoff.
+
 ### Parts inventory
 | # | part | count | size (m) | position and orientation | shape and how to model it (technique, skill) | geometry detail (what is modelled: bevels, creases, folds, holes, relief) | nuances (imperfections, asymmetry, how each copy differs) |
 |---|---|---|---|---|---|---|---|
@@ -127,9 +190,95 @@ cluster finish. The user approved the model on the q4 renders ("Model approved")
 CV build 5: overlap front 0.74, side 0.55, back 0.75; w/h +8 %, -6 %, -12 %. CHECK clean (16 degenerate
 faces, mirror 0.005).
 
+## Cycle 6
+Lead cycle for the user's request after approval: "Smoothen model. Rough outer edges caused by low quality
+reference and too literal copy", plus "Remove spikes in belly" and "Don't use masks" (relayed by the
+coordinator). No Agent tool in this session (as in cycle 4), so no Sonnet part builders could be spawned: the
+lead ran the three part tasks (body, tail, ears + antler tips) itself as parallel background harness jobs and
+judged each against full-resolution reference crops (part_tools/r_*.png). The ears job card was written
+(part_tools/job_ears_cycle6.md) before the missing Agent tool was found.
+Set-up: the notes' Analysis sections (lost in cycle 4) were rewritten so the build gate passes; harness fixed
+(it recovered the 0.50 m scale as 1.0 from the brow node, so a rebuilt part was scaled wrongly; now from the
+body's pys attribute) and given --outdir; new shot lists shots_smooth.json (front, side, 3/4, back, back 3/4,
+low chest, belly side, chest front, head front / side / 3/4, tail side / back / top, legs), shots_tail2.json,
+shots_ears2.json.
+Root causes found (build 5 clay close-ups, cycle6/ba_*.png left halves):
+- Chest, belly, elbows: 14 needle cones in the body clay (5 chest spikes to Z 0.104, 2 x 3 chest-side ruff locks,
+  2 x 2 belly fringe locks, 2 elbow tufts; tip radius 1.0-1.2 mm, blend 6 mm): a literal copy of the drawing's
+  painted fur flicks; the cream marking covered the spikes, so the bib's lower edge read torn.
+- Cheeks: 4 thin cones per side (r 0.010-0.012 -> 0.0012) with jittered tips: a blocky, torn cheek ruff.
+- Surfaces: no smoothing after the 16.5k-quad remesh; leg segments unioned with a hard min (crease at every joint).
+- Cream boundaries: linear interpolation through knots (a corner at each knot) and hard max/min corners.
+- Tail: the path was a 12-knot Catmull-Rom fitted to the side view's silhouette rows (a mask: wobble at Z
+  0.32-0.39 and a kink over the curl); 61 narrow locks (10-13 per layer) at rho 0.90 over an underfur at 0.92
+  shaded dark (fur_t 0.12, root ramp x0.62, AO to 50 %), lock side edges standing as shelves above the underfur,
+  edge locks lifted 0.08-0.22: dark slits, shelves and ragged blades.
+- Ear tufts: 5 flat blades 1.6 mm thick with needle tips, spread apart: a crown of spikes.
+- Antler tines and pendant drops: radius to 0 at the tip: needles.
+Build 6 changes:
+- body.py: the 14 spike cones removed; cheek ruff = 2 soft round cones per side (CHEEK_FUR, tips r 4-4.5 mm,
+  blend 10 mm); a brisket ellipsoid (0, -0.140, 0.133) r (0.024, 0.021, 0.030) so the chest runs down smoothly
+  between the front legs and the cream bib reaches its V low; leg segments blended (LEG_JOINT_BLEND 0.004);
+  relax_surface: Taubin smoothing (10 passes, lambda 0.50 / mu -0.53) after the remesh, weighted 0 on the
+  approved face (Y < -0.165..-0.185, Z > 0.268..0.282) and on the toes; cream_field rebuilt from smooth
+  profiles (Gaussian-smoothed knot curves HEAD_ZB, CHEST_YB, CHEST_WC, BELLY_ZT) with smooth max / min corners
+  (CREAM_ROUND 6 mm), no edge noise.
+- tail.py: centre line = clamped cubic B-spline with 7 control points (TAIL_CTRL), resampled at even arc
+  length; radius profiles smoothed sigma 9 samples (was 4); locks 8/9/8/7/4 per layer (was 12/13/12/10/4),
+  0.064-0.104 wide, rho 0.95 + 0.05 t, side edges sunk 0.07 of the radius into the underfur (half at the tip),
+  lift 0-0.004, hook halved; underfur at 0.97 and shaded like the locks (fur_t 0.55); root darkening x0.86
+  (was 0.62), lock edge darkening 0.94 (0.82), AO darkening to 25 % toward #5a6c98; edge locks 5 with lift
+  0.04-0.06 (were 7 with 0.08-0.20). Tail top 0.4803 pre-scale (scale x1.0411, was x1.0403).
+- ears.py: ear tufts = a soft fan of 5 domed cream locks per ear (root half-width 8.8 mm, half-thickness 2.4 mm,
+  rounded points, 20 x 12 sections), roots close together and overlapping, each path laid on the bowl surface
+  (bowl_point) with a 1-4 mm lift, inner locks leaning toward the skull, outer ones up the ear.
+- collar.py: antler tines, scroll curls and the two pendant drops end in rounded domes (radius 1.6-2.1 mm), the
+  drops 6 mm shorter.
+CV build 6: overlap front 0.75 (b5 0.74), side 0.54 (0.55), back 0.76 (0.75); w/h +8 %, -6 %, -12 % (as b5).
+CHECK clean (16 degenerate faces, mirror 0.0051). 115,018 tris (b5 118,660). 0.223 x 0.612 x 0.500 m.
+Matches (keep), judged in clay and lit, cycle6/ba_<shot>.png (build 5 clay | cycle 6 clay | build 5 lit | cycle 6
+lit) and k6_close_<part>.png (reference | build 6):
+- Chest and belly (ba_chest_low, ba_belly_side, ba_chest_front, ba_full_34, k6_close_chest_belly): one smooth
+  continuous surface from the throat over the brisket to the belly, no spikes; the cream bib edge a clean
+  curve ending in a rounded V between the front legs; the belly cream line one smooth curve rising to the
+  stifle, as in the side drawing.
+- Head (ba_head_front, ba_head_side, ba_head_34, k6_close_head): face identical to build 5 (eyes, wedge snout,
+  triangular nose, smiling mouth held by the relax weight); the cheek ruff is a smooth flare with two soft
+  points (front drawing: the same two-point flare).
+- Ears: tufts read as a soft fan of rounded cream locks in the bowl (side drawing: 4 locks fanning up).
+- Tail (ba_tail_side, ba_full_side, k6_close_tail): the clay plume is one smooth, continuous form made of broad
+  flowing locks; no dark slits, no shelves; outline smooth with soft flame points.
+- Legs and paws: smooth joints, no creases (clay_2).
+Differs (measured, with why):
+1. Tail cream pattern (k6_close_tail, ba_tail_back): the cream reads as jagged blotches and torn patches across
+   the locks (back view: cream area x2.38 of the drawing's, top-centre +0.21 lighter); the drawing paints 5-6
+   broad smooth S-bands with curled ends inside blue and a smooth cream cap. Why: the atlas cream crest
+   (TAIL_CREAM_W zone) has a deliberately jagged threshold (two sines, 0.14 / 0.06), the flame strokes are
+   narrow, and TAIL_LOCK_CREAM turns whole locks cream past 0.62 atlas cream, so cream jumps lock by lock.
+2. Tail outline, side (compare overlay view 2): the drawing's plume is an S (narrow root, concave front
+   edge low, the widest part high and back); the build is an egg, extra yellow in front of the lower plume and
+   magenta behind the top (side overlap 0.54, top-right extra 19 %). Why: radii profiles were fitted to
+   mask rows; the path's lower half sits forward.
+3. Tail tip end (ba_tail_side): the last cm of the cream tip ends in 3-4 small ragged points (tip locks past
+   s 1.0 spread around the centre line); the drawing's tip is one clean curling point.
+4. Back view: the cream tip still comes at the camera as a 'beard' (side vs back drawing conflict, cycle 4).
+5. Cheek ruff, side clay: a notch between the two points shows as a small step (ba_head_34 clay).
+6. Front: head small over a long cream throat; cheek flare extra middle-left 25 % / right 24 % (as b5; the
+   user approved the head: change only with a reason).
+Needs improving (ranked by how much it hurts what each part is):
+1. Tail cream flames: smooth S-bands with curled ends and a smooth cream cap (no jagged crest threshold, no
+   lock-by-lock cream jumps): the lit tail still looks ragged though the geometry is smooth.
+2. Tail profile toward the drawing's S (narrow root, concave lower front, mass high and back), radii from
+   a few knots read off the full-resolution drawing.
+3. Tail tip: one clean curling point.
+4. Cheek ruff notch: blend the two points a little more (CHEEK_BLEND 0.010 -> 0.013) or shorten the upper one.
+5. Back-view cream beard (accept what the side view forces).
+
+
 ## Handoff
-State: build 4 is the last kit build (CV, compare, renders in the evidence folder); the generator
-(aethel_fox.py + aethel_fox_parts/) is exactly what build 4 built. Cycles 1-4 in the notes hold the details.
+State: build 6 is the last kit build (CV, compare, renders in the evidence folder); the generator
+(aethel_fox.py + aethel_fox_parts/) is exactly what build 6 built. Builds so far 6 of the standard 8. Cycle 6 in
+the notes holds the details of the smoothing pass (root causes and every changed value).
 
 ### 1. Understanding
 - What it is: Aethel Fox, phase-2 evolution of a stylised blue fox (anime / painted game art: soft
@@ -152,153 +301,127 @@ State: build 4 is the last kit build (CV, compare, renders in the evidence folde
 - The tail: a fox's brush: underfur round a thin bone, long guard hairs clumped into locks that
   overlap like shingles root to tip, tips lighter, outline made of lock tips, cream tag at the end.
   Painted style: broad S-flowing locks, cream flame locks curling at their ends, glowing cyan swirls and
-  dots on the lower third. Built as tail_underfur + ~60 mesh locks in 5 layers + 7 edge locks; cream
-  flames are whole cream locks (fur_cream sampled from the atlas). User: "The tail is fur."
+  dots on the lower third. In this art style the plume is one smooth form whose locks flow without gaps.
+  Built (cycle 6) as tail_underfur (0.97 of the fur radius, shaded like the locks) + 36 broad mesh locks in 5
+  layers + 6 edge locks, each lock domed with its side edges sunk into the underfur so neighbours meet
+  without slits; centre line a 7-point B-spline (TAIL_CTRL). Cream flames are whole cream locks (fur_cream
+  sampled from the atlas) plus atlas strokes. User: "The tail is fur."
 - The ear: a tall thin cartilage leaf, furred outside (blue, darker rim), inside an indigo bowl with
   a cyan/cream spiral painted on and cream fur tufts at its base; it stands from the skull and turns
-  its bowl forward-outward.
+  its bowl forward-outward. The ear tuft (cycle 6) is a soft fan of 5 domed cream locks laid on the bowl
+  surface (bowl_point), roots overlapping, rounded points.
+- The body surface: one smooth furred skin; fur flicks the drawing paints at the bib edge, elbows and belly
+  are strokes on smooth forms, never geometry (cycle 6: the spike cones were removed; Taubin relax after the
+  remesh, the face and toes held; cream regions cut on smooth fields).
 - Collar (unchanged): braided brown leather cord (three twisted strands), silver bail and bezel,
   deep-blue cabochon gem, silver-white antler branches over both shoulders.
 
 ### Part inventory (names by what each thing is)
 Code: tools/blender/assetgen/packs/blue_fox_evolution/aethel_fox.py builds and joins; one module per part in
-aethel_fox_parts/: common.py (helpers, EYE_X, dark_material), body.py (clay, marking images, fur shaders, brow
-marking, cream_field, body_attributes), face.py (eyes, eyelids, nose), ears.py, collar.py (cord, pendant,
-antlers), tail.py.
-body (torso, neck, head, muzzle, stop between the eyes, legs, paws with toes, cheek tufts, chest
-ruff, elbow tufts, belly fringe: SDF clay -> quad remesh 16,500); ears + ear tufts (5 cream locks per
-ear); eyes (eye_left / eye_right); eyelids (eyelid_upper_* / eyelid_lower_*); brow markings (shader,
-3D oval per side); nose; cord (3 strands); bail; bezel + plate; gem; antlers (beam, tines, scroll
-curls, drop); tail (tail_underfur + tail_fur_lock_00..56). Triangles (build 3, 117,868 of 120,000; build 4 116,574, split about the same):
-body 34.8k, ears 14.6k + tufts 2.1k, eyes 2.1k, eyelids 2.0k, nose 2.7k, cord 11.5k, pendant 5.1k,
-antlers 11.5k, tail 31.4k. Full table: Analysis, "Parts inventory".
+aethel_fox_parts/: common.py (helpers, EYE_X, dark_material), body.py (clay, cheek ruff CHEEK_FUR, brisket,
+marking images, fur shaders, brow marking, cream_field from smooth profiles, body_attributes, relax_surface),
+face.py (eyes, eyelids, nose, mouth), ears.py (ears, ear tufts, bowl_point), collar.py (cord, pendant, antlers with
+rounded tips), tail.py (TAIL_CTRL spline, TAIL_LAYERS, TAIL_EDGE_LOCKS, TAIL_EDGE_SINK, atlas).
+body (torso, neck, head, muzzle, stop, legs, paws with toes, cheek ruff, chest with brisket: SDF clay -> quad
+remesh 16,500 -> Taubin relax); ears + ear tufts (5 domed locks per ear); eyes; eyelids; brow markings (shader);
+nose; mouth; cord (3 strands); bail; bezel + plate; gem; antlers (beam, tines, scroll curls, drops); tail
+(tail_underfur + 42 locks). Triangles build 6: 115,018 of 120,000 (tail ~24.7k, was 31.4k: room for detail).
 
+### 2. Comparison (build 6)
+CV overlap front 0.75, side 0.54 (kit box holds the small back-view fox), back 0.76; w/h +8 %, -6 %, -12 % (as
+build 5). CHECK clean (16 degenerate faces, mirror 0.0051). 115,018 tris. 0.223 x 0.612 x 0.500 m.
+Close-ups in evidence cycle6/: ba_<shot>.png = build 5 clay | build 6 clay | build 5 lit | build 6 lit (harness
+ortho shots: chest_low, belly_side, chest_front, full_front / side / 34 / back, head_front / side / 34,
+tail_side, tail_back), k6_close_<part>.png = reference | build 6 (cv.py closeup), c6_legs_side.png.
+- Chest and belly (ba_chest_low = low angle, ba_belly_side = side, ba_full_34 = three-quarter, ba_chest_front):
+  smooth and continuous, no spikes; cream bib edge a clean curve with a rounded V low between the front legs;
+  belly cream line one smooth curve rising to the stifle.
+- Head (ba_head_*): unchanged from the approved build 5 (relax weight 0 on the face); cheek ruff a smooth
+  two-point flare; a small notch between its points shows in the side clay (ba_head_34).
+- Ears: tufts a soft fan of rounded cream locks (k6_close_head beside the side drawing's 4-lock fan).
+- Tail geometry (ba_tail_side, ba_tail_back, aethel_fox_clay_2.png): one smooth plume of broad flowing locks, no
+  dark slits or shelves; the tip ends in 3-4 small ragged points.
+- Tail colour (k6_close_tail, ba_tail_back lit): cream reads as jagged blotches and torn patches; the drawing
+  paints broad smooth S-bands with curled ends and a smooth cream cap. Back view cream area x2.38 of the
+  drawing's, top-centre +0.21 lighter (the cream tip 'beard', side vs back drawing conflict).
+- Tail outline, side (compare.png overlay): an egg; the drawing an S (narrow root, concave lower front, mass
+  high and back): extra in front of the lower plume, missing behind the top.
+- Legs and paws (c6_legs_side.png): smooth joints and paws.
 
-### 2. Comparison (build 4)
-CV overlap front 0.74, side 0.55 (kit box holds the small back-view fox; fox only, part_tools/cmp.py: 0.830),
-back 0.76; w/h +8 %, -6 % (fox only +2.2 %), -12 %. CHECK clean (16 degenerate faces, mirror 0.0051). 116,574
-tris. 0.223 x 0.613 x 0.500 m. Close-ups: evidence cycle4/ (k4_close_<view>_<box>.png = reference | build 4 |
-overlay, fox-only normalisation; p1_eyes.png = eye crops beside the eye shots).
-- Eyes (cycle4/p1_eyes.png; part_tools/eyepts.py, 600 px frames of the 0.12 m front / 0.075 m side boxes):
-  front 164 x 111 px vs drawing 166 x 117, inner corner the lowest point, outer corner high, thin grey-navy
-  lower lid, cool grey sclera: reads as the drawing's almond. Side 301 x 178 vs 315 x 153: 16 % tall, the top
-  line rises to a peak over the back third and then drops into the wing; the drawing's top line is one smooth
-  arc rising from the tear duct into the wing. Front: the whole eye sits ~12 px (2.4 mm) high in the 0.12 m
-  frame. The iris could be a little larger in front (drawing ~65 px wide of 600, build ~55).
-- Brow ovals: visible again in both views (were missing since the kit's origin shift moved them off the head);
-  side: the build's oval sits higher and more upright than the drawing's (drawing: low over the eye's front
-  half, tilted with the head's slope).
-- Tail, side (k4_close_2_0.45_0.png): outline within a few px all round, lower tip filled; cream share 0.49
-  vs 0.45. Still differs: the interior reads as many separate white streaks with dark gaps between locks; the
-  drawing's locks are broad, smooth and few, the cream flames broad S-bands with curled ends inside blue; root
-  junction with the rump: small extra in front (bottom-left 8 %).
-- Tail, back (k4_close_3_0.05_0.1.png): the curled cream tip comes straight at the back camera and shows as a
-  cream 'beard' down to the egg's middle (back view: render lighter top-centre +0.18, centre +0.13); the back
-  drawing shows a cream cap on the top third only. Geometry says the side drawing's tip (half-way up the plume,
-  pointing back) must show there from behind: side vs back drawing conflict; the side view wins.
-- Ears: side tips now at the drawing's height (k4_close_2_0_0.png); the far ear is still seen edge-on (thin
-  blade, drawing: a broad blue leaf, magenta left of it); the near ear's bowl is tan with dark-blue spirals,
-  the side drawing shows it indigo with a cyan spiral (the front drawing shows tan with blue spirals:
-  conflict). Back w/h -12 %: the back drawing's ears splay wider, the front drawing's narrower (conflict;
-  tests in Cycle 4).
-- Front (k4_close_1_0_0.png, k4_close_1_0_0.35.png): the head is small and sits high above a large cream throat
-  ball between the collar and the chin (el -8 sees under the jaw); the drawing's head is large, the chin right
-  above the collar; cheek tufts flare wide (extra middle-left 26 %, middle-right 24 %); the nose is a two-lobed
-  blob (drawing: a smooth rounded inverted triangle with a highlight on top); the top-centre extra 40 % is the
-  tail over the head (drawing conflict).
-- Side body (k4_close_2_0_0.3.png): neck / chest front a little forward, hind paws a little forward, as cycle 3.
+### 3. Needs improving (ranked)
+1. Tail cream pattern: smooth S-band flames with curled ends inside blue and a smooth cream cap (the lit tail
+   still looks ragged though its geometry is smooth).
+2. Tail profile toward the drawing's S.
+3. Tail tip: one clean curling point.
+4. Cheek ruff notch (side clay).
+5. Back-view cream beard (accept what the side view forces).
 
-### 3. Next step: part tasks (one lead + part builders; copy each into a job card)
-Set-up for the next lead: the split is done. Rebuild the harness first (R = /home/user/asset-pipeline,
-P = $R/.scratch/assetgen/work/blue_fox_evolution/aethel_fox/parts): `mkdir -p $P && cp
-$R/production/qa/evidence/blue_fox_evolution/aethel_fox/part_tools/*.py
-$R/production/qa/evidence/blue_fox_evolution/aethel_fox/part_tools/*.json $P/ && cd $P && timeout 1200 blender -b
---factory-startup --python harness.py -- --base` (40 s), then per part: `timeout 900 blender -b --factory-startup --python harness.py --
---part face --out NAME --views --shots shots.json --threads 1 [--set face.EYE_BT=0.007 ...]` (face: shots only,
-~3 min at 1 thread), `--part tail --out NAME --views 2 3` (~70 s), `--part ears --out NAME --views 1 2 3 --shots
-shots_ears.json`, `--part full --out NAME --shots shots_all.json --clay --threads 4` (body changes: rebuilds
-everything); then `PYTHONPATH=.scratch/pydeps python3 <parts>/cmp.py NAME --box V X0 Y0 X1 Y1 ...` from the repo
-root (outputs in parts/out/NAME_*). Run 3 jobs at 1 thread side by side. If an Agent tool exists, give each
-task below to a Sonnet part builder with a job card; this session had none.
+### 4. Next step: part tasks (one lead + part builders; copy each into a job card)
+Set-up: R = /home/user/asset-pipeline, P = $R/.scratch/assetgen/work/blue_fox_evolution/aethel_fox/parts: `mkdir -p
+$P/out && cp $R/production/qa/evidence/blue_fox_evolution/aethel_fox/part_tools/* $P/ && cd $P && timeout 1200
+blender -b --factory-startup --python harness.py -- --base` (40 s; it now recovers the 0.50 m scale correctly),
+then `timeout 900 blender -b --factory-startup --python harness.py -- --part tail --out NAME --views 2 3 --shots
+shots_tail2.json --clay --threads 1 [--outdir DIR] [--set tail.CONST=value ...]`, `--part ears ... --shots
+shots_ears2.json`, `--part full --out NAME --shots shots_smooth.json --clay --threads 4` for body changes;
+`PYTHONPATH=.scratch/pydeps python3 $P/cmp.py NAME [--outdir DIR] --box V X0 Y0 X1 Y1` from the repo root. Use
+fresh output names. Never kill harness jobs with `pkill -f "harness.py"` from a command line that itself
+contains that text (it kills its own shell). If the session has an Agent tool, give TASK A and TASK B to
+Sonnet part builders (this session had none; part_tools/job_ears_cycle6.md shows a filled job card).
 
-TASK A. Part: eyes (face.py) - finish the side shape, then the nose.
-- What it is: see Understanding (the eye; the tear duct is the lowest point).
-- Comparison: section 2 "Eyes", "Brow ovals"; Front nose.
-- What needs doing, and why: (1) side eye 16 % tall with a peaked top: make the upper eyelid one smooth arc
-  that rises from the tear duct into the wing: lower EYE_TOPK 0.72 -> ~0.5 and move its maximum outward
-  (replace the (1 - c*c) factor of the boost in eye_opening by a bump centred near c 0.5 that stays > 0 at c 1),
-  keep front 164 x 111 (+-10 % of 166 x 117); check with eyepts.py (side target 315 x 153, top y ~230 in the
-  600 px frame). (2) Eye 2.4 mm high in front: lower the eye centre Z 0.327 -> ~0.325 (eye_frame and the clay eye
-  seat in body.py together) only if the side view agrees (side top 200 vs 230 px says yes). (3) Iris a little
-  larger in front (IRIS_R x ~1.08). (4) Nose (build_nose): a smooth rounded inverted triangle, wider at the top
-  (front 0.018 wide x 0.010), no visible nostril lobes from the front, dark brown-grey #3a2e30 with a lighter top.
-  (5) Brow oval (brow_frame in body.py): lower and tilted with the head's slope in the side view.
-- Reference crops: part_tools/t_front_eyes.png (ref_view_1 box 127 291 389 553 = 0.12 m, shot eyes_front),
-  part_tools/t_side_eye.png (ref_view_2 box 80 355 243 518 = 0.075 m, shot eye_side).
-- Keep fitting: EYE_X 0.0278; eyes on the FINISHED body mesh (EyeBed); lens <= 1 mm over the face; eyelid lines
-  on top of the eye's edge; budget eyes + eyelids <= 5k tris.
-- Done when: side 315 x 153 +-10 %, front 166 x 117 +-10 %, top line without a peak, nose reads as the drawing.
+TASK A. Part: tail colour (tail.py: tail_images, TAIL_CREAM_W, TAIL_ZONE_U0, TAIL_FLAMES, TAIL_LOCK_CREAM).
+- What it is: see Understanding (the tail). The cream flames are painted on the fur: in the side drawing
+  5-6 broad S-bands rising from the lower plume, each ending in a curl, lying inside blue; the outer side of
+  the upper plume and the tip cream with a smooth edge.
+- Why: the cream crest threshold has two deliberate sines (0.14, 0.06 amplitude: a jagged 'flame' edge) and
+  the flames are narrow strokes; TAIL_LOCK_CREAM turns whole locks cream past 0.62 atlas cream, so the cream
+  jumps lock by lock into torn patches (k6_close_tail, ba_tail_back lit): "too literal copy" in colour.
+- Do: the crest threshold one smooth curve (drop the sines, or one long low wave); flames 5-6 per side as
+  smooth S-curves (few control points, widths 0.020-0.032 m, one curl each), soft edges (soft ~0.002); a lock
+  turns cream only where its whole middle line is cream (TAIL_LOCK_CREAM[0] ~0.8, or follow the stroke along
+  the lock) so bands run along locks. Back view: a cream cap on the top third.
+- Reference crops: part_tools/r_side_tail.png, r_back_tail.png (full-resolution cuts, enlarged; never masks).
+- Keep: the lock geometry of build 6, the glow swirls and dots, cream share of the side close-up 0.42-0.47.
+- Done when: side and back close-ups show smooth cream bands and cap with clean edges, no torn patches.
 
-TASK B. Part: tail (tail.py) - read as the drawing's broad painted locks.
-- What it is: see Understanding (the tail). The tail is fur: never a shell.
-- Comparison: section 2 "Tail, side / back".
-- What needs doing, and why: (1) fewer, broader, flatter guard-hair locks so the surface reads as a few big
-  smooth locks (the drawing has ~8-10 visible per side): layer counts 12/13/12/10/4 -> ~8/9/8/7/4, widths x1.4,
-  rho closer to the underfur (TAIL_ROOT_RHO 0.90 -> 0.94, tip lift small) so no dark gaps; the underfur's colour
-  the same blue as the locks (no dark crevices). (2) Cream flames as broad S-bands with curled ends lying inside
-  blue (TAIL_FLAMES count/width; the lock-cream rule turns whole locks cream past 0.62 atlas cream: keep cream
-  share 0.42-0.47 measured as in Cycle 4). (3) Back view: reduce the beard with narrower tip locks across X
-  (layers 3-4 widths) - accept what the side view's tip forces. (4) Root junction: the small extra in front of
-  the root (rf tk 0-0.06).
-- Reference crops: part_tools/t_side_tail.png; cmp.py boxes view 2 .45 0 1 .6, view 3 .05 .1 .95 .75.
-- Keep fitting: root (0, 0.110, 0.199) pre-scale; tail top 0.4806 pre-scale (keep 0.48-0.485 or the fox
-  rescales); X width (TAIL_RU) as build 4; budget 31-33k tris; fox-only side overlap >= 0.83.
-- Done when: side close-up reads as broad smooth locks with cream flames (no dark gaps), cream 0.42-0.47, side
-  overlap >= 0.83, back cream area smaller than build 4.
+TASK B. Part: tail shape (tail.py: TAIL_CTRL, TAIL_RB / TAIL_RF / TAIL_RU, the last layer, the tip).
+- Why: the plume is an egg; the side drawing's is an S with a narrow root, a concave lower front edge and the
+  mass high and back; the tip ends in 3-4 ragged points (layer-4 locks past s 1.0 spread around the centre).
+- Do: read the outline off the full-resolution side drawing (r_side_tail.png, aethel_fox_ref_view_2.png;
+  measure points by eye on the image, never from a silhouette or overlap mask) and set the radii with fewer
+  knots (6-7), smooth; path control points as needed (7 or fewer). Tip: 2-3 tip locks converging into one
+  curling point (no spread past s 1, widths tapering together).
+- Keep: tail top 0.4806 pre-scale (scale x1.040-1.042), root (0, 0.110, 0.199), X width, the flush lock build.
+- Done when: the side overlay loses the extra in front of the lower plume, the tip is one clean point, the clay
+  stays smooth. TASK A and TASK B both write tail.py: one part builder, or B after A.
 
-TASK C. Part: ears (ears.py).
-- What it is: see Understanding (the ear).
-- What needs doing, and why: (1) the far ear seen edge-on in the side view: the side drawing shows it as a
-  broad leaf; give the ears a slight twist along their length (the bowl normal turning outward toward the tip)
-  so from az 62 the far ear's back shows broadly, without changing the front outline. (2) Inner bowl colour:
-  front drawing tan with two broad blue spirals and a dark-blue rim, side drawing indigo with a cyan spiral:
-  make the indigo zone cover the bowl's outer half and upper third (the part the side view sees) with a cyan
-  glow spiral there, the tan + blue spirals on the inner half (the part the front sees); the bowl renders dark
-  (#747479 vs drawing #c6b7ae in front box .08 .1 .12 .2): reduce the bowl depth D 0.027 -> ~0.02 or brighten.
-- Keep fitting: ear base (+-0.044, -0.155, 0.341), tips EAR_TIP (0.104, -0.151, 0.452) (X: front vs back
-  conflict, Cycle 4), ~16.7k tris. Done when: side shows a broad far ear and the near bowl indigo with a spiral;
-  front overlap >= 0.74.
+TASK C (lead). Cheek ruff notch: CHEEK_BLEND 0.010 -> ~0.013 or the upper point 3 mm shorter; judge in the
+head_34 and head_side clay shots against r_side_head.png; the face must stay identical (relax weight).
+Then the cycle's kit build, compare, review and Handoff. If the review finds nothing worth improving, the next
+build is the final one (--final).
 
-TASK D (lead). Part: body - the front view's head and throat.
-- What needs doing, and why: in the front view the head is small and high above a big cream throat ball; the
-  drawing's head is large with the chin just above the collar: shorten the neck (neck tube in body_clay) /
-  lower the head ~0.01 and scale the cranium + cheeks ~1.08 about the head centre; shrink the cheek tufts' X
-  reach (cheek list in body_clay: x 0.083 -> ~0.072) (front extra middle-left / right 26 / 24 %). Re-check the
-  eye bed (EyeBed follows the finished mesh), the brow oval (brow_frame), the ear base and the collar ring
-  (cord_ring follows the clay) after any head move. Side: chest 0.006 back, hind paws 0.01 back (cycle 1).
-- Done when: front overlap >= 0.78, fox-only side >= 0.84, no regression in Tasks A-C.
+### 5. Do not undo
+Everything the user approved in build 5: head (wedge snout, triangular nose, smiling mouth, chin), eyes (EyeBed,
+EYE_X 0.0278, lens <= 1 mm over the face, eyelid lines, cycle 4 eye shape), brow markings, overall proportions,
+stance and leg layout, colours and markings (navy lower legs, cream throat / bib / muzzle, flank glow, tan
+patch), braided cord, pendant, antlers, ears (shape, tips, colours). Cycle 6's smoothing: no spike cones in the
+body clay (no chest spikes, ruff locks, belly fringe, elbow tufts); the two-point soft cheek ruff; the brisket;
+LEG_JOINT_BLEND; relax_surface after the remesh with the face and toes held; cream_field from smooth profiles
+with rounded corners and no edge noise; the tail as underfur + broad flush locks with sunk edges (no gaps, no
+dark seams, no lifted shelves), the B-spline tail path, radius smoothing 9; the ear tuft fan; rounded antler
+and drop tips. The tail stays fur (locks), never a shell. The 120k budget; the part-module split.
 
-### 4. Do not undo
-Overall stance and leg layout; navy lower legs; cream throat / chest V / muzzle; braided cord, pendant (bail,
-bezel, gem), antlers over the shoulders; flank glow markings; tan patch; the eye built on the finished body
-mesh (EyeBed), lens <= 1 mm over the face, eyelid lines on top of the eye's edge, EYE_X 0.0278, iris toward the
-nose, the long rising wing, the stop between the eyes; cycle 4's eye shape (EYE_A 0.0165, BT/BB 0.0076/0.0066,
-tilt 16, inner corner drop 0.005, outer lift 0.003, thin grey-navy lower lid, cool sclera); the brow marking
-read from the pre-scale position attributes (never Object coordinates: the kit moves the origin); the tail as
-underfur + guard-hair locks (not a shell) with whole cream flame locks, cycle 4's tail radii (root narrower,
-curl underside fuller); tail X width; the 120k budget split; the part-module split.
+### 6. Files
+- Reference views: production/qa/evidence/blue_fox_evolution/aethel_fox/aethel_fox_ref_view_{1,2,3}.png; source
+  design/asset-packs/blue_fox_evolution/source.jpg (4096 px).
+- Latest kit compare (build 6): .../aethel_fox_compare.png; renders aethel_fox_view_*.png, aethel_fox_clay_*.png.
+- Cycle 6 close-ups: .../cycle6/ (ba_*.png build 5 vs build 6, clay and lit; k6_close_*.png reference | build 6;
+  c6_legs_side.png).
+- Part tools: .../part_tools/ (harness.py with --outdir and the scale fix, cmp.py, shots_smooth.json,
+  shots_tail2.json, shots_ears2.json, shots*.json, full-resolution reference crops r_*.png and t_*.png,
+  job_ears_cycle6.md).
+- Generator: tools/blender/assetgen/packs/blue_fox_evolution/aethel_fox.py + aethel_fox_parts/*.py.
 
-### 5. Files
-- Reference views: production/qa/evidence/blue_fox_evolution/aethel_fox/aethel_fox_ref_view_{1,2,3}.png
-- Latest kit compare (build 4): .../aethel_fox_compare.png; renders aethel_fox_view_*.png, clay_*.png
-- Cycle 4 close-ups: .../cycle4/ (k4_close_*.png ref | build 4 | overlay; p1_eyes.png; eyes_cmp1/4.png eye
-  variant sheets; b3_close_2_0.45_0.png = build 3 tail for comparison)
-- Part tools (persist; the work folder is deleted after a run): .../part_tools/ harness.py, cmp.py, eyepts.py,
-  shots.json (eyes), shots_ears.json, shots_all.json, reference crops t_front_eyes.png, t_side_eye.png,
-  t_side_tail.png. PYTHONPATH=.scratch/pydeps for cv2.
-- Generator: tools/blender/assetgen/packs/blue_fox_evolution/aethel_fox.py + aethel_fox_parts/*.py
-
-### 6. Standing rules
+### 7. Standing rules
 - builder_guide.md (/tmp/claude-0/-home-user-asset-pipeline/2396fed5-5999-5364-b5d1-d9749bebc958/scratchpad/builder_guide.md)
   and blender_tools_guide.md (same folder) are the method; read both first.
 - User's wishes: "Both eyes are bad. Fix the eyes." (first priority until they match the drawings).
@@ -352,5 +475,23 @@ curl underside fuller); tail X width; the 120k budget split; the part-module spl
   colour boundary came from such an image; if so, rebuild it from the source.
 - The tail stays fur (the rule above). The smooth-plume tail tests of cycle 4 (pl1, pl2, plume_cmp*.png)
   came from an orchestrator's own reading of the drawing, not from the user: do not continue them.
+- User (after approval): "Smoothen model. Rough outer edges caused by low quality reference and too literal
+  copy." The model is a clean, stylized 3D character: every outline and surface is a smooth, continuous curve.
+  Never trace the reference's pixel outline or copy its drawing artefacts (stair-steps, anti-aliasing, brush
+  wobble, torn edges); fit shapes with smooth splines and a few control points, and read the reference for
+  intent (what the form is), not for its exact pixels. Clean up torn or ragged geometry (chest bib edge, cheek
+  tufts, tail lock edges and gaps, ear tufts, paws, voxel lumps). Keep the approved head (Cycle 5: wedge snout,
+  triangular nose, smiling mouth) and the overall design.
 - Lead and part builders (user): the builder that reads this Handoff leads; it runs 2-4 part builders
   on Sonnet 5.5 at once (builder_guide.md section 8).
+- User (cycle 6, relayed by the coordinator): "Remove spikes in belly". On build 5 the underside of the chest and
+  belly had spiky geometry: the pointed cream tufts and the torn lower edge of the cream patch between the
+  front legs. The belly and the lower chest are a smooth, continuous surface, and the edge between cream and
+  blue there a clean painted curve, not torn geometry. Check it from the side, three-quarter and a low angle,
+  with a close-up in the Handoff.
+- User (cycle 6, relayed by the coordinator): "Don't use masks." Never take an outline, shape, proportion,
+  colour region or texture from a mask of any kind: a silhouette, a cut-out's alpha, a segmentation, a
+  threshold, or the compare's overlap mask. Work from the original reference image itself, looking at it and
+  measuring it directly at full resolution. If an outline, a cream region or a lock shape in the generator was
+  fitted to a mask, re-derive it by looking at the full-resolution reference and model it as a smooth curve.
+

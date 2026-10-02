@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import kit  # noqa: E402
 from aethel_fox_parts.common import bvh_of, dark_material, close_holes  # noqa: E402
 from aethel_fox_parts.body import (body_clay, mark_images, fur_material, cream_field,  # noqa: E402
-                                   body_attributes, brow_frame, BROW_NODES)
+                                   body_attributes, brow_frame, BROW_NODES, relax_surface)
 from aethel_fox_parts.ears import ear_materials, ear_image, ear_tuft_material, build_ear, build_ear_tufts  # noqa: E402
 from aethel_fox_parts.face import eye_material, EyeBed, build_eye, build_eyelids, build_nose, build_mouth  # noqa: E402
 from aethel_fox_parts.collar import (silver_material, antler_material, cord_material, gem_material,  # noqa: E402
@@ -45,6 +45,7 @@ def build():
     GEM_C[1] = surf[0][1] - 0.0075
     kit.quad_remesh(body, 16500)
     close_holes(body)
+    relax_surface(body)    # cycle 6: smooth the remesh's lumps (the approved face and the toes held)
     body.data.shade_smooth()
     body.data.materials.append(m_fur)
     kit.mark(body, cream_field, m_cream)

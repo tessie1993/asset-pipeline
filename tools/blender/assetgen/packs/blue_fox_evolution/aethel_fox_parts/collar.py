@@ -286,12 +286,12 @@ def antler_defs(clay, side, rng):
     P = np.array(pts)
     Sp, Np = clay.project(P)
     P = Sp + Np * 0.003
-    branches.append(("curl", P, 0.0028, 0.0012))
+    branches.append(("curl", P, 0.0028, 0.0016))
     drop = np.array(bez2((s * 0.009, gc[1] + 0.002, gc[2] - 0.013), (s * 0.010, gc[1] + 0.003, gc[2] - 0.026),
-                         (s * 0.006, gc[1] + 0.006, gc[2] - 0.038), (0.0, gc[1] + 0.008, gc[2] - 0.048), 16))
+                         (s * 0.006, gc[1] + 0.006, gc[2] - 0.034), (s * 0.002, gc[1] + 0.008, gc[2] - 0.042), 16))
     Sd, Nd = clay.project(drop)
     drop = Sd + Nd * 0.0025
-    branches.append(("drop", drop, 0.0026, 0.0009))
+    branches.append(("drop", drop, 0.0026, 0.0016))
     return branches
 
 
@@ -304,8 +304,14 @@ def build_antlers(clay, mat):
             tt = np.linspace(0, 1, n)
             rr = r0 + (r1 - r0) * tt ** 0.8
             if kind != "beam":
+                # a rounded end (cycle 6, user: "Smoothen model"): the antler tips and the drops end in a
+                # small dome like the drawing's polished silver, not a needle point
+                T = P[-1] - P[-2]
+                T /= np.linalg.norm(T)
+                ang = np.radians([30.0, 55.0, 75.0, 90.0])
+                P = np.vstack([P, P[-1] + np.outer(np.sin(ang), T) * rr[-1]])
+                rr = np.concatenate([rr, rr[-1] * np.cos(ang)])
                 rr[-1] = 0.0
-                rr[-2] = rr[-3] * 0.8
             o, _ = sweep(f"Antler_{side}_{kind}_{k}", P, rr, rr, 10, mat, hint=(0, 0, 1),
                          tip=kind != "beam", start_cap=True)
             objs.append(o)
