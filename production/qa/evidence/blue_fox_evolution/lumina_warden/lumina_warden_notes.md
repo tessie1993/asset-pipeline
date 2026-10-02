@@ -583,204 +583,104 @@ arc; paws with toe lobes; ear tufts read as cream fans in the bowl; flank markin
 vs #8297af), lobes (back right lobe #8798a4 vs #8c96a7).
 Differs (measured), cause, fix: see the Handoff's Comparison and Next step (one build per builder from now on).
 
+## Cycle 11
+Build 11: 222,768 tris (over the 200,000 budget), CHECK clean (75 parts, no floating, no flat colour, 0 non-manifold;
+1236 degenerate faces from ribbon tips/caps). Overlap front 0.79 (w/h +17 %), side 0.78 (-2 %), back 0.79 (+3 %).
+Changes: tails rebuilt as fur ribbons lying on a mid-blue core (`Fur.ribbon`, new `fur_bundle`), curls with 2
+spiral streams of long ribbons (cream / blue), eye almond 0.066 x 0.024 facing 44 deg out with navy corners, lash
+lines on the lid margins, shoulder fur 8 shingled flat locks, thin tails hooked down, tail colour ramp from the
+reference clusters. Not yet read: the compare image of build 11 (run stopped by the coordinator).
+
 ## Handoff
-State: builder 4 changed the generator (cycle 11 work) but did NOT build. The run was stopped for a commit before
-the build. The last full build is still build 10 (185,728 tris, CHECK clean, overlap front 0.80 / side 0.76 / back
-0.78; w/h front +13 %, side -3 %, back +1 %). Generator: /home/user/asset-pipeline/tools/blender/assetgen/packs/blue_fox_evolution/lumina_warden.py
-(it passes `python3 -m py_compile`; the new tail fur code has never run in Blender). The first preview crashed in
-`tail_lock` (a float offset); that is fixed. The second preview was stopped before it finished. The critic's
-review 1 (lumina_warden_review_1.md) is answered under `## Review 1`.
+State: build 11 is the latest full build (CV lines above, compare /home/user/asset-pipeline/production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_compare.png, NOT yet looked at).
+Generator /home/user/asset-pipeline/tools/blender/assetgen/packs/blue_fox_evolution/lumina_warden.py = build 11 exactly
+(nothing unbuilt). Triangles 222,768 > 200,000: must come down (see task A).
 
-### Understanding (what each thing is, and the approach it calls for)
-- Lumina Warden: the phase-3 evolution of a stylised blue fox, drawn as painted anime game art (soft cel shading,
-  dark navy ink outlines, painted fur strokes, glowing cyan markings). A slender young magical fox standing square
-  on four legs, head up, facing -Y. It is clean and groomed: no wear or dirt. Its imperfections are asymmetry, ragged
-  fur edges, uneven stars and uneven bands.
-- Body: a furred animal body (skeleton, muscle, skin, fur). Built as signed-distance clay (sculpting skill), then
-  quad-remeshed. Painted fur strokes and glow marks are in the shader. Cream zones are cut with kit.mark.
-- Tail (user: "In all 3 the tails are wrong. It's fur in the tail."): five tails, and they are FUR. A tail is a thin
-  core (bone, skin, dense dark underfur) under long guard hairs that grow from the root toward the tip. The hairs
-  group into locks. The locks are shingled (each tip lies over the next lock's root), twist along the tail, part at
-  the edges, taper to points with dark roots and light tips, and end in a brush. In this art style the cream / blue /
-  indigo bands are separate locks. Build each tail as a dark core plus layered, twisted fur locks, never as one
-  smooth shell. The three spiral masses on the ground are the tail ends curled up (tail curls): a soft core with fur
-  locks following the spiral into the centre, like a cinnamon roll. The cream, mid-blue and indigo streams of locks
-  make the painted spiral.
-- Shoulder fur ("feather-like fur tufts"): magical fur locks, not feathers or planks. Soft, flame-shaped, iridescent
-  (lavender, cyan, mint). The roots grow out of the body fur; the locks sweep up and back and the tips lift and curl.
-  Built with the same fur-lock construction.
-- Ears: a thin cartilage leaf with skin and fur on both sides. The bowl is indigo, star-speckled and glowing, with a
-  cream fur fan at its base. Built as a lofted leaf with a bowl, plus ear-tuft locks.
-- Eye: a ball set behind lids. The almond opening comes from the lid skin folds, with pointed corners and a fuller
-  upper arc. The dark lash line sits on the lid margin. Built as a cut through the skin plus rolled lid folds, with
-  the eyeball sunk behind them (cycle 11). The iris and highlights are painted on the eyeball.
-- Collar: a silver filigree torque (drawn and cast silver wire): a neckband mostly buried in the ruff, antler
-  branches from the gem setting up and out beside the face, tines with leaf tips, and C/S scrolls by the gem. A
-  faceted glowing blue crystal sits in a rhombus setting. Built as swept wire paths snapped onto the clay.
-- Scale: 1/4 sheet, about 1.00 m tall to the ear tips, 1.24 m long, 0.64-0.71 m wide.
+### Understanding (what each thing is, the approach it calls for)
+- Lumina Warden: stylised blue fox, painted anime game art (soft cel shading, navy ink outlines, painted fur strokes,
+  glowing cyan marks); slender, standing square, head up, facing -Y; clean, no wear.
+- Body: furred animal body: SDF clay (bx_sculpt) -> quad remesh; cream zones by kit.mark; marks in the shader.
+- Tails (user: "It's fur in the tail"): in THIS style a tail is a soft volume whose fur groups into a few BROAD,
+  SMOOTH, LONG locks (ribbons) that flow root to tip, alternate cream / light / mid blue, lie flat on the volume and
+  only end in pointed, curling tips at the outline. Approach now: a core tube (mid blue underfur) + `Fur.ribbon`
+  locks: lens-shaped strips lying ON the core surface (meet it at both edges, no plank sides), long (2 staggered
+  layers), twisting slowly. Curls = cinnamon rolls: clay core + 2 spiral streams of long ribbons (cream, blue).
+- Shoulder fur: soft iridescent flame locks shingled like a wing on the shoulder (lavender tips, mint/cyan middle).
+- Eye: eyeball behind lid folds round an almond opening; navy fills the corners, light-blue iris cut by the upper
+  lid, white catchlight upper-inner; thick navy upper line with a flick.
+- Collar: silver filigree torque (antler branches with leaf tips, C/S scrolls, rhombus setting, glowing gem).
 
-### Key reference measurements (metres; Y = side-view distance from the nose tip - 0.62; x from the centre line)
-- Ratios: length:height 1.24; ear length 0.27 H (side) / 0.31 H (front); withers 0.60; leg (chest bottom to ground) :
-  withers 0.55; head length 0.30 H; nose z 0.68; tail mass Y 0.12-0.62 (0.40 of the length); front w/h 0.64, back 0.71.
-- Side: nose tip Y -0.62 z 0.68; eye Y -0.50 z 0.72; crown z 0.84; ear tips z 1.00; back line z 0.60-0.62; chest bottom
-  z 0.33; belly z 0.37-0.40; front paws Y -0.45..-0.32 / -0.35..-0.24; hind paws Y -0.07..0.03 / 0.08..0.18; stifle z 0.30,
-  hock z 0.13. Tail: root Y 0.10 z 0.55; plume outer top z 0.70 at Y 0.28-0.45; outer back edge Y 0.60 at z 0.45; dark
-  starry interior Y 0.23-0.47 z 0.30-0.58 holding the 6-star constellation; inner hook tip Y 0.20 z 0.36; ground curl Y
-  0.09-0.53 z 0-0.30 with its spiral eye at Y 0.32 z 0.17; flick tip Y 0.56 z 0.05; hanging lock Y 0.55-0.58 z 0.10-0.30;
-  lock tips at the top: Y 0.19 z 0.71 (pointing forward) and Y 0.53 z 0.73 (curling up); the gap (background) under the
-  tail root at Y 0.10-0.20 z 0.28-0.50.
-- Back (1403 px = 1 m): curls +X x 0.19 z 0.15 r 0.14 (to x 0.35); centre x 0.036 z 0.13 r 0.16 (x -0.135..0.19, the
-  biggest and nearest); -X x -0.25 z 0.165 (to -0.34); thin tails leave at x +-0.12..0.15 z 0.38-0.40, out to x +-0.33
-  z 0.33-0.35, tips turning DOWN to x +-0.35 z 0.27; constellation on the centre curl: stars (0.085, 0.217) (0.028,
-  0.172) (0.015, 0.110) (0.006, 0.104) (-0.111, 0.199) + a short line up-left from the first.
-- Front (1546 px = 1 m, drawn ~10 % bigger than side/back): ear tips x +-0.21 z 0.99; eyes x +-0.055 z 0.665; nose z
-  0.595 (head drawn tilted down); cheek fur spikes to x +-0.16 at z 0.60; collar z 0.38-0.55 span +-0.17; gem 0.06 x 0.11
-  centre z 0.41; tails: -X a low banded mass out to x -0.31 with a thin tail's tip hooking down at x -0.31 z 0.20-0.30;
-  +X a mass out to x +0.31 that hooks UP to a curled tip at x 0.18 z 0.38. Nothing outside x +-0.18 above z 0.38.
-- The three drawings disagree (user: "the angles are different"): ear size (front bigger), curl spread (front +-0.31,
-  back +-0.35), and the back drawing hides the side drawing's tail arc. Build between them; never chase one view.
-- Eye (front crop, eyes_front.png): a large almond, inner corner low and pointed toward the nose, tilt 15-18 deg,
-  h:w about 0.45, width about 0.050; a thick navy upper lid line (3.5-4 mm) ending in a flick that rises about 8 mm;
-  a thin lower line; a light-blue iris (#97bbd3, lighter #cfe4e9 below, #3a5a9a under the lid) about 70 % of the
-  opening height and cut by the upper lid; a small dark pupil; a white highlight at the upper inner side.
+### Test renders made this cycle (look at these)
+- Tails alone, side/back beside the reference crops: /home/user/asset-pipeline/.scratch/assetgen/work/blue_fox_evolution/lumina_warden/prev/p_tS.png, p_tB.png (old tube locks: planks, dark),
+  p_r1_tS.png / p_r1_tB.png (first ribbons: curls buried), p_r2_tS.png / p_r2_tB.png (current: curls read as
+  cream/blue rolls). Eyes: prev/eyes_new.png -> prev/eyes_e2.png (current). Reference eye crops: eyeref_front4.png,
+  eyeref_side5.png. Full front before shoulder change: prev/tF.png.
+- Test script /home/user/asset-pipeline/.scratch/assetgen/work/blue_fox_evolution/lumina_warden/tailtest.py: `blender -b --factory-startup --python tailtest.py -- gen=<copy of generator>
+  part=tails|eyes|shoulder|all v=tS,tB,tF,hF,hS,sS,sB,cF,bS tag=<prefix>` (own copy of the generator per job; thread
+  count from the free cores). pair.py ref render out [H] puts a render beside a crop. WARNING: never wait with
+  `pgrep -f <pattern>` loops: they match their own shell and never end.
 
-### Part inventory (generator function -> part; names are what each thing is)
-| part | count | construction | connection, overlap |
-|---|---|---|---|
-| body (torso, neck, head, muzzle, jaw, legs, cheek / nape / chest / elbow / belly fur locks) | 1 | `body_clay()` SDF clay (bx_sculpt), voxel 4.2 mm, `kit.quad_remesh(26000)`, `close_holes`, `crease_mouth` (W smile) | all fused; legs end at z 0.03 inside the paws |
-| eye openings and lid folds | 2 | `cut_eye_opening()` inside `body_clay()`: almond cut 12 mm deep along the eye normal (lens from two circular arcs, `eye_rim()`), rolled upper (2.6 mm) and lower (1.4 mm) lid folds; stores the frame and rim points in `EYE[side]` | part of the body |
-| eyeballs | 2 | `build_eye()`: flattened ball EYEBALL radii (0.034, 0.020, 0.025), front 1 mm in front of the skin level, faces (+-0.62, -0.78, 0.04); `eye_material(side)` (M_eye_L / M_eye_R) | behind the lid folds |
-| lash lines | 2 x 2 | `build_lid_lines()`: eyelid_upper (on the upper rim, 3.5-4.2 mm wide, flick projected on the skin), eyelid_lower (thin) | on the lid margins |
-| paws | 4 | `build_paw()` fine clay 1.6 mm, 4 toe lobes, 3 creases, remesh 1300 | overlap the leg ends |
-| cream fur zones | - | `kit.mark(body, make_cream_field(body), m_cream)` | ragged edge |
-| ears | 2 | `build_ear()` lofted leaf with a bowl (26 x 11 rings, Subsurf 1); `ear_image()` bowl glow | bases sunk in the skull |
-| ear tufts | 2 x 5 (+ far ear's second tip) | `ear_tufts()` swept fur blades (still named EarTuft_*, EarTipSplit: rename to ear_tuft_* / ear_tip_second) | rooted in the bowl |
-| nose | 1 | `build_nose()` fine clay with nostrils | on the muzzle tip |
-| collar | neckband, 2x2 branches, 2x2 scrolls, 2x4 tines + leaf tips, gem setting | `collar_paths()` + `build_collar()` swept silver wire, objects collar_<kind>_<k> | rests on the chest ruff |
-| gem | 1 | `build_gem()` faceted rhombus, flat shaded, emission | back apex on the ruff |
-| shoulder fur | 2 x 6 locks | `build_shoulder_fur()` (cycle 11): Fur locks, flame outline, roots sunk, lift after half the length; `shoulder_fur_material()` reads lu/lv attributes | grows from the shoulders |
-| tails (fur) | centre 1, side 2, thin 2 | `tail_paths()` centre lines -> `build_tails()`: `fur_core()` (dark underfur core, radii x0.8) + `fur_bundle()` (K locks around per layer, staggered layers along the length, twisted, tips lifting) per tail, one object each (tail_centre, tail_side_left/right, tail_thin_left/right) | roots in the rump; side and thin tails' roots run inside the centre tail |
-| loose tail locks | 8 | `TAIL_LOCKS` -> `tail_lock()`: 2-3 strand clumps each, parting at the tip, in the tail_centre object | leave the outline |
-| tail curls | 3 | `build_tail_curl()`: clay core (ellipsoid in the coil plane + the tail's entry, seated on the ground, remesh 1600) + spiral fur locks on both faces in 3 streams per turn (cream / mid blue / indigo), objects tail_curl_centre / _left / _right | the tails end on them |
-| constellation stars | 7 side + 6 back | `star_dome()` raycast onto tail_centre (from +X) and tail_curl_centre (from behind) | half sunk |
-Materials (one Principled each, variation mixed on the inputs): M_fur / M_fur_cream, M_ear_outer / M_ear_inner,
-M_cream_tuft, M_shoulder_fur, M_silver, M_gem, M_eye_L / M_eye_R, M_nose, M_liner (lash lines: rename to M_lash_line),
-M_constellation_star, M_tail_fur (`tail_fur_material()`: colour band ramp from the `band` attribute, darker root /
-lighter tip from `lu`, fine strands along each lock from `lv` / `lu` noise in colour and bump, AO crevices between
-locks, the starry zone (`starry` attribute) in indigo with Voronoi star specks, constellation lines from the
-LW_tail_marks side / back projection (`pys`, `pzs`, `pxf`), glowing streaks on a few locks near the root from
-`lglow`). The final build bakes everything to base colour, ORM, normal and emission at 4096.
+### Comparison (build 11 CV + test renders), with the why of each difference
+- Side tail plume (p_r2_tS): reference = one broad C-shaped fan, smooth outline, wide cream/blue ribbons flowing
+  root->tip, two curling tips on top. Why ref: long guard hair lies with the flow and clumps into broad locks; the
+  style paints each lock as a band. Build: an inverted-U hose: a column rising at Y 0.28-0.45 and an arc over to the
+  root, squared-off top, flat-faceted bands. Why build: the core is a tube along a path with ru/rv ellipse, the arc
+  is too tight (cps up to (0.44,0.39)) and rv drops; ribbons have only 7 across-samples x 18 along -> facets.
+  CV side: extra bottom-centre 16 % / bottom-right 15 % (curl too round and big), missing middle-right 12 % (back
+  edge of the plume Y 0.55-0.62 z 0.3-0.5) and top-left 11 % (ears).
+- Side constellation: a straight horizontal glowing bar at z ~0.535 from Y 0.27 to 0.46 instead of the 7-star
+  polygon. Why build: the LW_tail_marks side projection does not land where CONST_SIDE says (image orientation or
+  the pys/pzs attributes vs the turntable); the stars (domes) are also off the reference positions. Check by
+  rendering the marks image itself and a flat test plane.
+- Back view (p_r2_tB): reference = tails fan DOWN from the rump (nothing above z 0.62 but body), three big rolls with
+  wide cream spirals, thin tails out and down. Build: the centre plume stands as a pillar 0.2 wide up to z 0.75
+  behind the body (CV back: extra top-left 18 %, top-right 17 %), rolls read as rolls now but the cream bands are
+  broken into dashes and the roll surface between streams shows the bare core. Why build: the side-view arc is seen
+  edge-on from behind; the curl ribbons are 0.18-0.26 long with gaps between them.
+- Front (CV +17 % w/h; extra middle-left/right 18-21 %, bottom 13-18 %): the curls and thin tails stick out beyond
+  x +-0.31 and the curls sit too wide/low; missing top 7-8 % = ears drawn bigger in the front reference.
+- Eye (eyes_e2 vs eyeref_front4/side5): almond and navy corners now right; still: iris shifted to the inner corner
+  in front (eye faces 44 deg out, iris centred on the eyeball), skin gap under the outer half of the upper line,
+  side-view eye still ~25 % shorter than drawn. Why: iris centre should be offset toward the nose by ~3 mm so the
+  eye looks forward.
+- Shoulder fur and collar: changed (shoulder) / unchanged (collar); not yet seen in build 11 renders.
+- Triangles: 222,768 (tail curls 25-26k each, nose 7.3k, body 55k, collar 20k).
 
-### Comparison (latest full build = build 10; eye head tests from cycle 11; reference crops in the work folder)
-Build 10 (lumina_warden_compare.png): the tails read as smooth banded shells and coiled hoses, not fur. That is the
-user's complaint, and the cycle 11 fur rebuild below answers it but is not yet rendered. Silhouette: the front view
-has extra 21-22 % middle left/right (the thin tails stood out beside the chest; they are rerouted in cycle 11); the
-side view is missing top-left 12 % (ears drawn forward/larger) and has extra bottom-centre 18 % (the ground curl);
-in the back view the curls looked like hoses with grooves, and the centre tail rose behind the head as a striped
-pillar 0.17 wide. Face: the lower face was mostly cream (render #a8adad vs reference #98adbb); the muzzle top and
-bridge should be light blue (changed in cycle 11). Ear bowl: no glowing cluster (render #576a91 vs #6e82aa); the
-spiral was a small neon "3" (changed). Chest side: blue with cream islands; it should be clean cream back to Y
--0.33 (changed). Shoulder fur: a stiff stack of planks (rebuilt as fur locks). Collar: a thin wire cage (thickened).
-Material texture strength is lower than the reference (0.07-0.11 vs 0.18-0.39).
-Eye head test (cycle 11, work folder prev/hF_z.png and prev/hS_z.png, rendered BEFORE the last lash-line and iris
-tweak): the eye now reads as an eyeball behind lids. The almond opening has its inner corner low, the iris is
-large and light-blue with a dark rim, a pupil and two highlights, and the flick reads in both views. Still
-different: the upper and lower lash lines were broken (they sank into the lid folds) and the iris sat fully inside
-the opening rather than being cut by the upper lid. Both are changed (lines lifted 1.2 / 0.9 mm off the rim, iris
-r 0.0145 centred 2.6 mm up) but not yet seen.
-
-### Changed this cycle, not built or checked (check each in the first preview)
-1. Eye (`eye_rim`, `eye_frame_at`, `cut_eye_opening`, `build_eye`, `build_lid_lines`, `eye_material(side)`): almond
-   opening cut through the skin with rolled lid folds, the eyeball behind it, the lash lines on the rims (upper with
-   a flick projected on the skin, lower thin). The eye faces (+-0.62, -0.78, 0.04).
-2. Tails as fur (`Fur`, `lock_profile`, `fur_bundle`, `fur_core`, `tail_lock`, `build_tail_curl`,
-   `tail_fur_material`, `tail_marks_image`, `fur_attributes`, `star_dome`, `build_tails`; the old swept tails,
-   UV-strip images, coil plugs and the painted lobe bulbs are gone). Per tail (spec in `build_tails`): centre K 14 x
-   4 layers, twist 0.55; side tails K 10 x 2; thin tails K 6 x 2. Each tail is cut 0.40-0.42 of a turn after it
-   reaches its curl (`cut_into_curl`). The plume holds rv 0.155 to k_arc + 0.06 (no cap). The thin tails' roots run
-   inside the centre tail and leave its back edge at z 0.34 (+X) / 0.37 (-X), out to x +-0.355, tips down, r 0.024.
-   The loose locks are 1.5 x thicker with tips moved: top front (0.03, 0.165, 0.72), top back (0.03, 0.55, 0.745),
-   hanging (0.07, 0.56, 0.10), front hook tip (0.19, 0.20, 0.37), meeting the inner hook in the side view.
-3. Shoulder fur rebuilt as 6 fur locks per side (`build_shoulder_fur`, `shoulder_fur_material`).
-4. Face cream (step 6): muzzle cream top line lowered 0.02 to 0.010 (zb 0.656 / 0.662 / 0.676 at Y -0.60 / -0.55 /
-   -0.50); bib wc 0.06 at z 0.62 and 0.08 at 0.66; under-eye strokes end at |x| 0.080; cheek fur cones 15 % longer.
-5. Chest and belly cream (step 8): chest normal term (n.y + 0.05) * 0.1, yb moved back about 0.03 at z 0.33-0.58; field
-   noise 0.0012; the fringe's normal test removed.
-6. Ear bowl (step 7): one big curl at t 0.66 of the ear length, r 0.04, stroke 3-12 mm, halo 0.6 / 12 mm; the second
-   stroke removed; 200 star specks at 0.6 x radius.
-7. Collar (step 10): neckband r 0.004 sunk (lift 0.2); branches, scrolls, tines and leaf tips r x1.3; tine tips at z
-   0.50-0.585, x up to 0.19.
-8. Names: objects eye_left/right, eyelid_upper/lower_*, tail_*, tail_curl_*, tail_lock_*, constellation_star_*,
-   collar_<neckband|branch|scroll|tine|leaf_tip|gem_setting>_k, shoulder_fur_left/right; materials M_tail_fur,
-   M_shoulder_fur, M_constellation_star, M_eye_L/R.
-Unknowns: the triangle count. The estimate is about 215-225k, over the 200,000 budget. Ways to bring it down, in
-order: curl locks M 6 -> 5 and 10 -> 8 rings; centre tail 4 -> 3 layers; `n_lock` 14 -> 11; body remesh 26000 ->
-24000. The fur's look (lock width, lift, twist, colour order) is unseen.
-
-### Next step (in this order; compare each part with its reference crop after every change)
-1. The tail is fur: render it and tune it until it reads as fur. Run `cd /home/user/asset-pipeline/.scratch/assetgen/work/blue_fox_evolution/lumina_warden
-   && timeout 1500 blender -b --factory-startup --python preview.py > prev/preview.log 2>&1` in the background. It
-   prints `PREVIEW parts` (triangles per part) and `PREVIEW tris`, and renders prev/view_0/90/180.png and
-   prev/headF/headS.png. Then run `PYTHONPATH=/home/user/asset-pipeline/.scratch/pydeps python3 pcompare.py`
-   (writes prev/sheet.png). Fix any error first.
-   Put prev/view_90.png next to tgt/tail_side.png, and prev/view_180.png next to tgt/tail_back.png, at the same
-   scale. Check that the tails read as fur from every view: locks with pointed tips breaking the outline, partings
-   showing the dark core, shingled layers, darker roots and lighter tips, cream / blue / indigo bands as separate
-   locks twisting along the tail; the curls as fat cinnamon rolls of locks spiralling into a dark centre; the starry
-   indigo zone on the plume's +X face with the constellation lines and stars.
-   Tune `build_tails` spec (K, windows, twist, bands), `fur_bundle` (lift 0.28, width_k 1.5, th_frac 0.42, embed
-   0.80) and `build_tail_curl` (J 3 streams, lock length 0.10-0.15, width 0.046, thickness 0.016). If locks float or
-   show gaps, raise width_k or embed; if the outline is still smooth, raise lift. Bring the triangles under 200,000
-   with the levers listed above.
-2. Eye: check prev/headF.png and headS.png against eyes_front.png and eyes_side.png (crop and enlarge with zoom.py).
-   You want a full navy outline with a thick upper line and flick, the iris cut by the upper lid, and no buried or
-   dashed lash lines. Tune `build_lid_lines` offsets and radii, and `eye_material` iris centre / radius.
-3. Check the shoulder fur against tgt/shoulder_side.png: 5-6 soft flame-shaped locks sweeping up and back, the
-   highest at z 0.72, bases blending into the body. Then check the collar against tgt/collar_front.png: thick antler
-   branches rising beside the face to z 0.55 at x +-0.17, C/S scrolls by the gem, the neckband hidden in the ruff.
-4. The face cream, chest / belly cream and ear bowl (items 4-6 above): run `cv.py sample` on view 1 box 0.40 0.30
-   0.60 0.45 (aim: mostly light blue) and box 0.12 0.05 0.25 0.20 (aim: a light cluster near #cef6fc at ~20 %), and
-   the closeup on view 2 box 0 0 0.5 1.
-5. Then the cycle's one build (`blender -b --factory-startup --python <generator> --`), `## Cycle 11` in the notes,
-   cv.py compare and closeups of every changed part (tails: --view 2 --box 0.5 0.2 1 1, --view 3 --box 0 0.45 1 1;
-   head: --view 1 --box 0.1 0 0.9 0.6; chest: --view 1 --box 0 0.4 1 1).
-6. Remaining open items: texture strength (stronger painted strokes and ink accents in M_fur and the ears); the
-   side view's chest / front legs about 0.015 behind the drawing; rename the remaining shape names (EarTuft_*,
-   EarTipSplit, M_liner, M_cream_tuft -> M_ear_tuft). When the compare passes: the `--final` build and `pack.py done`.
+### Next step: 3 part tasks (job cards for part builders; the lead integrates and builds once)
+A. Part: tails (tail_centre, tail_side_*, tail_thin_*, tail_curl_*, tail_lock_*), one task (they shape each other).
+   What it is: fur tails, see Understanding. Comparison: above (side plume, back pillar, front width, curl dashes).
+   What needs doing and why: (1) reshape the centre plume's path/radii into the side view's broad C (outer top z 0.70
+   at Y 0.28-0.45, back edge Y 0.60 at z 0.45, inner hook tip Y 0.20 z 0.36), and widen it across (ru) only low, so
+   the back view sees a mass fanning down from the rump, not a pillar above z 0.62 (fixes CV back top 17-18 %);
+   (2) curls: continuous spiral bands (lock length 0.3-0.4, overlap 1.6x, J 2) and shrink/flatten the side curl
+   (CURL_SIDE[1] sv, R0) to Y 0.09-0.53 z 0-0.30 (fixes side bottom extra 15-16 %); (3) ribbons smoother: A 9-11,
+   n_lock 24, smooth shading; (4) fix the side constellation projection (bar -> 7-star polygon at CONST_SIDE);
+   (5) bring tails to <= 75k tris (curl M/rings, fewer core segments) so the total fits 200k.
+   Reference crops: /home/user/asset-pipeline/.scratch/assetgen/work/blue_fox_evolution/lumina_warden/tgt/tail_side.png, tail_back.png, tail_side_starry.png; closeup boxes view 2 0.5 0.2 1 1,
+   view 3 0 0.45 1 1, view 1 0 0.55 1 1. Keep fitting: roots inside the rump (Y 0.10 z 0.55), CURL_CENTRE faces back,
+   no tail crosses another curl, the thin tails' tips at x +-0.33-0.36 z 0.21-0.27, ground z 0.
+   Done when: side overlap >= 0.85 on the tail half, back no extra above z 0.62, tails read as broad flowing locks
+   in p_*_tS/tB pairs, tails <= 75k tris.
+B. Part: face and eyes (body_clay eye cut, build_eye, eye_material, build_lid_lines, face marks in fur_material).
+   Comparison: eyes_e2.png vs eyeref_front4.png / eyeref_side5.png (above). Needs: iris centre 3 mm toward the nose,
+   upper line without the skin gap, side eye length +25 % (EYE_RA or turn 48 deg), forehead flame mark and almond
+   brow dots as on the reference. Crops: eyeref_front4.png, eyeref_side5.png; closeup view 1 0.1 0 0.9 0.6. Keep
+   fitting: eye centre (+-0.064, -0.502, 0.718), nose, cream line. Done when: the pair reads as the reference eye.
+C. Part: shoulder fur + collar (build_shoulder_fur, collar_paths). Comparison: check build 11 view 2 against
+   tgt/shoulder_side.png and view 1 against tgt/collar_front.png (5-6 soft flame locks, top at z 0.72 Y -0.14;
+   antler branches to z 0.55 at x +-0.17). Done when: wing-like overlapping locks, no planks; collar branches read
+   as antlers, not a tangle.
 
 ### Do not undo
-- The tails are fur (core + layered, twisted locks; curls as spiral locks on a core), never a smooth shell. Tail
-  routing: no tail crosses another curl; the side and thin tails' roots run inside the centre tail; curl positions
-  and planes (CURL_CENTRE faces the back; CURL_SIDE[+1] (0.90, 0.44, 0) stretched along the ground, sv 0.72;
-  CURL_SIDE[-1] (-0.62, 0.78, 0)).
-- The centre tail's side-view arc control points up to (0.44, 0.39), the starry zone ellipse (0.37, 0.42; 0.165 x
-  0.185) and the side constellation (CONST_SIDE) with its lines.
-- The eye as an eyeball behind lid folds round an almond opening (not a disc on the face); the eye facing 38 deg
-  outward and level.
-- The fur shader uses object-space normals (Texture Coordinate > Normal), because the kit turns the model on a
-  turntable per view.
-- Generated images get their colourspace BEFORE their pixels (`new_image`), else Cycles renders them black.
-- Paws as separate fine clay; legs with stifle / hock angles; cream by kit.mark + close_holes; ear tuft fans;
-  collar V at the gem.
-- Mix material inputs into one Principled BSDF (never a Mix Shader: the bake averages it).
+- Tails are fur: core + `Fur.ribbon` locks lying on it (never planks, never a smooth shell); curls as spiral ribbon
+  streams on a clay core. Tail routing and curl planes as in the code.
+- The eye as eyeball behind lid folds; navy corners; the almond 0.066 x 0.024.
+- Object-space normals in the fur shader; image colourspace before pixels; mix inputs into one Principled BSDF.
 
 ### Files
-- Reference views: /home/user/asset-pipeline/production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_ref_view_1.png
-  (front), _ref_view_2.png (side, main focus), _ref_view_3.png (back); source sheet
-  /home/user/asset-pipeline/design/asset-packs/blue_fox_evolution/source.jpg (bottom row).
-- Latest compare (build 10): /home/user/asset-pipeline/production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_compare.png;
-  renders lumina_warden_view_1/2/3.png, clay lumina_warden_clay_1/2/3.png, CV numbers lumina_warden_cv.json, review
-  lumina_warden_review_1.md, closeups lumina_warden_cv_closeup_1/2/3.png.
-- Work folder /home/user/asset-pipeline/.scratch/assetgen/work/blue_fox_evolution/lumina_warden:
-  reference target crops tgt/tail_side.png, tgt/tail_back.png, tgt/tail_side_starry.png, tgt/collar_front.png,
-  tgt/shoulder_side.png; eye targets eyes_front.png, eyes_side.png (reference left); cycle 11 eye head tests
-  prev/hF.png, prev/hS.png and their magnifications prev/hF_z.png, prev/hS_z.png; build-10 preview head renders
-  prev/headF.png, prev/headS.png, prev/eyeF_zoom.png, prev/eyeS_zoom.png. Helpers: preview.py (full preview,
-  triangles per part, not a build), headtest.py (head only: body clay without remesh, eyes, lash lines, nose; about
-  50 s; writes prev/hF.png, prev/hS.png), zoom.py (crop and enlarge: `zoom.py src x0 y0 x1 y1 scale out`, needs
-  PYTHONPATH=/home/user/asset-pipeline/.scratch/pydeps), pcompare.py (IoU and w/h per view from the preview),
-  rows.py (outline extents per height vs the latest build), g_front.png / g_tailside.png / g_back.png (references
-  with a 5 cm grid); src/tail_fur.py (the tail fur section as written this cycle, for reference).
+- Reference views /home/user/asset-pipeline/production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_ref_view_1/2/3.png; source /home/user/asset-pipeline/design/asset-packs/blue_fox_evolution/source.jpg.
+- Build 11: /home/user/asset-pipeline/production/qa/evidence/blue_fox_evolution/lumina_warden/lumina_warden_compare.png, lumina_warden_view_*.png, clay_*.png, cv_survey_*.png; log /home/user/asset-pipeline/.scratch/assetgen/work/blue_fox_evolution/lumina_warden/build11.log.
+- Test renders and crops: listed above; generator snapshots /home/user/asset-pipeline/.scratch/assetgen/work/blue_fox_evolution/lumina_warden/src/gen_c11_start.py (before this cycle), gen_t3.py.
 
 ### Standing rules
 - One render cycle per builder: make the changes, build once, compare, then write the next `## Handoff` (replacing this
@@ -833,3 +733,13 @@ order: curl locks M 6 -> 5 and 10 -> 8 rings; centre tail 4 -> 3 layers; `n_lock
   add-on), Do not undo, Files, Standing rules.
 - Never project the reference image onto the model; never a flat-colour surface; change only the generator, the notes,
   the evidence folder and the work folder; no git; never ask "May I".
+- Use all the cores (user): while the 1-minute load in /proc/loadavg is below nproc, start another background Blender
+  job instead of waiting (one per view or close-up, parameter variants side by side); timeout on every run; never two
+  jobs writing the same file.
+- Full builds render as the kit renders them (all views, lit and clay, the kit's samples and resolution, bake as
+  planned); look at the full compare (cv.py compare) after every build; part close-ups beside reference crops stay.
+- Lead and part builders (user): the builder that reads this Handoff leads; it runs 2-4 part builders on Sonnet 5.5 at
+  once (builder_guide.md section 8), each with one job card (Part, What it is, Comparison, What needs doing and why,
+  Reference crops and boxes, Keep fitting, Done when).
+- For every difference write why the reference looks so and why the build differs (the cause, not the symptom).
+

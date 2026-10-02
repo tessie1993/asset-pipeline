@@ -485,7 +485,10 @@ def body_clay():
     clay.add(C((0, -0.172, 0.293), (0, -0.226, 0.294), 0.020, 0.0065), blend=0.012)        # lower jaw (side: muzzle bottom lower)
     clay.add(E((0, -0.118, 0.304), (0.038, 0.036, 0.038)), blend=0.022)      # nape
     for s in (1, -1):                                                            # eye seats: a shallow bed for the eye lens
-        clay.sub(E((s * 0.031, -0.199, 0.327), (0.0135, 0.0018, 0.0095), rot=(0, s * -12, s * 30)), blend=0.004)
+        clay.sub(E((s * EYE_X, -0.199, 0.327), (0.0135, 0.0018, 0.0095), rot=(0, s * -12, s * 30)), blend=0.004)
+    # stop / bridge between the eyes: the forehead runs down into the muzzle in front of the eyes, so
+    # from the side the far eye hides behind it (side drawing: only its lashes show at the profile)
+    clay.add(E((0, -0.199, 0.326), (0.012, 0.011, 0.017)), blend=0.010)
     # mouth corner crease
     for s in (1, -1):
         clay.sub(C((s * 0.006, -0.234, 0.299), (s * 0.02, -0.215, 0.301), 0.0012, 0.0012), blend=0.001)
@@ -568,9 +571,9 @@ def side_strokes(rng):
     st.append((bez2((0.10, 0.09), (0.106, 0.075), (0.108, 0.06), (0.11, 0.045)), [0.001, 0.0025, 0.002, 0.0008]))
     # face: two pale strokes behind the eye, one on the crown
     # (side drawing: three short pale strokes behind the outer eye corner, rising toward the back)
-    st.append(([(-0.168, 0.3355), (-0.1635, 0.3385), (-0.159, 0.3420)], [0.0004, 0.0012, 0.0003]))
-    st.append(([(-0.165, 0.3290), (-0.1595, 0.3320), (-0.154, 0.3355)], [0.0004, 0.0013, 0.0003]))
-    st.append(([(-0.163, 0.3110), (-0.1575, 0.3140), (-0.152, 0.3175)], [0.0004, 0.0011, 0.0003]))
+    st.append(([(-0.160, 0.3355), (-0.1555, 0.3385), (-0.151, 0.3420)], [0.0004, 0.0012, 0.0003]))
+    st.append(([(-0.157, 0.3290), (-0.1515, 0.3320), (-0.146, 0.3355)], [0.0004, 0.0013, 0.0003]))
+    st.append(([(-0.155, 0.3110), (-0.1495, 0.3140), (-0.144, 0.3175)], [0.0004, 0.0011, 0.0003]))
     return st
 
 
@@ -873,10 +876,10 @@ def eye_material():
     hx2 = nt.math("SUBTRACT", x, IRIS_C[0] + 0.0034)
     hy2 = nt.math("SUBTRACT", y, IRIS_C[1] - 0.0052)
     hl2 = nt.math("SQRT", nt.math("ADD", nt.math("POWER", hx2, 2.0), nt.math("POWER", hy2, 2.0)))
-    hlm2 = nt.math("MULTIPLY", nt.maprange(hl2, 0.0010, 0.0006), 0.45)
+    hlm2 = nt.math("MULTIPLY", nt.maprange(hl2, 0.0010, 0.0006), 0.15)
     col = nt.mix(hlm, col, lin("#fbfdff"))
     col = nt.mix(hlm2, col, lin("#dfe7f3"))
-    set_bsdf(nt, bsdf, base=col, rough=nt.math("ADD", nt.math("MULTIPLY", fib, 0.05), 0.08),
+    set_bsdf(nt, bsdf, base=col, rough=nt.math("ADD", nt.math("MULTIPLY", fib, 0.05), 0.24),
              emis_col=nt.mix(nt.math("MAXIMUM", hlm, hlm2), lin("#000000"), lin("#ffffff")), emis_str=0.8)
     return mat
 
@@ -905,6 +908,9 @@ def tail_material(col_img, emi_img):
     col = ci.outputs["Color"]
     emi = nt.rgb_sep(ei.outputs["Color"])
     ft, fw, fid = nt.attr("fur_t"), nt.attr("fur_w"), nt.attr("fur_id")
+    # cream locks (fur_cream): warm cream, a little cooler and greyer toward the root
+    creamc = nt.ramp(ft, [(0.0, "#b9b6bd"), (0.45, "#d8d0c4"), (1.0, "#e6dfd3")])
+    col = nt.mix(nt.attr("fur_cream"), col, creamc)
     # strands: fine noise stretched along the lock (across: fur_w, along: fur_t), offset per lock
     strand = nt.noise(nt.combine(nt.math("ADD", nt.math("MULTIPLY", fw, 9.0), nt.math("MULTIPLY", fid, 37.0)),
                                  nt.math("MULTIPLY", ft, 0.7), fid), 3.0, 3, 0.55)
@@ -937,8 +943,10 @@ def tail_material(col_img, emi_img):
 def ear_shape(side):
     """Leaf-shaped ear frame for side +1 (+X) or -1: base B, axis a, bowl normal f, width w, length L."""
     j = 0.002 * side
-    B = np.array([side * 0.044, -0.150, 0.340])
-    Tp = np.array([side * (0.100 + j), -0.150 + 0.003 * side, 0.445 - abs(j)])   # side: tips ~0.90 of the tail top; front wants taller (views disagree)
+    B = np.array([side * 0.044, -0.155, 0.341])
+    # (cycle 2: tips 0.013 higher, 0.006 forward, 0.004 more splay: side drawing ear tip / tail top
+    # 0.95, back drawing's ears wider)
+    Tp = np.array([side * (0.104 + j), -0.156 + 0.003 * side, 0.458 - abs(j)])   # side: tips ~0.90 of the tail top; front wants taller (views disagree)
     L = float(np.linalg.norm(Tp - B))
     a = (Tp - B) / L
     f0 = np.array([side * 0.45, -1.0, 0.10])
@@ -1090,18 +1098,21 @@ def build_ear_tufts(side, mat, rng):
 # upper eyelid line carries on into a wing. A big grey iris (0.016 x 0.020, upper lid over its top)
 # sits toward the nose, the warm grey eye white shows behind it, a white catch light on the pupil's
 # upper inner side. Upper eyelid line thick, lower eyelid line thin, both run the whole opening.
-EYE_A, EYE_BT, EYE_BB = 0.0135, 0.0112, 0.0088   # opening half-length, upper and lower half-height
+EYE_A, EYE_BT, EYE_BB = 0.0135, 0.0108, 0.0084   # opening half-length, upper and lower half-height
 EYE_TILT = 20.0                                   # deg, outer corner up
-IRIS_C = (-0.0028, 0.0004)                        # iris centre in the eye (x outward, y up)
+IRIS_C = (-0.0036, 0.0004)                        # iris centre in the eye (x outward, y up)
 IRIS_R = (0.0082, 0.0097)                         # iris half-width, half-height
+EYE_X = 0.0278                                    # eye centre X (pre-scale), projected on the head
+EYE_TURN = 0.25                                   # how far the eye normal turns outward from the face normal
+EYE_DOME = 0.0012                                 # lens dome height at the centre
 
 
 def eye_frame(clay, side):
     """Eye centre on the head surface (front view: X +-0.031, Z 0.327 before the 0.50 m scale), the
     surface normal turned a little outward, and the eye's long axis tilted EYE_TILT (outer corner up)."""
-    p, n = clay.project(np.array([[side * 0.031, -0.197, 0.327]]))
+    p, n = clay.project(np.array([[side * EYE_X, -0.197, 0.327]]))
     p, n = p[0], n[0]
-    n = n + np.array([side * 0.25, -0.1, 0.0])
+    n = n + np.array([side * EYE_TURN, -0.1, 0.0])
     n /= np.linalg.norm(n)
     up = np.array([0.0, 0.0, 1.0])
     e_up = up - (up @ n) * n
@@ -1122,7 +1133,12 @@ def eye_opening(theta):
     c, s_ = np.cos(theta), np.sin(theta)
     b = np.where(s_ > 0, EYE_BT, EYE_BB)
     x = EYE_A * c
-    y = b * s_ * (1 - 0.25 * c * c) - 0.0026 * np.clip(-c, 0, 1) ** 2 + 0.0008 * np.clip(c, 0, 1) ** 2
+    k = np.where(c < 0, 0.75, 0.35) * np.abs(c) ** 2          # corner sharpness: tear duct pointed
+    y = b * s_ * np.abs(s_) ** k * (1 - 0.18 * c * c)
+    # upper eyelid: steep rise from the tear duct, the top carried long and high toward the outer
+    # corner (drawing: a long, nearly straight top line running on into the wing), not a round dome
+    top = s_ > 0
+    y = np.where(top, y * (1 - 0.15 * np.clip(-c, 0, 1)) + 0.9 * EYE_BT * s_ * np.clip(c, 0, 1) * (1 - c * c), y) - 0.0026 * np.clip(-c, 0, 1) ** 2 + 0.0008 * np.clip(c, 0, 1) ** 2
     return x, y
 
 
@@ -1161,7 +1177,8 @@ class EyeBed:
     def lens_h(self, X, Y):
         """The eye's bed: the smooth fitted face, or the face itself where it rises above the fit
         (so it never cuts into the eye), plus 0.4 mm."""
-        return np.maximum(self._basis(X, Y) @ self.coef, self.body_h(X, Y)) + 0.0004
+        face = self.body_h(X, Y)
+        return face + np.clip(self._basis(X, Y) @ self.coef - face, 0.0, 0.0006) + 0.0004
 
     def point(self, X, Y, h):
         X, Y, h = (np.asarray(a, float) for a in (X, Y, h))
@@ -1179,7 +1196,7 @@ def build_eye(bed, mat):
     X = np.r_[0.0, (ks[:, None] * bx[None, :]).ravel()]
     Y = np.r_[0.0, (ks[:, None] * by[None, :]).ravel()]
     kk = np.r_[0.0, np.repeat(ks, M)]
-    h = bed.lens_h(X, Y) + 0.0016 * (1 - kk ** 2)
+    h = bed.lens_h(X, Y) + EYE_DOME * (1 - kk ** 2)
     front = bed.point(X, Y, h)
     rimp = bed.point(bx, by, bed.lens_h(bx, by) - 0.0012)
     back_c = bed.point([0.0], [0.0], bed.lens_h([0.0], [0.0]) - 0.002)[0]
@@ -1228,10 +1245,10 @@ def build_eyelids(bed, mat):
     th = np.linspace(math.pi + 0.12, 0.0, 34)
     bx, by = eye_opening(th)
     pts = [(x * 1.015, y * 1.03 + 0.0003) for x, y in zip(bx, by)]
-    pts += [(EYE_A * 1.12, EYE_BT * 0.14), (EYE_A * 1.26, EYE_BT * 0.30), (EYE_A * 1.40, EYE_BT * 0.48)]
+    pts += [(EYE_A * 1.14, EYE_BT * 0.13), (EYE_A * 1.30, EYE_BT * 0.25), (EYE_A * 1.46, EYE_BT * 0.35), (EYE_A * 1.60, EYE_BT * 0.43)]
     tt = np.linspace(0, 1, len(pts))
-    rv = 0.00045 + 0.0010 * np.sin(np.clip(tt * 1.12, 0, 1) * math.pi * 0.92) ** 0.55
-    rv[-4:] = [0.0011, 0.0008, 0.00045, 0.0]
+    rv = 0.00045 + 0.00135 * np.sin(np.clip(tt * 1.12, 0, 1) * math.pi * 0.92) ** 0.55
+    rv[-5:] = [0.0016, 0.0013, 0.0009, 0.00045, 0.0]
     # lower eyelid: from the outer corner along the bottom to the tear duct
     th2 = np.linspace(-0.05, -math.pi - 0.12, 26)
     bx2, by2 = eye_opening(th2)
@@ -1509,14 +1526,16 @@ def tail_path():
     back to Y 0.23, the upper part bending back into a thick curl and tapering to the cream tip at
     Y 0.335 Z 0.34. Radii: ru across (X), rb toward +B (back / down / inside of the curl), rf toward
     -B (front / up). Profiles smoothed so the surface has no rings at the knots."""
-    cps = np.array([(0.1100, 0.1990), (0.1180, 0.2380), (0.1320, 0.2750), (0.1320, 0.3160), (0.1260, 0.3570), (0.1400, 0.3940), (0.1720, 0.4220), (0.2090, 0.4230), (0.2350, 0.4140), (0.2510, 0.3920), (0.2830, 0.3600), (0.3350, 0.3280)])
+    cps = np.array([(0.1100, 0.1990), (0.1180, 0.2380), (0.1320, 0.2750), (0.1320, 0.3160), (0.1260, 0.3570), (0.1400, 0.3940), (0.1720, 0.4220), (0.2090, 0.4230), (0.2350, 0.4140), (0.2510, 0.3920), (0.2850, 0.3700), (0.3280, 0.3480)])   # (cycle 2: tip end raised 0.02)
     P2 = catmull(cps, 16)
     P = np.stack([np.zeros(len(P2)), P2[:, 0], P2[:, 1]], 1)
     tt = np.linspace(0, 1, len(P))
     tk = [0, 0.06, 0.14, 0.25, 0.36, 0.47, 0.58, 0.68, 0.78, 0.88, 0.95, 1.0]
-    rb = np.interp(tt, tk, [0.034, 0.066, 0.0746, 0.0722, 0.0684, 0.066, 0.0596, 0.0476, 0.032, 0.0182, 0.004, 0.0])
-    rf = np.interp(tt, tk, [0.03, 0.0392, 0.061, 0.0808, 0.0882, 0.074, 0.054, 0.0394, 0.028, 0.0172, 0.0144, 0.0])
-    ru = np.interp(tt, tk, [0.03, 0.0648, 0.0835, 0.0942, 0.0965, 0.08, 0.07, 0.0536, 0.034, 0.0218, 0.0113, 0.0])
+    # (cycle 2: the cream tip fatter toward its end; the lower plume fuller in front (rf); X kept: wider
+    # showed the tail beside the body in the front view)
+    rb = np.interp(tt, tk, [0.034, 0.066, 0.0746, 0.0722, 0.0684, 0.066, 0.0596, 0.0476, 0.035, 0.026, 0.012, 0.0])
+    rf = np.interp(tt, tk, [0.03, 0.047, 0.071, 0.0808, 0.0882, 0.074, 0.054, 0.0394, 0.031, 0.024, 0.016, 0.0])
+    ru = np.interp(tt, tk, [0.03, 0.0648, 0.0835, 0.0942, 0.0965, 0.08, 0.07, 0.0536, 0.038, 0.028, 0.018, 0.0])
     ru, rb, rf = (np.maximum(smooth1d(r, 4.0), 0.0) for r in (ru, rb, rf))
     ru[-1] = rb[-1] = rf[-1] = 0.0
     return P, ru, rb, rf
@@ -1688,7 +1707,12 @@ def tail_images(grid, flick_n):
     col = c.astype(np.float32)
     emi = np.zeros_like(col)
     emi[..., 0] = gl
-    return new_image("AF_tail_col", W, H, col), new_image("AF_tail_emi", W, H, emi)
+    return new_image("AF_tail_col", W, H, col), new_image("AF_tail_emi", W, H, emi), cr
+
+
+TAIL_TIP_CURL = 14.0     # past the end the tip's centre line bends up (Z += k * over^2): the hook
+TAIL_ROOT_RHO = 0.90     # lock roots lie at this fraction of the fur radius
+TAIL_UNDER = 0.92        # underfur radius as a fraction of the fur radius
 
 
 class TailBody:
@@ -1718,7 +1742,7 @@ class TailBody:
         sa, ca = np.sin(a), np.cos(a)
         rv = np.where(sa > 0, rb, rf)
         over = np.clip(s - 1.0, 0, None) * self.L          # the curled tip runs on past the end
-        P = P + T * over[..., None] + np.array([0.0, 0.0, -1.0]) * (6.0 * over ** 2)[..., None]
+        P = P + T * over[..., None] + np.array([0.0, 0.0, 1.0]) * (TAIL_TIP_CURL * over ** 2)[..., None]
         return P + (N * (ru * ca * rho)[..., None] + B * (rv * sa * rho)[..., None])
 
     def radius(self, s, a):
@@ -1734,33 +1758,35 @@ def tail_fur_lock_specs(rng):
     twist and lift."""
     specs = []
     layers = [  # s0 range, s1 range, count, width range (m), twist
-        ((0.00, 0.05), (0.30, 0.42), 12, (0.058, 0.074), 0.35),
-        ((0.13, 0.22), (0.47, 0.60), 13, (0.060, 0.078), 0.30),
-        ((0.34, 0.44), (0.68, 0.80), 12, (0.052, 0.070), 0.25),
-        ((0.55, 0.64), (0.86, 0.96), 11, (0.040, 0.056), 0.20),
-        ((0.72, 0.80), (1.00, 1.06), 6, (0.030, 0.042), 0.15),
+        ((0.00, 0.05), (0.30, 0.42), 12, (0.060, 0.078), 0.35),
+        ((0.13, 0.22), (0.47, 0.60), 13, (0.062, 0.080), 0.30),
+        ((0.34, 0.44), (0.68, 0.80), 12, (0.054, 0.072), 0.25),
+        ((0.55, 0.64), (0.86, 0.96), 10, (0.044, 0.060), 0.20),
+        ((0.72, 0.80), (1.00, 1.045), 4, (0.045, 0.060), 0.15),
     ]
     for li, ((a0_, a1_), (b0_, b1_), cnt, (w0, w1), tw) in enumerate(layers):
         for k in range(cnt):
             a0 = 2 * math.pi * (k + 0.5 * (li % 2) + rng.uniform(-0.25, 0.25)) / cnt
             s0 = rng.uniform(a0_, a1_)
             s1 = rng.uniform(b0_, b1_)
+            # S flow: every lock bows one way over its lower half and back over its upper half
             specs.append(dict(s0=s0, s1=s1, a0=a0, twist=tw * rng.uniform(0.6, 1.3),
-                              sway=rng.uniform(-0.18, 0.18), width=rng.uniform(w0, w1),
+                              sway=rng.uniform(-0.12, 0.12), s_flow=rng.uniform(0.18, 0.32),
+                              width=rng.uniform(w0, w1),
                               thick=rng.uniform(0.008, 0.012) * (1.0 - 0.3 * li / 4),
-                              lift=rng.uniform(0.01, 0.04), hook=rng.uniform(-0.2, 0.2), layer=li))
+                              lift=rng.uniform(0.005, 0.02), hook=rng.uniform(-0.2, 0.2), layer=li))
     # locks that stand out of the outline: three on the lower back edge behind the rump (side
     # drawing's points), three along the top edge of the cream crown, one under the curled tip
     for s0, s1, a0, lift, w in [(0.04, 0.33, 1.45, 0.16, 0.040), (0.10, 0.40, 1.75, 0.2, 0.038),
                                 (0.17, 0.46, 1.25, 0.15, 0.036), (0.50, 0.74, -1.35, 0.12, 0.034),
                                 (0.56, 0.80, -1.65, 0.13, 0.032), (0.62, 0.86, -1.95, 0.10, 0.03),
                                 (0.70, 1.02, 1.6, 0.08, 0.03)]:
-        specs.append(dict(s0=s0, s1=s1, a0=a0, twist=0.15, sway=rng.uniform(-0.1, 0.1), width=w,
+        specs.append(dict(s0=s0, s1=s1, a0=a0, twist=0.15, sway=rng.uniform(-0.1, 0.1), s_flow=0.12, width=w,
                           thick=0.008, lift=lift, hook=rng.uniform(-0.2, 0.2), layer=5))
     return specs
 
 
-def build_tail_fur_lock(name, body, sp, lock_id, mat, n=22, K=10):
+def build_tail_fur_lock(name, body, sp, lock_id, mat, n=22, K=10, cream=None):
     """One lock of guard hair: a clump that lies on the tail from its root (buried in the underfur)
     to its pointed tip, wrapping the tail's curve (its section is laid out in angle and radius, so it
     hugs the round form), widest a third of the way, tapering to a point; the tip lifts off the
@@ -1768,8 +1794,9 @@ def build_tail_fur_lock(name, body, sp, lock_id, mat, n=22, K=10):
     fur_w (-1..1 across) and fur_id carry the root-to-tip shading and strand grooves."""
     t = np.linspace(0, 1, n)
     s = sp["s0"] + (sp["s1"] - sp["s0"]) * t
-    a = sp["a0"] + sp["twist"] * t + sp["sway"] * np.sin(math.pi * t) + sp["hook"] * np.clip((t - 0.8) / 0.2, 0, 1) ** 2
-    rho = 0.84 + 0.12 * t ** 0.9 + sp["lift"] * np.clip((t - 0.72) / 0.28, 0, 1) ** 2
+    a = (sp["a0"] + sp["twist"] * t + sp["sway"] * np.sin(math.pi * t) + sp["s_flow"] * np.sin(2 * math.pi * t)
+         + sp["hook"] * np.clip((t - 0.8) / 0.2, 0, 1) ** 2)
+    rho = TAIL_ROOT_RHO + 0.11 * t ** 0.9 + sp["lift"] * np.clip((t - 0.72) / 0.28, 0, 1) ** 2
     # a clump of hair: full from the root, widest a third of the way, then drawn to a point
     w = sp["width"] * (0.7 + 0.3 * np.sin(np.clip(t / 0.35, 0, 1) * math.pi / 2)) * np.clip(1 - t, 0, 1) ** 0.9
     th = sp["thick"] * (0.75 + 0.25 * np.clip(t / 0.3, 0, 1)) * np.clip(1 - t, 0, 1) ** 0.5
@@ -1802,18 +1829,28 @@ def build_tail_fur_lock(name, body, sp, lock_id, mat, n=22, K=10):
     lt = bm.verts.layers.float.new("fur_t")
     lw = bm.verts.layers.float.new("fur_w")
     li = bm.verts.layers.float.new("fur_id")
+    lc = bm.verts.layers.float.new("fur_cream")
+    # cream locks: where the lock's middle line runs into a cream flame of the painted atlas the whole
+    # lock turns cream from there to its tip (a flame is a cream lock, not a stripe across blue ones)
+    fc = np.zeros(n)
+    if cream is not None:
+        Hc, Wc = cream.shape
+        ui = np.clip((np.clip(s, 0, 0.998) * Wc).astype(int), 0, Wc - 1)
+        vi = np.clip((((a / (2 * math.pi)) % 1.0) * Hc).astype(int), 0, Hc - 1)
+        raw = cream[vi, ui] * np.clip((t - 0.12) / 0.2, 0, 1)
+        fc = np.clip((np.maximum.accumulate(smooth1d(raw, 1.5)) - 0.45) / 0.3, 0, 1)   # only clear flames
     vs = []
     for i in range(n - 1):
         row = []
         for j in range(K):
             v = bm.verts.new(Vector(pts[i, j]))
-            v[lt], v[lw], v[li] = float(t[i]), float(cph[j]), lock_id
+            v[lt], v[lw], v[li], v[lc] = float(t[i]), float(cph[j]), lock_id, float(fc[i])
             row.append(v)
         vs.append(row)
     tip = bm.verts.new(Vector(pts[n - 1].mean(axis=0)))
-    tip[lt], tip[lw], tip[li] = 1.0, 0.0, lock_id
+    tip[lt], tip[lw], tip[li], tip[lc] = 1.0, 0.0, lock_id, float(fc[-1])
     root = bm.verts.new(Vector(pts[0].mean(axis=0)))
-    root[lt], root[lw], root[li] = 0.0, 0.0, lock_id
+    root[lt], root[lw], root[li], root[lc] = 0.0, 0.0, lock_id, float(fc[0])
     U = np.clip(s, 0, 0.998)
     V = A_ / (2 * math.pi)
 
@@ -1848,15 +1885,16 @@ def build_tail(mat_holder):
     keep = np.arange(0, len(body.P), 2)
     if keep[-1] != len(body.P) - 1:
         keep = np.r_[keep, len(body.P) - 1]
-    under, grid = build_tail_mesh("tail_underfur", body.P[keep], body.ru[keep] * 0.87, body.rb[keep] * 0.87,
-                                  body.rf[keep] * 0.87, 40, placeholder, ripple=0.03, nflutes=11, seed=3)
+    under, grid = build_tail_mesh("tail_underfur", body.P[keep], body.ru[keep] * TAIL_UNDER, body.rb[keep] * TAIL_UNDER,
+                                  body.rf[keep] * TAIL_UNDER, 40, placeholder, ripple=0.03, nflutes=11, seed=3)
     set_attr(under, "fur_t", np.full(len(under.data.vertices), 0.12))
     objs = [under]
+    col_img, emi_img, cream = tail_images(grid, 0)
+    set_attr(under, "fur_cream", np.zeros(len(under.data.vertices)))
     rng = random.Random(41)
     specs = tail_fur_lock_specs(rng)
     for k, sp in enumerate(specs):
-        objs.append(build_tail_fur_lock(f"tail_fur_lock_{k:02d}", body, sp, rng.random(), placeholder))
-    col_img, emi_img = tail_images(grid, 0)
+        objs.append(build_tail_fur_lock(f"tail_fur_lock_{k:02d}", body, sp, rng.random(), placeholder, cream=cream))
     mat = tail_material(col_img, emi_img)
     for o in objs:
         o.data.materials[0] = mat
@@ -1870,7 +1908,8 @@ def cream_field(p):
     nz = 0.0016 * noise.noise(Vector((x * 90, y * 90, z * 90))) + 0.0012 * noise.noise(Vector((x * 260, y * 260, z * 260)))
     # head: below a line from the nose under the eye back to the cheek tufts
     zb = float(np.interp(y, [-0.25, -0.225, -0.205, -0.185, -0.165, -0.145, -0.125, -0.105, -0.09],
-                         [0.301, 0.302, 0.305, 0.31, 0.311, 0.306, 0.298, 0.286, 0.273]))
+                         [0.301, 0.303, 0.309, 0.313, 0.313, 0.307, 0.298, 0.286, 0.273]))   # cheeks cream up to just under the eyes (front drawing)
+    zb += 0.006 * float(smoothstep(abs(x), 0.036, 0.056))      # outer cheeks: cream up to the eye's outer corner
     head = max(z - zb, y + 0.09, 0.248 - z)
     wb = 0.004 + 0.012 * min(1.0, max(0.0, (y + 0.24) / 0.05))
     bridge = max(abs(x) - wb, 0.3005 - z, y + 0.20)

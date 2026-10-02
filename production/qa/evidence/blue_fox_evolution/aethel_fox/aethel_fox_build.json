@@ -1,24 +1,24 @@
 {
- "build": 1,
+ "build": 3,
  "final": false,
- "at": "2026-10-02T01:38:40+00:00",
+ "at": "2026-10-02T02:58:47+00:00",
  "samples": 16,
  "resolution": 768,
  "report": {
-  "triangles": 65066,
+  "triangles": 117868,
   "dimensions_m": [
-   0.212,
-   0.639,
-   0.527
+   0.223,
+   0.613,
+   0.5
   ],
   "materials": [
    "M_fur",
    "M_fur_cream",
    "M_ear_outer",
    "M_ear_inner",
-   "M_cream_blade",
+   "M_ear_tuft",
    "M_eye",
-   "M_liner",
+   "M_eyelid",
    "M_nose",
    "M_cord",
    "M_silver",
@@ -28,11 +28,11 @@
   ],
   "texture_sources": [],
   "glb": "assets/models/blue_fox_evolution/aethel_fox.glb",
-  "glb_bytes": 3504800
+  "glb_bytes": 4815972
  },
  "checks": {
   "parts": {
-   "parts": 49,
+   "parts": 104,
    "floating": [],
    "no_material": [],
    "flat_colour": []
@@ -41,8 +41,8 @@
    "non_manifold_edges": 0,
    "open_edges": 0,
    "loose_vertices": 0,
-   "degenerate_faces": 0,
-   "mirror_error": 0.0038
+   "degenerate_faces": 16,
+   "mirror_error": 0.0051
   }
  },
  "bake": null,
