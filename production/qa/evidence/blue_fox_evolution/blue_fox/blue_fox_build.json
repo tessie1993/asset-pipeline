@@ -1,14 +1,14 @@
 {
- "build": 11,
+ "build": 13,
  "final": false,
- "at": "2026-10-02T03:10:15+00:00",
+ "at": "2026-10-02T04:03:33+00:00",
  "samples": 16,
  "resolution": 768,
  "report": {
-  "triangles": 80088,
+  "triangles": 80063,
   "dimensions_m": [
-   0.153,
-   0.45,
+   0.154,
+   0.456,
    0.312
   ],
   "materials": [
@@ -23,7 +23,7 @@
   ],
   "texture_sources": [],
   "glb": "assets/models/blue_fox_evolution/blue_fox.glb",
-  "glb_bytes": 15326712
+  "glb_bytes": 15282340
  },
  "checks": {
   "parts": {
@@ -33,11 +33,11 @@
    "flat_colour": []
   },
   "mesh": {
-   "non_manifold_edges": 0,
+   "non_manifold_edges": 1,
    "open_edges": 0,
    "loose_vertices": 0,
    "degenerate_faces": 0,
-   "mirror_error": 0.0017
+   "mirror_error": 0.0014
   }
  },
  "bake": null,
