@@ -326,9 +326,7 @@ curl underside fuller); tail X width; the 120k budget split; the part-module spl
   features in the reference and the build (crops, cv.py sample and closeup); (4) treat the overlap and aspect
   numbers of cv.py compare as a coarse check of the outline only, never the target: a change that raises
   overlap but makes a part read less as what it is goes the wrong way; (5) in the review and the Handoff,
-  rank what needs improving by how much it hurts what each part is, not by pixel area. (Coordinator's
-  example: the tail in the reference is a smooth plume with flat swirl markings painted on it, not a mass of
-  separate fur strands: ask what it is before matching its outline.)
+  rank what needs improving by how much it hurts what each part is, not by pixel area.
 - User (cycle 4): "Snout too narrow. Make more fox shaped snout". A fox snout is a wedge: broad where it
   meets the cheeks and the eyes, tapering evenly to a small, pointed, triangular nose; in profile the bridge
   runs fairly straight from just below the eyes to the nose tip; the muzzle is deep at its base with the lower
@@ -340,8 +338,12 @@ curl underside fuller); tail X width; the 120k budget split; the part-module spl
   markings; the forehead and brow marks; the body and tail swirls; the glowing lines). Build colour
   boundaries from the full-resolution source image, or from smooth vector curves and masks, never from a
   downscaled crop.
-- User (cycle 4): every Handoff has a Lessons section: each mistake of the cycle (lead's and part
-  builders'), its root cause (not the symptom), and a look-out that would have prevented it; copy earlier
-  Lessons forward.
+- User (cycle 4): references stay at original image quality. Build outlines, colour boundaries and
+  textures only from the source image or its native-resolution cut-outs (a cut-out is fine, a resized one
+  isn't). Never use a mask, compare sheet or downscaled image made for the quick check. Check whether the
+  tail path (fitted to outline rows in the kit camera's normalised frame) and any other outline, mask or
+  colour boundary came from such an image; if so, rebuild it from the source.
+- The tail stays fur (the rule above). The smooth-plume tail tests of cycle 4 (pl1, pl2, plume_cmp*.png)
+  came from an orchestrator's own reading of the drawing, not from the user: do not continue them.
 - Lead and part builders (user): the builder that reads this Handoff leads; it runs 2-4 part builders
   on Sonnet 5.5 at once (builder_guide.md section 8).
