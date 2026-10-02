@@ -453,14 +453,15 @@ def leg_defs():
     """Leg joint chains (points, radii): front legs straight under the chest, hind legs in stride."""
     legs = {}
     for s in (1, -1):
-        legs[f"fl{s}"] = ([(s * 0.036, -0.118, 0.205), (s * 0.031, -0.112, 0.135), (s * 0.028, -0.114, 0.075),
-                           (s * 0.027, -0.113, 0.035), (s * 0.027, -0.112, 0.016)],
-                          [0.027, 0.0185, 0.0155, 0.0145, 0.0145])
+        fy = -0.113 if s > 0 else -0.127       # side view (kit camera): two separate legs, the far one a step ahead
+        legs[f"fl{s}"] = ([(s * 0.036, fy - 0.006, 0.200), (s * 0.031, fy + 0.001, 0.135), (s * 0.028, fy - 0.001, 0.075),
+                           (s * 0.027, fy, 0.035), (s * 0.027, fy + 0.001, 0.016)],
+                          [0.026, 0.017, 0.0135, 0.0125, 0.0132])
     # hind: near (+X) paw at Y 0.095, far (-X) paw at Y 0.05 (side-view stride)
-    for s, py in ((1, 0.115), (-1, 0.072)):
-        legs[f"hl{s}"] = ([(s * 0.040, 0.078, 0.21), (s * 0.041, py - 0.045, 0.135), (s * 0.036, py + 0.018, 0.078),
+    for s, py in ((1, 0.092), (-1, 0.035)):      # side view (kit camera rows): wide stride, far paw under the loin
+        legs[f"hl{s}"] = ([(s * 0.040, 0.052, 0.20), (s * 0.041, py - 0.045, 0.135), (s * 0.036, py + 0.018, 0.078),
                            (s * 0.033, py + 0.004, 0.035), (s * 0.033, py, 0.016)],
-                          [0.03, 0.021, 0.0145, 0.0135, 0.0145])
+                          [0.029, 0.02, 0.013, 0.012, 0.013])
     return legs
 
 
@@ -469,22 +470,22 @@ def body_clay():
     clay = S.Clay((-0.13, -0.29, -0.01), (0.13, 0.17, 0.40), voxel=0.0021)
     E, C, T = S.sd_ellipsoid, S.sd_cone, S.sd_tube
     # --- torso (side view: chest front Y -0.19, back line Z 0.245, chest bottom Z 0.13, rump Y 0.115)
-    clay.add(E((0, -0.126, 0.194), (0.056, 0.064, 0.062)))                     # chest
-    clay.add(E((0, -0.065, 0.203), (0.055, 0.075, 0.053)), blend=0.03)        # ribcage
-    clay.add(E((0, 0.0, 0.213), (0.045, 0.06, 0.043)), blend=0.03)            # waist / loin (tuck-up)
-    clay.add(E((0, 0.078, 0.206), (0.050, 0.058, 0.05)), blend=0.028)       # pelvis / rump
-    clay.add(E((0.034, -0.105, 0.208), (0.024, 0.04, 0.05), rot=(12, 0, 0)), blend=0.02, mirror=True)  # shoulders
-    clay.add(E((0, -0.162, 0.17), (0.046, 0.034, 0.06)), blend=0.03)        # chest ruff mound
+    clay.add(E((0, -0.112, 0.192), (0.054, 0.058, 0.058)))                     # chest (front Y -0.17)
+    clay.add(E((0, -0.060, 0.200), (0.053, 0.072, 0.046)), blend=0.03)        # ribcage (belly up: bottom 0.154)
+    clay.add(E((0, 0.0, 0.205), (0.044, 0.06, 0.04)), blend=0.03)             # waist / loin (tuck-up)
+    clay.add(E((0, 0.047, 0.198), (0.050, 0.058, 0.048)), blend=0.028)       # pelvis / rump (top 0.246, back end Y 0.105)
+    clay.add(E((0.034, -0.096, 0.198), (0.024, 0.04, 0.048), rot=(12, 0, 0)), blend=0.02, mirror=True)  # shoulders
+    clay.add(E((0, -0.142, 0.165), (0.042, 0.030, 0.055)), blend=0.03)       # chest ruff mound (front -0.172)
     # --- neck and head (nose Y -0.24 Z 0.30, eye Z 0.318, crown Z 0.36, back of skull Y -0.10)
-    clay.add(T([(0, -0.118, 0.213), (0, -0.142, 0.270), (0, -0.148, 0.313)], [0.046, 0.041, 0.037]), blend=0.025)
-    clay.add(E((0, -0.154, 0.330), (0.062, 0.052, 0.040)), blend=0.02)       # cranium, crown Z 0.362
+    clay.add(T([(0, -0.106, 0.205), (0, -0.136, 0.268), (0, -0.147, 0.313)], [0.044, 0.039, 0.037]), blend=0.025)
+    clay.add(E((0, -0.154, 0.334), (0.062, 0.052, 0.042)), blend=0.02)       # cranium, crown Z 0.376 (side: forehead higher)
     clay.add(E((0, -0.176, 0.334), (0.040, 0.03, 0.024)), blend=0.015)       # brow / frontal plane
     clay.add(E((0.04, -0.172, 0.305), (0.035, 0.034, 0.029)), blend=0.016, mirror=True)  # cheeks
     clay.add(C((0, -0.183, 0.318), (0, -0.236, 0.307), 0.024, 0.008), blend=0.016)       # muzzle
-    clay.add(C((0, -0.172, 0.298), (0, -0.226, 0.298), 0.018, 0.006), blend=0.012)         # lower jaw
+    clay.add(C((0, -0.172, 0.293), (0, -0.226, 0.294), 0.020, 0.0065), blend=0.012)        # lower jaw (side: muzzle bottom lower)
     clay.add(E((0, -0.118, 0.304), (0.038, 0.036, 0.038)), blend=0.022)      # nape
-    for s in (1, -1):                                                            # eye seats
-        clay.sub(E((s * 0.03, -0.196, 0.327), (0.013, 0.007, 0.008), rot=(0, s * -14, s * 34)), blend=0.003)
+    for s in (1, -1):                                                            # eye seats: a shallow bed for the eye lens
+        clay.sub(E((s * 0.031, -0.199, 0.327), (0.0135, 0.0018, 0.0095), rot=(0, s * -12, s * 30)), blend=0.004)
     # mouth corner crease
     for s in (1, -1):
         clay.sub(C((s * 0.006, -0.234, 0.299), (s * 0.02, -0.215, 0.301), 0.0012, 0.0012), blend=0.001)
@@ -499,22 +500,20 @@ def body_clay():
             j = 1.0 + (rng.random() - 0.5) * 0.2
             bb = (a[0] + (b[0] - a[0]) * j, b[1] + rng.uniform(-0.004, 0.004), b[2] + rng.uniform(-0.004, 0.004))
             clay.add(C((s * a[0], a[1], a[2]), (s * bb[0], bb[1], bb[2]), r, 0.0012), blend=0.006)
-        # nape locks
-        for a, b, r in [((0.035, -0.115, 0.308), (0.060, -0.095, 0.298), 0.011), ((0.035, -0.10, 0.288), (0.058, -0.08, 0.278), 0.01)]:
-            clay.add(C((s * a[0], a[1], a[2]), (s * (b[0] + rng.uniform(-0.004, 0.004)), b[1], b[2]), r, 0.0012), blend=0.007)
+        # (no nape locks: the side view's neck is smooth behind the ears)
         # elbow tufts at the back of the front legs (side view z 0.10-0.13)
         clay.add(C((s * 0.034, -0.10, 0.14), (s * 0.036, -0.082, 0.112 + rng.uniform(-0.004, 0.004)), 0.0095, 0.0012), blend=0.006)
-        # belly fringe
-        for k in range(3):
-            y = -0.09 + k * 0.045 + rng.uniform(-0.006, 0.006)
-            clay.add(C((s * 0.026, y, 0.150), (s * 0.028, y + 0.016, 0.130 + rng.uniform(-0.006, 0.004)), 0.0095, 0.0012), blend=0.006)
-        # ruff locks along the chest side
-        for z, l in [(0.205, 0.028), (0.18, 0.032), (0.155, 0.03)]:
-            clay.add(C((s * 0.038, -0.172, z), (s * (0.054 + rng.uniform(0, 0.008)), -0.185, z - l), 0.01, 0.0012), blend=0.006)
+        # belly fringe: small locks swept back along the chest-belly edge (serrated, not bumps)
+        for k in range(2):
+            y = -0.075 + k * 0.035 + rng.uniform(-0.005, 0.005)
+            clay.add(C((s * 0.03, y, 0.152), (s * 0.031, y + 0.024, 0.141 + rng.uniform(-0.004, 0.003)), 0.0065, 0.001), blend=0.006)
+        # ruff locks along the chest side, swept down and back
+        for z, l in [(0.20, 0.024), (0.178, 0.028), (0.155, 0.026)]:
+            clay.add(C((s * 0.038, -0.150, z), (s * (0.050 + rng.uniform(0, 0.006)), -0.150 + rng.uniform(-0.004, 0.006), z - l), 0.0085, 0.0012), blend=0.006)
     # chest ruff spikes: V point at Z 0.105 between the front legs (front view)
-    for x, z0, z1, r in [(0.0, 0.15, 0.104, 0.016), (0.017, 0.152, 0.116, 0.013), (-0.018, 0.153, 0.118, 0.012),
-                         (0.033, 0.16, 0.13, 0.011), (-0.032, 0.161, 0.128, 0.011)]:
-        clay.add(C((x, -0.178, z0), (x * 1.05, -0.177, z1), r, 0.0012), blend=0.006)
+    for x, z0, z1, r in [(0.0, 0.15, 0.104, 0.015), (0.017, 0.152, 0.116, 0.012), (-0.018, 0.153, 0.118, 0.0115),
+                         (0.033, 0.16, 0.13, 0.010), (-0.032, 0.161, 0.128, 0.0105)]:
+        clay.add(C((x, -0.160, z0), (x * 1.05, -0.152, z1), r, 0.0012), blend=0.006)
     # --- legs, thighs, paws with toes and creases
     for key, (pts, rad) in leg_defs().items():
         clay.add(T(pts, rad), blend=0.008)
@@ -568,18 +567,23 @@ def side_strokes(rng):
     # hind leg streak
     st.append((bez2((0.10, 0.09), (0.106, 0.075), (0.108, 0.06), (0.11, 0.045)), [0.001, 0.0025, 0.002, 0.0008]))
     # face: two pale strokes behind the eye, one on the crown
-    st.append((bez2((-0.172, 0.3180), (-0.16, 0.3140), (-0.148, 0.3150), (-0.136, 0.3220)), [0.0008, 0.0026, 0.002, 0.0006]))
-    st.append((bez2((-0.168, 0.3080), (-0.156, 0.3040), (-0.146, 0.3040), (-0.136, 0.3080)), [0.0006, 0.002, 0.0016, 0.0005]))
+    # (side drawing: three short pale strokes behind the outer eye corner, rising toward the back)
+    st.append(([(-0.168, 0.3355), (-0.1635, 0.3385), (-0.159, 0.3420)], [0.0004, 0.0012, 0.0003]))
+    st.append(([(-0.165, 0.3290), (-0.1595, 0.3320), (-0.154, 0.3355)], [0.0004, 0.0013, 0.0003]))
+    st.append(([(-0.163, 0.3110), (-0.1575, 0.3140), (-0.152, 0.3175)], [0.0004, 0.0011, 0.0003]))
     return st
 
 
 def front_strokes():
-    """Front-projected markings (X, Z): forehead flame, under-eye strokes."""
+    """Front-projected markings (X, Z): forehead flame, pale strokes beyond the outer eye corners."""
     st = []
     st.append((bez2((0.0, 0.3440), (0.0015, 0.3490), (-0.001, 0.3540), (0.0, 0.3590)), [0.0008, 0.0038, 0.0026, 0.0004]))
     for s in (1, -1):
         st.append((bez2((s * 0.005, 0.3440), (s * 0.010, 0.3490), (s * 0.011, 0.3530), (s * 0.008, 0.3570)), [0.0005, 0.0016, 0.0012, 0.0004]))
-        st.append((bez2((s * 0.018, 0.3130), (s * 0.03, 0.3100), (s * 0.04, 0.3110), (s * 0.05, 0.3170)), [0.0005, 0.0018, 0.0014, 0.0004]))
+        # three short pale fur strokes beyond the outer corner of each eye (front drawing x 130-150 px)
+        for (x0, z0), (x1, z1), w in (((0.047, 0.3335), (0.0525, 0.3275), 0.0011), ((0.0485, 0.3265), (0.0545, 0.3205), 0.0012),
+                                      ((0.0495, 0.3200), (0.0540, 0.3165), 0.0009)):
+            st.append(([(s * x0, z0), (s * (x0 + x1) / 2 + s * 0.0006, (z0 + z1) / 2), (s * x1, z1)], [0.0003, w, 0.0002]))
     return st
 
 
@@ -596,14 +600,12 @@ def mark_images():
     for ch in (0, 1):
         rng = random.Random(100 + ch)
         for pts, w in side_strokes(rng):
+            # the haunch moved forward 0.035 with the hind legs: strokes behind the loin follow it
+            pts = [(y - 0.035 * min(max((y + 0.02) / 0.06, 0.0), 1.0), z) for y, z in pts]
             poly_paint(marks[..., ch], Ys, Zs, pts, np.asarray(w), 1.5 * px, halo=0.16, halo_w=0.0016)
     for pts, w in front_strokes():
         poly_paint(marks[..., 2], Xf, Zf, pts, w, 1.5 * px, halo=0.18, halo_w=0.0015)
-    for s in (1, -1):    # cream brow spots, oval, tilted
-        d = np.sqrt(((Xf - s * 0.025) / 0.0068) ** 2 + ((Zf - 0.345 + s * 0.0) / 0.0040) ** 2)
-        decal[..., 0] = np.maximum(decal[..., 0], np.clip((1 - d) * 8, 0, 1))
-    d = np.sqrt(((Ys + 0.193) / 0.0068) ** 2 + ((Zs - 0.346) / 0.004) ** 2)
-    decal[..., 1] = np.maximum(decal[..., 1], np.clip((1 - d) * 8, 0, 1))
+    # (the cream brow markings are drawn in 3D in the fur shader: see brow_marking)
     for s in (1, -1):    # W smile under the nose
         poly_paint(decal[..., 2], Xf, Zf, bez2((0.0, 0.2990), (s * 0.004, 0.2955), (s * 0.009, 0.2950), (s * 0.016, 0.2995)),
                    [0.0015, 0.0013, 0.0013, 0.0007], 1.5 * px)
@@ -612,6 +614,36 @@ def mark_images():
 
 
 # ============================================================================ MATERIALS
+BROW_NODES = []   # Mapping nodes of the brow markings, set to the final scale in build()
+
+
+def brow_frame(clay, body_bvh):
+    """The cream brow marking above each eye (front drawing: centre X +-0.0214, 0.023 above the eye
+    centre; 0.016 long, 0.009 wide, its inner end higher): centre on the head, axes (long, short,
+    normal) in the head's tangent plane, for the +X side (the shader mirrors X)."""
+    hit, _, _, _ = body_bvh.ray_cast(Vector((0.0214, -0.30, 0.350)), Vector((0.0, 1.0, 0.0)), 0.3)
+    _, n = clay.project(np.array([tuple(hit)]))
+    c, n = np.array(hit), n[0]
+    d = np.array([-0.5, 0.0, 1.0])
+    d1 = d - (d @ n) * n
+    d1 /= np.linalg.norm(d1)
+    d2 = np.cross(n, d1)
+    R = Matrix((tuple(d1), tuple(d2), tuple(n))).transposed()
+    return Vector(c), R.to_euler("XYZ"), Vector((0.0080, 0.0046, 0.006))
+
+
+def brow_marking(nt):
+    """Soft-edged cream oval on each brow, drawn in object space (X mirrored), one mark per side."""
+    co = nt.sep(nt.coords("Object"))
+    mirrored = nt.combine(nt.math("ABSOLUTE", co[0]), co[1], co[2])
+    mp = nt.node("ShaderNodeMapping", vector_type="TEXTURE")
+    nt.link(mirrored, mp.inputs["Vector"])
+    BROW_NODES.append(mp)
+    ln = nt.node("ShaderNodeVectorMath", operation="LENGTH")
+    nt.link(mp.outputs[0], ln.inputs[0])
+    return nt.maprange(ln.outputs["Value"], 1.0, 0.82)
+
+
 def fur_material(name, marks, decal, cream):
     """Stylised painted fur: blue body (navy lower legs, light head) or cream (tan belly / patch);
     fur strokes in colour, roughness and bump; glow markings and decals from the projection images."""
@@ -651,7 +683,7 @@ def fur_material(name, marks, decal, cream):
     glow = nt.math("MAXIMUM", nt.math("MULTIPLY", side_glow, wside), nt.math("MULTIPLY", mk_front[2], wfront))
     dc_side = nt.rgb_sep(nt.image(decal, side_uv).outputs["Color"])
     dc_front = nt.rgb_sep(nt.image(decal, front_uv).outputs["Color"])
-    creamspot = nt.math("MAXIMUM", nt.math("MULTIPLY", dc_front[0], wfront), nt.math("MULTIPLY", dc_side[1], wside))
+    creamspot = brow_marking(nt)
     darkline = nt.math("MULTIPLY", dc_front[2], wfront)
     if not cream:
         base = nt.mix(creamspot, base, lin("#e0d6c8"))
@@ -694,7 +726,7 @@ def ear_materials(img):
             base = nt.mix(nt.math("MULTIPLY", rim, 0.9), base, lin("#5d7398"))
             rough = nt.math("ADD", nt.math("MULTIPLY", strk, 0.15), 0.62)
         else:
-            base = nt.ramp(t, [(0.0, "#87abc4"), (0.5, "#93bad0"), (0.9, "#8aaecb"), (1.0, "#6d86ad")])
+            base = nt.ramp(t, [(0.0, "#87abc4"), (0.5, "#93bad0"), (0.72, "#8cb0cc"), (0.84, "#7090b6"), (1.0, "#566f9b")])   # navy tip
             sv = nt.ramp(strk, [(0.3, (0.92, 0.93, 0.95, 1)), (0.7, (1.07, 1.06, 1.04, 1))])
             base = nt.mix(1.0, base, sv, "MULTIPLY")
             base = nt.mix(nt.math("MULTIPLY", rim, 0.75), base, lin("#647ea6"))
@@ -706,8 +738,8 @@ def ear_materials(img):
     return out
 
 
-def cream_blade_material():
-    mat, tree, bsdf = kit.principled("M_cream_blade")
+def ear_tuft_material():
+    mat, tree, bsdf = kit.principled("M_ear_tuft")
     nt = NT(tree)
     uv = nt.node("ShaderNodeUVMap", uv_map=kit.UV_LAYER).outputs[0]
     uvs = nt.sep(uv)
@@ -801,30 +833,51 @@ def gem_material():
 
 
 def eye_material():
-    """Anime eye from its own UVs: grey-blue iris dark at the top, light below, dark pupil and rim,
-    white catch light, pale corners."""
+    """The eye's surface from its own UVs (x outward, y up, metres in the opening): the eyeball's
+    warm grey-white sclera, shaded under the upper eyelid and a little warmer at the tear duct; a
+    large grey iris (IRIS_R, centred IRIS_C toward the nose) dark slate on top where the lid shades
+    it, lighter below with a pale crescent (light through the cornea), fine radial fibres and a dark
+    limbal ring; a big dark pupil; the cornea's reflection: one white catch light on the pupil's upper
+    inner side and a faint small one low on the outer side. Glossy (cornea)."""
     mat, tree, bsdf = kit.principled("M_eye")
     nt = NT(tree)
     uv = nt.node("ShaderNodeUVMap", uv_map=kit.UV_LAYER).outputs[0]
     uvs = nt.sep(uv)
-    ra, rb = 0.0132, 0.0102
-    x = nt.math("MULTIPLY", nt.math("SUBTRACT", uvs[0], 0.5), 2 * ra)
-    y = nt.math("MULTIPLY", nt.math("SUBTRACT", uvs[1], 0.5), 2 * rb)
-    dx = nt.math("SUBTRACT", x, 0.0008)
-    r = nt.math("DIVIDE", nt.math("SQRT", nt.math("ADD", nt.math("POWER", dx, 2.0), nt.math("POWER", y, 2.0))), 0.0094)
-    vert = nt.math("ADD", nt.math("DIVIDE", y, 0.016), 0.5)
-    iris = nt.ramp(vert, [(0.0, "#aab8d2"), (0.35, "#7d8fb4"), (0.65, "#53648e"), (1.0, "#323c62")])
-    col = nt.mix(nt.maprange(r, 0.36, 0.30), iris, lin("#161b30"))
-    col = nt.mix(nt.maprange(r, 0.86, 0.97), col, lin("#262c4c"))
-    col = nt.mix(nt.maprange(r, 1.02, 1.10), col, lin("#c9d3e2"))
-    hl = nt.math("SQRT", nt.math("ADD", nt.math("POWER", nt.math("ADD", x, 0.0022), 2.0),
-                                 nt.math("POWER", nt.math("SUBTRACT", y, 0.0024), 2.0)))
-    hlm = nt.maprange(hl, 0.0017, 0.0011)
+    x = nt.math("MULTIPLY", nt.math("SUBTRACT", uvs[0], 0.5), 2 * EYE_A)
+    y = nt.math("MULTIPLY", nt.math("SUBTRACT", uvs[1], 0.5), 2 * EYE_BT)
+    ix = nt.math("DIVIDE", nt.math("SUBTRACT", x, IRIS_C[0]), IRIS_R[0])
+    iy = nt.math("DIVIDE", nt.math("SUBTRACT", y, IRIS_C[1]), IRIS_R[1])
+    r = nt.math("SQRT", nt.math("ADD", nt.math("POWER", ix, 2.0), nt.math("POWER", iy, 2.0)))   # 1 at the iris edge
+    ang = nt.node("ShaderNodeMath", operation="ARCTAN2")
+    nt.link(iy, ang.inputs[0]); nt.link(ix, ang.inputs[1])
+    fib = nt.noise(nt.combine(nt.math("MULTIPLY", ang.outputs[0], 4.0), nt.math("MULTIPLY", r, 0.8)), 5.0, 2, 0.5)
+    vert = nt.math("ADD", nt.math("MULTIPLY", iy, 0.5), 0.5)                     # 0 iris bottom .. 1 top
+    yf = nt.math("ADD", nt.math("MULTIPLY", nt.math("DIVIDE", y, EYE_BT), 0.5), 0.5)  # 0 bottom .. 1 top of the opening
+    sclera = nt.ramp(yf, [(0.0, "#cfcac4"), (0.3, "#d9d4ce"), (0.62, "#cdc8c3"), (0.82, "#a9a6ad"), (1.0, "#77768a")])
+    duct = nt.maprange(x, -EYE_A * 0.95, -EYE_A * 0.6)                           # tear duct: inner corner warmer
+    sclera = nt.mix(nt.math("MULTIPLY", duct, 0.6), sclera, lin("#c9b7b2"))
+    iris = nt.ramp(vert, [(0.0, "#b3b7c6"), (0.14, "#9aa1b7"), (0.38, "#6c7389"), (0.62, "#4b5068"), (0.85, "#32344a"), (1.0, "#26273a")])
+    iris = nt.mix(nt.math("MULTIPLY", nt.maprange(fib, 0.42, 0.7), 0.3), iris, lin("#a9b2c9"))
+    cres = nt.math("MULTIPLY", nt.math("MULTIPLY", nt.maprange(r, 0.5, 0.62), nt.maprange(r, 0.92, 0.8)),
+                   nt.maprange(iy, -0.25, -0.65))
+    iris = nt.mix(nt.math("MULTIPLY", cres, 0.55), iris, lin("#c2c6d3"))       # pale crescent low in the iris
+    col = nt.mix(nt.maprange(r, 0.97, 1.03), iris, sclera)                       # iris -> sclera
+    col = nt.mix(nt.math("MULTIPLY", nt.maprange(r, 0.84, 0.96), nt.maprange(r, 1.04, 0.98)), col, lin("#23253a"))  # limbal ring
+    col = nt.mix(nt.maprange(r, 0.50, 0.44), col, lin("#1b1a28"))               # pupil
+    lid = nt.maprange(yf, 0.84, 1.0)                                             # upper eyelid shadow on the eyeball
+    col = nt.mix(nt.math("MULTIPLY", lid, 0.45), col, lin("#25263a"))
+    hx = nt.math("SUBTRACT", x, IRIS_C[0] - 0.0021)
+    hy = nt.math("SUBTRACT", y, IRIS_C[1] + 0.0040)
+    hl = nt.math("SQRT", nt.math("ADD", nt.math("POWER", hx, 2.0), nt.math("POWER", hy, 2.0)))
+    hlm = nt.maprange(hl, 0.0023, 0.0018)
+    hx2 = nt.math("SUBTRACT", x, IRIS_C[0] + 0.0034)
+    hy2 = nt.math("SUBTRACT", y, IRIS_C[1] - 0.0052)
+    hl2 = nt.math("SQRT", nt.math("ADD", nt.math("POWER", hx2, 2.0), nt.math("POWER", hy2, 2.0)))
+    hlm2 = nt.math("MULTIPLY", nt.maprange(hl2, 0.0010, 0.0006), 0.45)
     col = nt.mix(hlm, col, lin("#fbfdff"))
-    sparkle = nt.noise(uv, 30.0, 2, 0.5)
-    col = nt.mix(nt.math("MULTIPLY", nt.maprange(sparkle, 0.55, 0.7), 0.2), col, lin("#c3d1ea"))
-    set_bsdf(nt, bsdf, base=col, rough=nt.math("ADD", nt.math("MULTIPLY", sparkle, 0.1), 0.12),
-             emis_col=nt.mix(hlm, lin("#000000"), lin("#ffffff")), emis_str=0.6)
+    col = nt.mix(hlm2, col, lin("#dfe7f3"))
+    set_bsdf(nt, bsdf, base=col, rough=nt.math("ADD", nt.math("MULTIPLY", fib, 0.05), 0.08),
+             emis_col=nt.mix(nt.math("MAXIMUM", hlm, hlm2), lin("#000000"), lin("#ffffff")), emis_str=0.8)
     return mat
 
 
@@ -838,22 +891,45 @@ def dark_material(name, hexcol, rough, hi="#4a4458"):
 
 
 def tail_material(col_img, emi_img):
+    """The tail's fur: the painted atlas (blue, cream flames, glowing swirls, cream tip) on every lock,
+    each lock darker and bluer at its root and lighter at its tip (guard hairs lighten toward the
+    ends, the underfur between them stays dark), strand grooves running along each lock, the lock's
+    edges a little darker where it overlaps the next, per-lock tone variation."""
     mat, tree, bsdf = kit.principled("M_tail")
     nt = NT(tree)
     uv = nt.node("ShaderNodeUVMap", uv_map=kit.UV_LAYER).outputs[0]
-    col = nt.image(col_img, uv).outputs["Color"]
-    emi = nt.rgb_sep(nt.image(emi_img, uv).outputs["Color"])
+    ci = nt.image(col_img, uv)
+    ci.extension = "REPEAT"
+    ei = nt.image(emi_img, uv)
+    ei.extension = "REPEAT"
+    col = ci.outputs["Color"]
+    emi = nt.rgb_sep(ei.outputs["Color"])
+    ft, fw, fid = nt.attr("fur_t"), nt.attr("fur_w"), nt.attr("fur_id")
+    # strands: fine noise stretched along the lock (across: fur_w, along: fur_t), offset per lock
+    strand = nt.noise(nt.combine(nt.math("ADD", nt.math("MULTIPLY", fw, 9.0), nt.math("MULTIPLY", fid, 37.0)),
+                                 nt.math("MULTIPLY", ft, 0.7), fid), 3.0, 3, 0.55)
+    groove = nt.math("ABSOLUTE", nt.math("SINE", nt.math("ADD", nt.math("MULTIPLY", fw, 7.5), nt.math("MULTIPLY", fid, 6.0))))
     strk = nt.noise(nt.scale_vec(uv, 160, 12, 1), 1.0, 4, 0.6)
-    sv = nt.ramp(strk, [(0.3, (0.91, 0.92, 0.95, 1)), (0.5, (1, 1, 1, 1)), (0.7, (1.07, 1.06, 1.04, 1))])
+    sv = nt.ramp(strk, [(0.3, (0.93, 0.94, 0.96, 1)), (0.5, (1, 1, 1, 1)), (0.7, (1.05, 1.04, 1.03, 1))])
     col = nt.mix(1.0, col, sv, "MULTIPLY")
+    # root dark and bluer, tip light
+    rt = nt.ramp(ft, [(0.0, (0.62, 0.68, 0.82, 1)), (0.25, (0.86, 0.89, 0.95, 1)), (0.6, (1, 1, 1, 1)), (1.0, (1.12, 1.11, 1.08, 1))])
+    col = nt.mix(1.0, col, rt, "MULTIPLY")
+    edge = nt.maprange(nt.math("ABSOLUTE", fw), 0.55, 1.0, 1.0, 0.82)
+    st = nt.maprange(strand, 0.35, 0.65, 0.9, 1.08)
+    shade = nt.math("MULTIPLY", nt.math("MULTIPLY", edge, st), nt.maprange(groove, 0.0, 0.5, 0.93, 1.0))
+    col = nt.mix(1.0, col, nt.combine(shade, shade, shade), "MULTIPLY")
+    tone = nt.maprange(fid, 0.0, 1.0, 0.95, 1.05, smooth=False)
+    col = nt.mix(1.0, col, nt.combine(tone, tone, tone), "MULTIPLY")
     glow = emi[0]
     col = nt.mix(nt.math("MULTIPLY", glow, 0.85), col, lin("#c9f4ff"))
     emis = nt.ramp(glow, [(0.0, "#000000"), (0.3, "#3fb4ea"), (1.0, "#b8f2ff")])
     ao = nt.node("ShaderNodeAmbientOcclusion")
     ao.inputs["Distance"].default_value = 0.02
-    col = nt.mix(nt.maprange(ao.outputs["AO"], 0.95, 0.5, 0.0, 0.4), col, lin("#4a5a85"))
-    rough = nt.math("ADD", nt.math("MULTIPLY", strk, 0.12), 0.72)
-    set_bsdf(nt, bsdf, base=col, rough=rough, emis_col=emis, emis_str=1.4, normal=nt.bump(strk, 0.3, 0.0012))
+    col = nt.mix(nt.maprange(ao.outputs["AO"], 0.95, 0.45, 0.0, 0.5), col, lin("#3e4c78"))
+    rough = nt.math("ADD", nt.math("MULTIPLY", strand, 0.14), nt.maprange(ft, 0.0, 1.0, 0.82, 0.66))
+    height = nt.math("ADD", nt.math("MULTIPLY", groove, 0.6), nt.math("MULTIPLY", strand, 0.4))
+    set_bsdf(nt, bsdf, base=col, rough=rough, emis_col=emis, emis_str=1.4, normal=nt.bump(height, 0.35, 0.0012))
     return mat
 
 
@@ -862,10 +938,10 @@ def ear_shape(side):
     """Leaf-shaped ear frame for side +1 (+X) or -1: base B, axis a, bowl normal f, width w, length L."""
     j = 0.002 * side
     B = np.array([side * 0.044, -0.150, 0.340])
-    Tp = np.array([side * (0.108 + j), -0.160 + 0.003 * side, 0.475 - abs(j)])
+    Tp = np.array([side * (0.100 + j), -0.150 + 0.003 * side, 0.445 - abs(j)])   # side: tips ~0.90 of the tail top; front wants taller (views disagree)
     L = float(np.linalg.norm(Tp - B))
     a = (Tp - B) / L
-    f0 = np.array([side * 0.55, -1.0, 0.10])
+    f0 = np.array([side * 0.45, -1.0, 0.10])
     f = f0 - (f0 @ a) * a
     f /= np.linalg.norm(f)
     w = np.cross(a, f)
@@ -893,7 +969,7 @@ def build_ear(side, m_out, m_in, uoff):
     for it in range(Nt):
         t = it / (Nt - 1) * 0.985
         c = B + a * L * t - f * 0.010 * math.sin(math.pi * t) * 0.7
-        D = 0.016 * (1 - t) ** 0.7
+        D = 0.027 * (1 - t) ** 0.6   # deep cone: the far ear keeps its width seen edge-on
         th = 0.0035 + 0.004 * (1 - t)
         front, back = [], []
         for u in us:
@@ -981,8 +1057,8 @@ def ear_image():
     return new_image("AF_ears", W, H, img)
 
 
-def ear_blades(side, mat, rng):
-    """Cream fur blades at the inner base of the ear, fanning up out of the bowl (4-5, each different)."""
+def build_ear_tufts(side, mat, rng):
+    """The ear tufts: cream fur locks at the inner base of the ear, fanning up out of the bowl (4-5, each different)."""
     B, a, f, w, L = ear_shape(side)
     objs = []
     for k in range(5):
@@ -1001,15 +1077,29 @@ def ear_blades(side, mat, rng):
         width[-1] = 0
         th = 0.0016 * (1 - tt) + 1e-5
         th[-1] = 0
-        o, _ = sweep(f"EarBlade_{side}_{k}", P, th, width, 8, mat, hint=np.tile(f, (14, 1)), uv_rect=(0, 0, 1, 1))
+        o, _ = sweep(f"ear_tuft_{side}_{k}", P, th, width, 8, mat, hint=np.tile(f, (14, 1)), uv_rect=(0, 0, 1, 1))
         o["keep_uv"] = True
         objs.append(o)
     return objs
 
 
 # ============================================================================ EYES, NOSE
+# The eye of an anime-style fox, measured on the front and side drawings (cycle 2): the opening is
+# 0.029 long and 0.021 tall (front: 60 x 53 px seen obliquely, side: 59 x 41 px), its long axis
+# rising 20 deg from the low, pointed inner corner (tear duct) to the higher outer corner, which the
+# upper eyelid line carries on into a wing. A big grey iris (0.016 x 0.020, upper lid over its top)
+# sits toward the nose, the warm grey eye white shows behind it, a white catch light on the pupil's
+# upper inner side. Upper eyelid line thick, lower eyelid line thin, both run the whole opening.
+EYE_A, EYE_BT, EYE_BB = 0.0135, 0.0112, 0.0088   # opening half-length, upper and lower half-height
+EYE_TILT = 20.0                                   # deg, outer corner up
+IRIS_C = (-0.0028, 0.0004)                        # iris centre in the eye (x outward, y up)
+IRIS_R = (0.0082, 0.0097)                         # iris half-width, half-height
+
+
 def eye_frame(clay, side):
-    p, n = clay.project(np.array([[side * 0.030, -0.197, 0.327]]))
+    """Eye centre on the head surface (front view: X +-0.031, Z 0.327 before the 0.50 m scale), the
+    surface normal turned a little outward, and the eye's long axis tilted EYE_TILT (outer corner up)."""
+    p, n = clay.project(np.array([[side * 0.031, -0.197, 0.327]]))
     p, n = p[0], n[0]
     n = n + np.array([side * 0.25, -0.1, 0.0])
     n /= np.linalg.norm(n)
@@ -1019,47 +1109,148 @@ def eye_frame(clay, side):
     e_long = np.cross(e_up, n)
     if e_long[0] * side < 0:
         e_long = -e_long
-    sl = math.radians(12)
+    sl = math.radians(EYE_TILT)
     e_l = e_long * math.cos(sl) + e_up * math.sin(sl)
     e_u = -e_long * math.sin(sl) + e_up * math.cos(sl)
     return p, n, e_l, e_u
 
 
-def build_eye(clay, side, mat):
-    p, n, el, eu = eye_frame(clay, side)
-    ra, rb, rc = 0.0132, 0.0102, 0.0048
-    c = p - n * 0.0008
+def eye_opening(theta):
+    """Outline of the eye opening in the eye frame (x outward along e_l, y up along e_u): a full
+    upper eyelid arc, a flatter lower eyelid, the inner corner (tear duct) pointed and dropped, the
+    outer corner pointed and a little raised."""
+    c, s_ = np.cos(theta), np.sin(theta)
+    b = np.where(s_ > 0, EYE_BT, EYE_BB)
+    x = EYE_A * c
+    y = b * s_ * (1 - 0.25 * c * c) - 0.0026 * np.clip(-c, 0, 1) ** 2 + 0.0008 * np.clip(c, 0, 1) ** 2
+    return x, y
+
+
+class EyeBed:
+    """Where the eye and its eyelid lines lie: heights along the eye normal above the eye plane,
+    measured on the finished body mesh (ray cast, so nothing of the body pokes through the eye)
+    and smoothed into one quadratic surface under the eye."""
+
+    def __init__(self, body_bvh, clay, side):
+        self.side = side
+        self.p, self.n, self.el, self.eu = eye_frame(clay, side)
+        self.bvh = body_bvh
+        th = np.linspace(0, 2 * math.pi, 48, endpoint=False)
+        bx, by = eye_opening(th)
+        xs, ys = [], []
+        for k in np.linspace(0.0, 1.0, 9):
+            xs.append(bx * k)
+            ys.append(by * k)
+        X, Y = np.concatenate(xs), np.concatenate(ys)
+        H = self.body_h(X, Y)
+        self.coef = np.linalg.lstsq(self._basis(X, Y), H, rcond=None)[0]
+
+    @staticmethod
+    def _basis(X, Y):
+        X, Y = np.asarray(X, float), np.asarray(Y, float)
+        return np.stack([np.ones_like(X), X, Y, X * X, X * Y, Y * Y], -1)
+
+    def body_h(self, X, Y):
+        out = []
+        for x, y in zip(np.atleast_1d(X), np.atleast_1d(Y)):
+            o = self.p + self.el * x + self.eu * y + self.n * 0.03
+            hit, _, _, _ = self.bvh.ray_cast(Vector(o), Vector(-self.n), 0.08)
+            out.append((np.array(hit) - self.p) @ self.n if hit is not None else 0.0)
+        return np.array(out)
+
+    def lens_h(self, X, Y):
+        """The eye's bed: the smooth fitted face, or the face itself where it rises above the fit
+        (so it never cuts into the eye), plus 0.4 mm."""
+        return np.maximum(self._basis(X, Y) @ self.coef, self.body_h(X, Y)) + 0.0004
+
+    def point(self, X, Y, h):
+        X, Y, h = (np.asarray(a, float) for a in (X, Y, h))
+        return self.p[None, :] + self.el[None, :] * X[:, None] + self.eu[None, :] * Y[:, None] + self.n[None, :] * h[:, None]
+
+
+def build_eye(bed, mat):
+    """The eye: a closed, gently domed lens over the opening (1.3 mm at the centre), lying on the
+    smoothed bed so the face never cuts into it; its rim turns down 1 mm into the head. UVs map the
+    opening in metres (x, y) for the iris shader."""
+    M, K = 48, 10
+    th = np.linspace(0, 2 * math.pi, M, endpoint=False)
+    bx, by = eye_opening(th)
+    ks = np.linspace(1.0 / K, 1.0, K)
+    X = np.r_[0.0, (ks[:, None] * bx[None, :]).ravel()]
+    Y = np.r_[0.0, (ks[:, None] * by[None, :]).ravel()]
+    kk = np.r_[0.0, np.repeat(ks, M)]
+    h = bed.lens_h(X, Y) + 0.0016 * (1 - kk ** 2)
+    front = bed.point(X, Y, h)
+    rimp = bed.point(bx, by, bed.lens_h(bx, by) - 0.0012)
+    back_c = bed.point([0.0], [0.0], bed.lens_h([0.0], [0.0]) - 0.002)[0]
     bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=36, v_segments=18, radius=1.0)
     uvl = bm.loops.layers.uv.new("UVMap")
-    for face in bm.faces:
-        for loop in face.loops:
-            lx, ly, lz = loop.vert.co
-            loop[uvl].uv = (0.5 + 0.5 * lx, 0.5 + 0.5 * lz)
-    for v in bm.verts:
-        lx, ly, lz = v.co
-        v.co = Vector(c + el * (ra * lx) + n * (rc * ly) + eu * (rb * lz))
+    fv = [bm.verts.new(Vector(v)) for v in front]
+    bc = bm.verts.new(Vector(back_c))
+    rim = [bm.verts.new(Vector(v)) for v in rimp]
+
+    def uv(i):
+        return (0.5 + X[i] / (2 * EYE_A), 0.5 + Y[i] / (2 * EYE_BT))
+    for j in range(M):
+        j2 = (j + 1) % M
+        f = bm.faces.new((fv[0], fv[1 + j], fv[1 + j2]))
+        for lp, idx in zip(f.loops, (0, 1 + j, 1 + j2)):
+            lp[uvl].uv = uv(idx)
+        for k in range(K - 1):
+            a, b = 1 + k * M + j, 1 + k * M + j2
+            c, d = 1 + (k + 1) * M + j2, 1 + (k + 1) * M + j
+            f = bm.faces.new((fv[a], fv[d], fv[c], fv[b]))
+            for lp, idx in zip(f.loops, (a, d, c, b)):
+                lp[uvl].uv = uv(idx)
+        o1, o2 = 1 + (K - 1) * M + j, 1 + (K - 1) * M + j2
+        f = bm.faces.new((fv[o1], rim[j], rim[j2], fv[o2]))
+        for lp, idx in zip(f.loops, (o1, o1, o2, o2)):
+            lp[uvl].uv = uv(idx)
+        f = bm.faces.new((rim[j2], rim[j], bc))
+        for lp in f.loops:
+            lp[uvl].uv = (0.5, 0.5)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bm.normal_update()
-    obj = kit.mesh_object(f"Eye_{side}", bm, mat)
+    obj = kit.mesh_object(f"eye_{'left' if bed.side > 0 else 'right'}", bm, mat)
     obj["keep_uv"] = True
     return obj
 
 
-def build_liner(clay, side, mat):
-    p, n, el, eu = eye_frame(clay, side)
-    ra, rb = 0.0132, 0.0102
-    c = p - n * 0.0008
-    pts = []
-    for th in np.linspace(math.pi + 0.3, 0.08, 24):
-        pts.append(c + el * ra * 1.03 * math.cos(th) + eu * rb * 1.12 * math.sin(th) + n * 0.0018)
-    pts.append(c + el * ra * 1.25 + eu * rb * 0.5 + n * 0.001)
-    pts.append(c + el * ra * 1.48 + eu * rb * 0.95)
-    P = np.array(pts)
-    tt = np.linspace(0, 1, len(P))
-    r = 0.0006 + 0.0009 * np.sin(np.clip(tt, 0, 1) * math.pi) ** 0.6
-    r[-1] = 0.0
-    o, _ = sweep(f"Liner_{side}", P, r * 0.7, r, 8, mat, hint=np.tile(n, (len(P), 1)))
-    return o
+def build_eyelids(bed, mat):
+    """The eyelid lines drawn round the eye: the upper eyelid a thick dark line from the tear duct
+    over the top to the outer corner, carried on past it into a tapered wing that rises outward
+    (front and side drawings); the lower eyelid a thin line along the whole lower edge, thicker at
+    the tear duct where both meet. Each lies on whichever is higher, the eye or the face, so it
+    covers the eye's edge and never floats."""
+    name = "left" if bed.side > 0 else "right"
+    out = []
+    # upper eyelid: from just past the tear duct (theta pi + 0.12) over the top to the outer corner
+    th = np.linspace(math.pi + 0.12, 0.0, 34)
+    bx, by = eye_opening(th)
+    pts = [(x * 1.015, y * 1.03 + 0.0003) for x, y in zip(bx, by)]
+    pts += [(EYE_A * 1.12, EYE_BT * 0.14), (EYE_A * 1.26, EYE_BT * 0.30), (EYE_A * 1.40, EYE_BT * 0.48)]
+    tt = np.linspace(0, 1, len(pts))
+    rv = 0.00045 + 0.0010 * np.sin(np.clip(tt * 1.12, 0, 1) * math.pi * 0.92) ** 0.55
+    rv[-4:] = [0.0011, 0.0008, 0.00045, 0.0]
+    # lower eyelid: from the outer corner along the bottom to the tear duct
+    th2 = np.linspace(-0.05, -math.pi - 0.12, 26)
+    bx2, by2 = eye_opening(th2)
+    pts2 = [(x * 1.01, y * 1.02 - 0.0002) for x, y in zip(bx2, by2)]
+    t2 = np.linspace(0, 1, len(pts2))
+    rv2 = 0.00028 + 0.00012 * np.sin(t2 * math.pi) + 0.00045 * t2 ** 4
+    rv2[0] = 0.0
+    for part, pp, rr in (("upper", pts, rv), ("lower", pts2, rv2)):
+        X = np.array([q[0] for q in pp])
+        Y = np.array([q[1] for q in pp])
+        k = np.array([float(np.hypot(x / EYE_A, y / (EYE_BT if y > 0 else EYE_BB))) for x, y in zip(X, Y)])
+        hb = bed.body_h(X, Y)
+        hl = np.where(k < 1.35, bed.lens_h(X, Y), -1.0)
+        ru = np.asarray(rr) * 0.5
+        h = np.maximum(hb, hl) + ru * 0.6 + 0.00015
+        P = bed.point(X, Y, h)
+        o, _ = sweep(f"eyelid_{part}_{name}", P, ru, np.asarray(rr), 8, mat, hint=np.tile(bed.n, (len(P), 1)))
+        out.append(o)
+    return out
 
 
 def build_nose(mat):
@@ -1082,7 +1273,7 @@ def cord_ring(clay):
     """Centre line of the braided cord around the neck: front low (Z 0.192), back high (Z 0.29),
     snapped onto the neck surface and lifted by the cord radius."""
     ang = np.linspace(0, 2 * math.pi, 120, endpoint=False)
-    ring = np.stack([0.05 * np.sin(ang), -0.153 - 0.05 * np.cos(ang), 0.241 - 0.049 * np.cos(ang)], 1)
+    ring = np.stack([0.05 * np.sin(ang), -0.141 - 0.05 * np.cos(ang), 0.239 - 0.049 * np.cos(ang)], 1)   # neck moved back 0.012
     S_, N_ = clay.project(ring)
     return S_ + N_ * 0.0031, N_
 
@@ -1096,8 +1287,8 @@ def build_cord(clay, mat):
     Nn /= np.linalg.norm(Nn, axis=1, keepdims=True)
     Bn = np.cross(T, Nn)
     # dense resample for the strands
-    k = 3
-    idx = np.arange(n * k) / k
+    k = 2.0     # 240 rings: 7 per twist, enough for round strands
+    idx = np.arange(int(n * k)) / k
     i0 = np.floor(idx).astype(int) % n
     i1 = (i0 + 1) % n
     tt = (idx - np.floor(idx))[:, None]
@@ -1106,7 +1297,7 @@ def build_cord(clay, mat):
     BB = Bn[i0] * (1 - tt) + Bn[i1] * tt
     length = float(np.linalg.norm(np.diff(np.concatenate([C_, C_[:1]]), axis=0), axis=1).sum())
     twists = round(length / 0.011)
-    s = np.arange(n * k) / (n * k)
+    s = np.arange(int(n * k)) / int(n * k)
     objs = []
     for strand in range(3):
         th = 2 * math.pi * (twists * s + strand / 3.0)
@@ -1147,22 +1338,87 @@ def build_pendant(m_silver, m_gem, cord_front):
         v.co = Vector(gc + ex * p[0] + ez * p[1] + (-ny) * (p[2] - 0.0025))
     bm.normal_update()
     objs.append(kit.mesh_object("BezelPlate", bm, m_silver))
-    # gem dome
-    bm = bmesh.new()
-    bmesh.ops.create_uvsphere(bm, u_segments=40, v_segments=20, radius=1.0)
-    uvl = bm.loops.layers.uv.new("UVMap")
-    for face in bm.faces:
-        for lp in face.loops:
-            lx, ly, lz = lp.vert.co
-            lp[uvl].uv = (0.5 + 0.5 * lx, 0.5 + 0.5 * lz)
-    for v in bm.verts:
-        lx, ly, lz = v.co
-        v.co = Vector(gc + ex * 0.0128 * lx + ez * 0.0128 * lz + ny * (0.0058 * ly - 0.0004))
-    bm.normal_update()
-    o = kit.mesh_object("Gem", bm, m_gem)
+    # gem: the BlendKit cabochon's dome (round cabochon, flat back), else a procedural dome
+    o = blendkit_cabochon(m_gem, gc, ex, ez, -ny)
+    if o is None:
+        bm = bmesh.new()
+        bmesh.ops.create_uvsphere(bm, u_segments=40, v_segments=20, radius=1.0)
+        uvl = bm.loops.layers.uv.new("UVMap")
+        for face in bm.faces:
+            for lp in face.loops:
+                lx, ly, lz = lp.vert.co
+                lp[uvl].uv = (0.5 + 0.5 * lx, 0.5 + 0.5 * lz)
+        for v in bm.verts:
+            lx, ly, lz = v.co
+            v.co = Vector(gc + ex * 0.0128 * lx + ez * 0.0128 * lz + ny * (0.0058 * ly - 0.0004))
+        bm.normal_update()
+        o = kit.mesh_object("Gem", bm, m_gem)
     o["keep_uv"] = True
     objs.append(o)
     return objs
+
+
+BLENDKIT_CABOCHON = "c8aac119-f6bb-4648-8cb2-10cdd6e63d18"   # "Gem Turquoise Cabochon Round", royalty_free, free plan
+
+
+def blendkit_cabochon(m_gem, gc, ex, ez, out, radius=0.0128, height=0.0068):
+    """The pendant gem from BlendKit's free round cabochon (licence royalty_free, checked at run
+    time): only its geometry is used (a smooth dome with a flat back and a girdle), scaled to the
+    reference gem (0.0256 m across, 0.0068 m high), facing ``out`` from the bezel; its turquoise
+    material is replaced by the deep-blue gem shader and its UVs by a planar map across the face.
+    Returns None when BlendKit is unavailable, so the build falls back to a procedural dome."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[5] / "plugins" / "blendkit"))
+        import headless
+        headless.enable()
+        asset = headless.asset(BLENDKIT_CABOCHON)
+        if asset.get("license") not in ("royalty_free", "cc_zero"):
+            print(f"BLENDKIT cabochon licence {asset.get('license')!r} not usable: procedural gem")
+            return None
+        appended = headless.append(asset)
+    except Exception as exc:   # no login, no network, no add-on
+        print(f"BLENDKIT cabochon unavailable ({exc}): procedural gem")
+        return None
+    src = next((o for o in appended if o.type == "MESH"), None)
+    if src is None:
+        return None
+    co = np.array([src.matrix_world @ v.co for v in src.data.vertices])
+    polys = [tuple(p.vertices) for p in src.data.polygons]
+    for o in appended:
+        mats = list(o.data.materials) if o.type == "MESH" else []
+        bpy.data.objects.remove(o, do_unlink=True)
+        for m in mats:
+            if m is not None and m.users == 0:
+                bpy.data.materials.remove(m)
+    c = co.mean(0)
+    ext = co.max(0) - co.min(0)
+    ax = int(np.argmin(ext))                    # the thin axis is the dome's height
+    others = [i for i in range(3) if i != ax]
+    h = co[:, ax] - co[:, ax].min()
+    h /= h.max()
+    r = np.linalg.norm(co[:, others] - c[others], axis=1)
+    if r[h > 0.9].mean() > r[h < 0.1].mean():   # dome on the low side: flip
+        h = 1.0 - h
+    lx = (co[:, others[0]] - c[others[0]]) / (ext[others[0]] / 2)
+    lz = (co[:, others[1]] - c[others[1]]) / (ext[others[1]] / 2)
+    bm = bmesh.new()
+    verts = [bm.verts.new(Vector(gc + ex * radius * x + ez * radius * z + out * (height * hh - 0.0004)))
+             for x, z, hh in zip(lx, lz, h)]
+    uvl = bm.loops.layers.uv.new("UVMap")
+    for poly in polys:
+        try:
+            f = bm.faces.new([verts[i] for i in poly])
+        except ValueError:
+            continue
+        for lp in f.loops:
+            i = lp.vert.index
+            lp[uvl].uv = (0.5 + 0.5 * lx[i], 0.5 + 0.5 * lz[i])
+    bm.verts.index_update()
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.normal_update()
+    print(f"BLENDKIT cabochon used: {asset['name']} ({asset['license']}), {len(bm.faces)} faces")
+    return kit.mesh_object("Gem", bm, m_gem)
 
 
 def antler_defs(clay, side, rng):
@@ -1171,8 +1427,8 @@ def antler_defs(clay, side, rng):
     s = side
     j = lambda a=0.004: rng.uniform(-a, a)
     gc = GEM_C
-    beam_ctrl = np.array([(s * 0.013, gc[1] + 0.004, gc[2] - 0.004), (s * 0.03, -0.193, 0.183), (s * 0.05, -0.178, 0.202),
-                          (s * 0.064, -0.152, 0.219), (s * 0.072, -0.122, 0.233), (s * 0.074, -0.095, 0.243 + j(0.003))])
+    beam_ctrl = np.array([(s * 0.013, gc[1] + 0.004, gc[2] - 0.004), (s * 0.03, -0.178, 0.181), (s * 0.05, -0.163, 0.199),
+                          (s * 0.064, -0.138, 0.214), (s * 0.072, -0.110, 0.226), (s * 0.074, -0.084, 0.235 + j(0.003))])   # chest / back moved
     beam = catmull(beam_ctrl, 12)
     Sb, Nb = clay.project(beam)
     beam = Sb + Nb * 0.0044
@@ -1221,7 +1477,7 @@ def build_antlers(clay, mat):
             if kind != "beam":
                 rr[-1] = 0.0
                 rr[-2] = rr[-3] * 0.8
-            o, _ = sweep(f"Antler_{side}_{kind}_{k}", P, rr, rr, 12, mat, hint=(0, 0, 1),
+            o, _ = sweep(f"Antler_{side}_{kind}_{k}", P, rr, rr, 10, mat, hint=(0, 0, 1),
                          tip=kind != "beam", start_cap=True)
             objs.append(o)
             if kind == "beam":   # rounded end of the beam
@@ -1234,24 +1490,43 @@ def build_antlers(clay, mat):
 
 
 # ============================================================================ TAIL
+def smooth1d(a, sigma):
+    """Gaussian smoothing of a 1D profile with the end values held (no kinks at the knots)."""
+    a = np.asarray(a, float)
+    k = int(3 * sigma)
+    w = np.exp(-0.5 * (np.arange(-k, k + 1) / sigma) ** 2)
+    w /= w.sum()
+    pad = np.concatenate([np.full(k, a[0]), a, np.full(k, a[-1])])
+    out = np.convolve(pad, w, mode="valid")
+    out[0], out[-1] = a[0], a[-1]
+    return out
+
+
 def tail_path():
-    """Centre line (Y, Z at X ~0) of the plume: root at the rump, swelling up and back, the top
-    curling over backward into the cream tip; radius profile in plane (rv) and across (ru)."""
-    cps = np.array([(0.08, 0.228), (0.108, 0.26), (0.138, 0.30), (0.158, 0.348), (0.172, 0.392), (0.192, 0.428),
-                    (0.228, 0.448), (0.268, 0.442), (0.302, 0.418), (0.328, 0.385), (0.35, 0.352), (0.368, 0.33)])
+    """Centre line (Y, Z at X 0) of the plume, fitted in numbers to the side view's outline rows in
+    the kit camera's normalised frame (work/tailfit2.py + tailopt.py: every row within 0.01 of the
+    reference, plume top 1.15 x the ear tips, background kept under the plume): the root on the rump, a fat lower plume that hangs
+    back to Y 0.23, the upper part bending back into a thick curl and tapering to the cream tip at
+    Y 0.335 Z 0.34. Radii: ru across (X), rb toward +B (back / down / inside of the curl), rf toward
+    -B (front / up). Profiles smoothed so the surface has no rings at the knots."""
+    cps = np.array([(0.1100, 0.1990), (0.1180, 0.2380), (0.1320, 0.2750), (0.1320, 0.3160), (0.1260, 0.3570), (0.1400, 0.3940), (0.1720, 0.4220), (0.2090, 0.4230), (0.2350, 0.4140), (0.2510, 0.3920), (0.2830, 0.3600), (0.3350, 0.3280)])
     P2 = catmull(cps, 16)
-    P = np.stack([np.zeros(len(P2)), P2[:, 0] + 0.015 * np.clip(np.linspace(0, 1, len(P2)) * 4, 0, 1), P2[:, 1]], 1)
+    P = np.stack([np.zeros(len(P2)), P2[:, 0], P2[:, 1]], 1)
     tt = np.linspace(0, 1, len(P))
-    rv = np.interp(tt, [0, 0.06, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75, 0.85, 0.93, 1.0],
-                   [0.024, 0.045, 0.078, 0.094, 0.090, 0.075, 0.058, 0.045, 0.034, 0.022, 0.012, 0.0])
-    ru = rv * np.interp(tt, [0, 0.3, 0.7, 1.0], [1.0, 1.05, 0.9, 0.8])
-    return P, ru, rv
+    tk = [0, 0.06, 0.14, 0.25, 0.36, 0.47, 0.58, 0.68, 0.78, 0.88, 0.95, 1.0]
+    rb = np.interp(tt, tk, [0.034, 0.066, 0.0746, 0.0722, 0.0684, 0.066, 0.0596, 0.0476, 0.032, 0.0182, 0.004, 0.0])
+    rf = np.interp(tt, tk, [0.03, 0.0392, 0.061, 0.0808, 0.0882, 0.074, 0.054, 0.0394, 0.028, 0.0172, 0.0144, 0.0])
+    ru = np.interp(tt, tk, [0.03, 0.0648, 0.0835, 0.0942, 0.0965, 0.08, 0.07, 0.0536, 0.034, 0.0218, 0.0113, 0.0])
+    ru, rb, rf = (np.maximum(smooth1d(r, 4.0), 0.0) for r in (ru, rb, rf))
+    ru[-1] = rb[-1] = rf[-1] = 0.0
+    return P, ru, rb, rf
 
 
-def build_tail_mesh(name, P, ru, rv, M, mat, ripple=0.035, nflutes=9, seed=0):
-    """Swept plume with fur-lock flutes: the radius ripples around the section (nflutes lobes whose
-    phase drifts along the tail) and the ripple fades at the root and the tip. UVs u along, v around
-    (v = 0 on the +X side)."""
+def build_tail_mesh(name, P, ru, rb, rf, M, mat, ripple=0.035, nflutes=9, seed=0):
+    """Swept plume with fur-lock flutes and an asymmetric section (rb toward +B, rf toward -B): the
+    radius ripples around the section (nflutes lobes whose phase drifts along the tail) and the
+    ripple fades at the root and the tip. UVs u along, v around (v = 0 on the +X side). Normals of
+    the grid come from the surface itself (for painting the atlas by facing)."""
     rng = np.random.default_rng(seed)
     P = np.asarray(P, float)
     n = len(P)
@@ -1259,12 +1534,20 @@ def build_tail_mesh(name, P, ru, rv, M, mat, ripple=0.035, nflutes=9, seed=0):
     tt = np.linspace(0, 1, n)
     ang = np.arange(M) / M * 2 * math.pi
     fade = np.clip(tt / 0.12, 0, 1) * np.clip((1 - tt) / 0.15, 0, 1)
-    drift = np.cumsum(rng.normal(0, 0.03, n))
+    drift = smooth1d(np.cumsum(rng.normal(0, 0.03, n)), 3.0)
     rip = 1 + ripple * fade[:, None] * (np.sin(nflutes * ang[None, :] + drift[:, None] + 2.0 * tt[:, None])
                                         + 0.4 * np.sin(2 * nflutes * ang[None, :] + 1.3 + drift[:, None] * 2))
-    rings = P[:, None, :] + N[:, None, :] * (ru[:, None] * rip * np.cos(ang))[..., None] + B[:, None, :] * (rv[:, None] * rip * np.sin(ang))[..., None]
-    nrm = N[:, None, :] * (np.cos(ang) / np.maximum(ru[:, None], 1e-6))[..., None] + B[:, None, :] * (np.sin(ang) / np.maximum(rv[:, None], 1e-6))[..., None]
+    sa = np.sin(ang)
+    rv = np.where(sa[None, :] > 0, rb[:, None], rf[:, None])
+    rings = P[:, None, :] + N[:, None, :] * (ru[:, None] * rip * np.cos(ang))[..., None] + B[:, None, :] * (rv * rip * sa[None, :])[..., None]
+    di = np.gradient(rings, axis=0)
+    dj = np.roll(rings, -1, axis=1) - np.roll(rings, 1, axis=1)
+    nrm = np.cross(dj, di)
+    outward = rings - P[:, None, :]
+    flip = (nrm * outward).sum(-1) < 0
+    nrm[flip] *= -1
     nrm /= np.linalg.norm(nrm, axis=2, keepdims=True) + 1e-12
+    nrm[-1] = T[-1]
     bm = bmesh.new()
     uvl = bm.loops.layers.uv.new("UVMap")
     s = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
@@ -1292,37 +1575,6 @@ def build_tail_mesh(name, P, ru, rv, M, mat, ripple=0.035, nflutes=9, seed=0):
     return obj, (rings, nrm, s)
 
 
-def tail_flicks(P, ru, rv, rng):
-    """Pointed fur flicks: two on the lower back edge of the plume, three at the curled tip."""
-    out = []
-    n = len(P)
-    T, N, B = frames(P, (1.0, 0.0, 0.0))
-
-    def surf(f, a, inset=0.85):
-        i = int(f * (n - 1))
-        return P[i] + (N[i] * ru[i] * math.cos(a) + B[i] * rv[i] * math.sin(a)) * inset, i
-    specs = [(0.30, math.pi / 2 - 0.25, 0.035, 0.012, (0.0, 0.010, -0.03)),
-             (0.40, math.pi / 2 + 0.15, 0.03, 0.010, (0.0, 0.022, -0.018)),
-             (0.86, -math.pi / 2 - 0.2, 0.03, 0.008, (0.004, 0.026, -0.012)),
-             (0.90, 0.3, 0.028, 0.007, (0.012, 0.024, -0.004)),
-             (0.88, -0.6, 0.026, 0.007, (-0.012, 0.022, -0.006))]
-    for k, (f, a, ln, w0, d) in enumerate(specs):
-        root, i = surf(f, a)
-        dvec = np.array(d) / np.linalg.norm(d)
-        bend = np.array([0.0, 0.0, -1.0]) * 0.25 + B[i] * 0.2
-        p1 = root + dvec * ln * 0.35
-        p2 = root + dvec * ln * 0.7 + bend * ln * 0.15
-        p3 = root + dvec * ln + bend * ln * 0.35
-        Q = np.array(S.bezier(root, p1, p2, p3, 14))
-        tt = np.linspace(0, 1, 14)
-        width = w0 * (1 - tt ** 1.3) + 1e-5
-        width[-1] = 0
-        th = w0 * 0.45 * (1 - tt) + 1e-5
-        th[-1] = 0
-        out.append((f"TailFlick_{k}", Q, th, width, f))
-    return out
-
-
 TAIL_W, TAIL_H = 2048, 1024
 
 
@@ -1339,7 +1591,8 @@ def tail_images(grid, flick_n):
     Ug, Ag = np.meshgrid(U, A)
     pos, nn = bilinear_grid(rings, nrm, s, Ug, np.clip(Ag, 0, 0.9999))
     # metric canvas: x = around (metres at a reference radius 0.085), y = along (metres)
-    Lt = 0.62
+    centre = rings.mean(axis=1)
+    Lt = float(np.linalg.norm(np.diff(centre, axis=0), axis=1).sum())
     Xc = Ag * 2 * math.pi * 0.085
     Yc = Ug * Lt
     circ = 2 * math.pi * 0.085
@@ -1355,19 +1608,21 @@ def tail_images(grid, flick_n):
     gl = np.zeros(Ug.shape, np.float32)      # glow
     prng = random.Random(9)
     # cream flame swirls: rise along the tail with a sway around it and end in a curl
-    for k in range(14):
-        x0 = (k / 14.0 + prng.uniform(-0.025, 0.025)) * circ
-        y0 = prng.uniform(0.08, 0.30) * Lt
-        y1 = min(y0 + prng.uniform(0.18, 0.32) * Lt, 0.68 * Lt)
-        sway = prng.uniform(-0.05, 0.05)
-        pts = [(x0 + sway * math.sin(f * 2.4) + 0.02 * f, y0 + (y1 - y0) * f) for f in np.linspace(0, 1, 24)]
+    # side view: 5-6 wide S-shaped cream bands rising from the lower plume, each ending in a curl of
+    # its own size and turn; flame-pointed starts (narrow) and the widest part before the curl
+    for k in range(12):
+        x0 = (k / 12.0 + prng.uniform(-0.02, 0.02)) * circ
+        y0 = prng.uniform(0.04, 0.22) * Lt
+        y1 = min(y0 + prng.uniform(0.26, 0.42) * Lt, 0.64 * Lt)
+        sway = prng.uniform(0.03, 0.07) * (1 if k % 2 else -1)
+        pts = [(x0 + sway * math.sin(f * 2.6 + 0.4), y0 + (y1 - y0) * f) for f in np.linspace(0, 1, 28)]
         d = 1 if prng.random() > 0.5 else -1
-        rr = prng.uniform(0.014, 0.022)
+        rr = prng.uniform(0.018, 0.03)
         cen = (pts[-1][0] - d * rr, pts[-1][1])
-        sp = spiral(cen, rr, prng.uniform(0.9, 1.3), 0.0 if d > 0 else math.pi, d, 1.0, 0.0, 40, 0.8)
+        sp = spiral(cen, rr, prng.uniform(1.0, 1.45), 0.0 if d > 0 else math.pi, d, 1.0, 0.0, 44, 0.8)
         stroke = pts + sp
-        wmax = prng.uniform(0.015, 0.024)
-        widths = np.concatenate([np.linspace(0.002, wmax, 24), np.linspace(wmax * 0.8, 0.002, 40)])
+        wmax = prng.uniform(0.02, 0.032)
+        widths = np.concatenate([np.linspace(0.0015, wmax, 28) ** 1.0, np.linspace(wmax * 0.75, 0.0025, 44)])
         for off in (-circ, 0.0, circ):
             poly_paint(cr, Xc, Yc, [(x + off, y) for x, y in stroke], widths, 0.0012)
     # thin light streaks
@@ -1378,6 +1633,20 @@ def tail_images(grid, flick_n):
         pts = [(x0 + 0.01 * math.sin(f * 3), y0 + (y1 - y0) * f) for f in np.linspace(0, 1, 14)]
         for off in (-circ, 0.0, circ):
             poly_paint(lt, Xc, Yc, [(x + off, y) for x, y in pts], [0.001, 0.005, 0.004, 0.001], 0.0012)
+    # pale cyan leaf-shaped highlights on the front / upper side of the plume (around v = 0.75)
+    for k in range(7):
+        xc = (0.75 + prng.uniform(-0.17, 0.17)) * circ
+        y0 = prng.uniform(0.2, 0.5) * Lt
+        ln = prng.uniform(0.05, 0.09)
+        pts = [(xc + 0.012 * math.sin(f * 2.0), y0 + ln * f) for f in np.linspace(0, 1, 12)]
+        w = prng.uniform(0.008, 0.013)
+        for off in (-circ, 0.0, circ):
+            poly_paint(lt, Xc, Yc, [(x + off, y) for x, y in pts], [0.001, w * 0.8, w, w * 0.7, 0.001], 0.0012)
+    # cream jagged strokes on the lower back edge (v ~0.25), where the lower flicks grow
+    for k, (u0, u1) in enumerate([(0.03, 0.16), (0.08, 0.24), (0.15, 0.32)]):
+        xc = (0.25 + prng.uniform(-0.05, 0.05)) * circ
+        pts = [(xc + 0.01 * math.sin(f * 3 + k), (u0 + (u1 - u0) * f) * Lt) for f in np.linspace(0, 1, 14)]
+        poly_paint(cr, Xc, Yc, pts, [0.002, 0.012, 0.014, 0.008, 0.001], 0.0012)
     # glowing cyan swirls and dots in the lower third (both flanks: around v = 0 and v = 0.5)
     for k, x0 in enumerate([0.02, 0.48, 0.10, 0.56, 0.93]):
         xc = x0 * circ
@@ -1395,19 +1664,19 @@ def tail_images(grid, flick_n):
         for off in (-circ, 0.0, circ):
             poly_paint(gl, Xc, Yc, [(xc + off, yc), (xc + off + 1e-4, yc)], [r * 2, r * 2], 0.0008, halo=0.35, halo_w=0.003)
     # cream tip: last part of the tail, jagged edge (lobes around the section)
-    edge = 0.66 + 0.035 * np.sin(Ag * 2 * math.pi * 5 + 0.7) + 0.02 * np.sin(Ag * 2 * math.pi * 11 + 2.1)
+    edge = 0.62 + 0.035 * np.sin(Ag * 2 * math.pi * 5 + 0.7) + 0.02 * np.sin(Ag * 2 * math.pi * 11 + 2.1)
     tipm = np.clip((Ug - edge) / 0.02 + 0.5, 0, 1)
     cr = np.maximum(cr, tipm)
     # cream on the outer / upper side of the upper plume (the back view's cream egg top, the side
     # view's cream outer curl), with a flame-jagged edge
-    outer = nn[..., 1] * 0.55 + nn[..., 2] * 0.83
-    thr = 0.42 + 0.14 * np.sin(Ag * 2 * math.pi * 4 + Ug * 23) + 0.06 * np.sin(Ag * 2 * math.pi * 9 + Ug * 41)
-    zone = np.clip((outer - thr) / 0.05, 0, 1) * np.clip((Ug - 0.40) / 0.08, 0, 1)
+    outer = nn[..., 1] * 0.8 + nn[..., 2] * 0.6      # facing back / up: the curl's outer side, not the plume's front
+    thr = 0.45 + 0.14 * np.sin(Ag * 2 * math.pi * 4 + Ug * 23) + 0.06 * np.sin(Ag * 2 * math.pi * 9 + Ug * 41)
+    zone = np.clip((outer - thr) / 0.05, 0, 1) * np.clip((Ug - 0.48) / 0.08, 0, 1)
     cr = np.maximum(cr, zone)
-    # glowing dots where the blue meets the cream tip
+    # glowing dots on the blue underside of the curl (inside of the bend, +B side: v 0.1..0.4)
     for k in range(18):
-        xc = prng.uniform(0, circ)
-        yc = (0.62 + prng.uniform(0.0, 0.08)) * Lt
+        xc = prng.uniform(0.1, 0.4) * circ
+        yc = (0.52 + prng.uniform(0.0, 0.14)) * Lt
         r = prng.choice([0.0015, 0.002, 0.003])
         for off in (-circ, 0.0, circ):
             poly_paint(gl, Xc, Yc, [(xc + off, yc), (xc + off + 1e-4, yc)], [r * 2, r * 2], 0.0008, halo=0.35, halo_w=0.0025)
@@ -1422,18 +1691,172 @@ def tail_images(grid, flick_n):
     return new_image("AF_tail_col", W, H, col), new_image("AF_tail_emi", W, H, emi)
 
 
+class TailBody:
+    """The tail's path and its fur volume: P (centre line over the tail bone), frames, the outer fur
+    radii (ru across X, rb toward +B, rf toward -B) and the arc-length fraction s of every sample.
+    surface(s, a, rho) = a point at arc fraction s, angle a around the tail (0 = +X side) and rho x
+    the outer fur radius; past s = 1 the centre line runs on along the curled tip."""
+
+    def __init__(self):
+        self.P, self.ru, self.rb, self.rf = tail_path()
+        self.T, self.N, self.B = frames(self.P, (1.0, 0.0, 0.0))
+        d = np.linalg.norm(np.diff(self.P, axis=0), axis=1)
+        self.L = float(d.sum())
+        self.s = np.concatenate([[0], np.cumsum(d)]) / self.L
+        self.idx = np.arange(len(self.P))
+
+    def _at(self, arr, s):
+        fi = np.interp(np.clip(s, 0, 1), self.s, self.idx)
+        i0 = np.clip(np.floor(fi).astype(int), 0, len(self.P) - 2)
+        t = fi - i0
+        return arr[i0] * (1 - t) + arr[i0 + 1] * t if np.ndim(arr) == 1 else arr[i0] * (1 - t)[..., None] + arr[i0 + 1] * t[..., None]
+
+    def surface(self, s, a, rho):
+        s, a, rho = (np.asarray(v, float) for v in np.broadcast_arrays(s, a, rho))
+        P, N, B, T = (self._at(v, s) for v in (self.P, self.N, self.B, self.T))
+        ru, rb, rf = (self._at(v, s) for v in (self.ru, self.rb, self.rf))
+        sa, ca = np.sin(a), np.cos(a)
+        rv = np.where(sa > 0, rb, rf)
+        over = np.clip(s - 1.0, 0, None) * self.L          # the curled tip runs on past the end
+        P = P + T * over[..., None] + np.array([0.0, 0.0, -1.0]) * (6.0 * over ** 2)[..., None]
+        return P + (N * (ru * ca * rho)[..., None] + B * (rv * sa * rho)[..., None])
+
+    def radius(self, s, a):
+        ru, rb, rf = (self._at(v, s) for v in (self.ru, self.rb, self.rf))
+        rv = np.where(np.sin(a) > 0, rb, rf)
+        return np.sqrt((ru * np.cos(a)) ** 2 + (rv * np.sin(a)) ** 2)
+
+
+def tail_fur_lock_specs(rng):
+    """The guard-hair locks of the tail, layered root to tip (each layer's roots lie under the
+    locks of the layer before, the way fur grows toward the tip): (s0, s1, a0, twist, sway, width,
+    thickness, tip lift, tip hook). Layers interleave like bricks; every lock its own length, width,
+    twist and lift."""
+    specs = []
+    layers = [  # s0 range, s1 range, count, width range (m), twist
+        ((0.00, 0.05), (0.30, 0.42), 12, (0.058, 0.074), 0.35),
+        ((0.13, 0.22), (0.47, 0.60), 13, (0.060, 0.078), 0.30),
+        ((0.34, 0.44), (0.68, 0.80), 12, (0.052, 0.070), 0.25),
+        ((0.55, 0.64), (0.86, 0.96), 11, (0.040, 0.056), 0.20),
+        ((0.72, 0.80), (1.00, 1.06), 6, (0.030, 0.042), 0.15),
+    ]
+    for li, ((a0_, a1_), (b0_, b1_), cnt, (w0, w1), tw) in enumerate(layers):
+        for k in range(cnt):
+            a0 = 2 * math.pi * (k + 0.5 * (li % 2) + rng.uniform(-0.25, 0.25)) / cnt
+            s0 = rng.uniform(a0_, a1_)
+            s1 = rng.uniform(b0_, b1_)
+            specs.append(dict(s0=s0, s1=s1, a0=a0, twist=tw * rng.uniform(0.6, 1.3),
+                              sway=rng.uniform(-0.18, 0.18), width=rng.uniform(w0, w1),
+                              thick=rng.uniform(0.008, 0.012) * (1.0 - 0.3 * li / 4),
+                              lift=rng.uniform(0.01, 0.04), hook=rng.uniform(-0.2, 0.2), layer=li))
+    # locks that stand out of the outline: three on the lower back edge behind the rump (side
+    # drawing's points), three along the top edge of the cream crown, one under the curled tip
+    for s0, s1, a0, lift, w in [(0.04, 0.33, 1.45, 0.16, 0.040), (0.10, 0.40, 1.75, 0.2, 0.038),
+                                (0.17, 0.46, 1.25, 0.15, 0.036), (0.50, 0.74, -1.35, 0.12, 0.034),
+                                (0.56, 0.80, -1.65, 0.13, 0.032), (0.62, 0.86, -1.95, 0.10, 0.03),
+                                (0.70, 1.02, 1.6, 0.08, 0.03)]:
+        specs.append(dict(s0=s0, s1=s1, a0=a0, twist=0.15, sway=rng.uniform(-0.1, 0.1), width=w,
+                          thick=0.008, lift=lift, hook=rng.uniform(-0.2, 0.2), layer=5))
+    return specs
+
+
+def build_tail_fur_lock(name, body, sp, lock_id, mat, n=22, K=10):
+    """One lock of guard hair: a clump that lies on the tail from its root (buried in the underfur)
+    to its pointed tip, wrapping the tail's curve (its section is laid out in angle and radius, so it
+    hugs the round form), widest a third of the way, tapering to a point; the tip lifts off the
+    fur and hooks a little. UVs sample the tail atlas where the lock lies; fur_t (root 0 -> tip 1),
+    fur_w (-1..1 across) and fur_id carry the root-to-tip shading and strand grooves."""
+    t = np.linspace(0, 1, n)
+    s = sp["s0"] + (sp["s1"] - sp["s0"]) * t
+    a = sp["a0"] + sp["twist"] * t + sp["sway"] * np.sin(math.pi * t) + sp["hook"] * np.clip((t - 0.8) / 0.2, 0, 1) ** 2
+    rho = 0.84 + 0.12 * t ** 0.9 + sp["lift"] * np.clip((t - 0.72) / 0.28, 0, 1) ** 2
+    # a clump of hair: full from the root, widest a third of the way, then drawn to a point
+    w = sp["width"] * (0.7 + 0.3 * np.sin(np.clip(t / 0.35, 0, 1) * math.pi / 2)) * np.clip(1 - t, 0, 1) ** 0.9
+    th = sp["thick"] * (0.75 + 0.25 * np.clip(t / 0.3, 0, 1)) * np.clip(1 - t, 0, 1) ** 0.5
+    r_loc = np.maximum(body.radius(s, a), 0.012)
+    over = s > 1.0
+    phi = np.arange(K) / K * 2 * math.pi
+    cph, sph = np.cos(phi), np.sin(phi)
+    # section: across the lock in angle (half-width / local radius), out of the fur in radius;
+    # the upper face domed, the underside flatter (a clump of hair lies flat on the hair below)
+    da = (0.5 * w / r_loc)[:, None] * cph[None, :]
+    dr = (th / r_loc)[:, None] * np.where(sph > 0, 0.5 * sph, 0.25 * sph)[None, :]
+    S_ = np.repeat(s[:, None], K, 1)
+    A_ = a[:, None] + da
+    R_ = rho[:, None] + dr
+    pts = body.surface(S_, A_, R_)
+    # past the end of the tail the fur volume is gone: spread the tip locks around the centre line
+    if over.any():
+        off = (np.cos(a) * 0.006)[:, None, None] * body._at(body.N, np.ones(n))[:, None, :] \
+            + (np.sin(a) * 0.006)[:, None, None] * body._at(body.B, np.ones(n))[:, None, :]
+        width_vec = (np.cos(a + math.pi / 2)[:, None] * body._at(body.N, np.ones(n))
+                     + np.sin(a + math.pi / 2)[:, None] * body._at(body.B, np.ones(n)))
+        norm_vec = (np.cos(a)[:, None] * body._at(body.N, np.ones(n)) + np.sin(a)[:, None] * body._at(body.B, np.ones(n)))
+        alt = body.surface(s, a, np.zeros(n))[:, None, :] + off \
+            + width_vec[:, None, :] * (0.5 * w[:, None] * cph[None, :])[..., None] \
+            + norm_vec[:, None, :] * (th[:, None] * 0.5 * sph[None, :])[..., None]
+        blend = np.clip((s - 0.97) / 0.03, 0, 1)[:, None, None]
+        pts = pts * (1 - blend) + alt * blend
+    bm = bmesh.new()
+    uvl = bm.loops.layers.uv.new("UVMap")
+    lt = bm.verts.layers.float.new("fur_t")
+    lw = bm.verts.layers.float.new("fur_w")
+    li = bm.verts.layers.float.new("fur_id")
+    vs = []
+    for i in range(n - 1):
+        row = []
+        for j in range(K):
+            v = bm.verts.new(Vector(pts[i, j]))
+            v[lt], v[lw], v[li] = float(t[i]), float(cph[j]), lock_id
+            row.append(v)
+        vs.append(row)
+    tip = bm.verts.new(Vector(pts[n - 1].mean(axis=0)))
+    tip[lt], tip[lw], tip[li] = 1.0, 0.0, lock_id
+    root = bm.verts.new(Vector(pts[0].mean(axis=0)))
+    root[lt], root[lw], root[li] = 0.0, 0.0, lock_id
+    U = np.clip(s, 0, 0.998)
+    V = A_ / (2 * math.pi)
+
+    def setuv(f, ij):
+        for lp, (i, j) in zip(f.loops, ij):
+            lp[uvl].uv = (float(U[min(i, n - 1)]), float(V[min(i, n - 1), j % K]))
+    for i in range(n - 2):
+        for j in range(K):
+            j2 = (j + 1) % K
+            f = bm.faces.new((vs[i][j], vs[i][j2], vs[i + 1][j2], vs[i + 1][j]))
+            setuv(f, [(i, j), (i, j2 if j2 else K), (i + 1, j2 if j2 else K), (i + 1, j)])
+    for j in range(K):
+        j2 = (j + 1) % K
+        f = bm.faces.new((vs[n - 2][j], vs[n - 2][j2], tip))
+        setuv(f, [(n - 2, j), (n - 2, j2), (n - 1, j)])
+        f = bm.faces.new((vs[0][j2], vs[0][j], root))
+        setuv(f, [(0, j2), (0, j), (0, j)])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.normal_update()
+    obj = kit.mesh_object(name, bm, mat)
+    obj["keep_uv"] = True
+    return obj
+
+
 def build_tail(mat_holder):
-    P, ru, rv = tail_path()
+    """The tail (a fox's brush): the underfur, a dense inner mass of short fur round the tail bone
+    (darker, smaller than the outline), under ~70 guard-hair locks in five overlapping layers that
+    flow from the root on the rump to the cream tip, whose tips break the outline. The painted atlas
+    (cream flames, glowing swirls and dots, cream tip) is shared: every lock samples it where it lies."""
+    body = TailBody()
     placeholder = bpy.data.materials.new("M_tail_tmp")
-    tail, grid = build_tail_mesh("Tail", P, ru, rv, 64, placeholder, ripple=0.025, seed=3)
-    objs = [tail]
+    keep = np.arange(0, len(body.P), 2)
+    if keep[-1] != len(body.P) - 1:
+        keep = np.r_[keep, len(body.P) - 1]
+    under, grid = build_tail_mesh("tail_underfur", body.P[keep], body.ru[keep] * 0.87, body.rb[keep] * 0.87,
+                                  body.rf[keep] * 0.87, 40, placeholder, ripple=0.03, nflutes=11, seed=3)
+    set_attr(under, "fur_t", np.full(len(under.data.vertices), 0.12))
+    objs = [under]
     rng = random.Random(41)
-    for name, Q, th, width, f in tail_flicks(P, ru, rv, rng):
-        # UVs of a flick sit on the tail's own atlas at its root (same colour as where it grows)
-        o, _ = sweep(name, Q, th, width, 8, placeholder, hint=(1.0, 0.0, 0.0), uv_rect=(f, 0.70, min(f + 0.06, 0.999), 0.80))
-        o["keep_uv"] = True
-        objs.append(o)
-    col_img, emi_img = tail_images(grid, len(objs) - 1)
+    specs = tail_fur_lock_specs(rng)
+    for k, sp in enumerate(specs):
+        objs.append(build_tail_fur_lock(f"tail_fur_lock_{k:02d}", body, sp, rng.random(), placeholder))
+    col_img, emi_img = tail_images(grid, 0)
     mat = tail_material(col_img, emi_img)
     for o in objs:
         o.data.materials[0] = mat
@@ -1453,13 +1876,13 @@ def cream_field(p):
     bridge = max(abs(x) - wb, 0.3005 - z, y + 0.20)
     head = max(head, -bridge)
     # throat and chest front: cream in front of the boundary, within the bib, V point at Z 0.105
-    yb = float(np.interp(z, [0.10, 0.13, 0.16, 0.20, 0.24, 0.28, 0.30], [-0.175, -0.165, -0.152, -0.138, -0.125, -0.11, -0.10]))
+    yb = float(np.interp(z, [0.10, 0.13, 0.16, 0.20, 0.24, 0.28, 0.30], [-0.157, -0.147, -0.136, -0.124, -0.115, -0.105, -0.10]))   # follows the chest (moved back 0.018)
     wc = float(np.interp(z, [0.104, 0.115, 0.14, 0.18, 0.22, 0.26, 0.29, 0.30], [0.0, 0.010, 0.032, 0.046, 0.048, 0.05, 0.06, 0.06]))
     chest = max(y - yb, abs(x) - wc, 0.104 - z, z - 0.30)
     # belly underside and inner thighs
     belly = max(z - 0.152, 0.11 - z, y - 0.045, -0.115 - y, abs(x) - 0.032)
     # patch under the tail
-    patch = max(abs(x) - 0.019, 0.118 - z, z - 0.195, 0.088 - y)
+    patch = max(abs(x) - 0.019, 0.118 - z, z - 0.195, 0.068 - y)
     return min(head, chest, belly, patch) + nz
 
 
@@ -1472,7 +1895,7 @@ def body_attributes(obj):
     legs = smoothstep(0.14 - z, 0.0, 0.02)
     set_attr(obj, "legs", legs)
     set_attr(obj, "tan", smoothstep(0.17 - z, 0.0, 0.025) * smoothstep(y, -0.13, -0.09) * smoothstep(0.06 - y, 0.0, 0.02))
-    set_attr(obj, "patch", smoothstep(y, 0.085, 0.11) * smoothstep(z, 0.12, 0.14) * smoothstep(0.022 - np.abs(x), 0.0, 0.008))
+    set_attr(obj, "patch", smoothstep(y, 0.066, 0.09) * smoothstep(z, 0.12, 0.14) * smoothstep(0.022 - np.abs(x), 0.0, 0.008))
     set_attr(obj, "pys", (y - SIDE_Y0) / MARK_SPAN)
     set_attr(obj, "pzs", z / MARK_SPAN)
     set_attr(obj, "pxf", (x - FRONT_X0) / MARK_SPAN)
@@ -1484,19 +1907,19 @@ def build():
     m_fur = fur_material("M_fur", marks, decal, cream=False)
     m_cream = fur_material("M_fur_cream", marks, decal, cream=True)
     m_ear_out, m_ear_in = ear_materials(ear_image())
-    m_blade = cream_blade_material()
+    m_ear_tuft = ear_tuft_material()
     m_silver = silver_material()
     m_antler = antler_material()
     m_cord = cord_material()
     m_gem = gem_material()
     m_eye = eye_material()
     m_nose = dark_material("M_nose", "#2c2428", 0.3, "#544650")
-    m_liner = dark_material("M_liner", "#1d2036", 0.45)
+    m_eyelid = dark_material("M_eyelid", "#1b1d30", 0.6, "#2c2e44")
 
     body, clay = body_clay()
     surf, _ = clay.project(np.array([[0.0, -0.215, GEM_C[2]]]))
     GEM_C[1] = surf[0][1] - 0.0075
-    kit.quad_remesh(body, 18000)
+    kit.quad_remesh(body, 16500)
     close_holes(body)
     body.data.shade_smooth()
     body.data.materials.append(m_fur)
@@ -1504,18 +1927,33 @@ def build():
     close_holes(body)
     body_attributes(body)
     parts = [body]
+    body_bvh = bvh_of(body)
     rng = random.Random(12)
     for side, uoff in ((1, 0.0), (-1, 0.5)):
         parts.append(build_ear(side, m_ear_out, m_ear_in, uoff))
-        parts += ear_blades(side, m_blade, rng)
-        parts.append(build_eye(clay, side, m_eye))
-        parts.append(build_liner(clay, side, m_liner))
+        parts += build_ear_tufts(side, m_ear_tuft, rng)
+        bed = EyeBed(body_bvh, clay, side)
+        parts.append(build_eye(bed, m_eye))
+        parts += build_eyelids(bed, m_eyelid)
     parts.append(build_nose(m_nose))
     cords, front = build_cord(clay, m_cord)
     parts += cords
     parts += build_pendant(m_silver, m_gem, front)
     parts += build_antlers(clay, m_antler)
     parts += build_tail(None)
+    # size anchor: the sheet's "approx. 50 cm" is the overall height (tail top); the side-view metric
+    # frame the parts are built in puts the tail top at ~0.465, so scale everything about the origin
+    top = max(max((o.matrix_world @ v.co).z for v in o.data.vertices) for o in parts)
+    f = 0.50 / top
+    for o in parts:
+        o.data.transform(Matrix.Scale(f, 4))
+        o.data.update()
+    print(f"SCALE to 0.50 m: x{f:.4f} (tail top {top:.4f})")
+    loc, rot, sc = brow_frame(clay, body_bvh)
+    for mp in BROW_NODES:
+        mp.inputs["Location"].default_value = loc * f
+        mp.inputs["Rotation"].default_value = rot
+        mp.inputs["Scale"].default_value = sc * f
     return parts
 
 
