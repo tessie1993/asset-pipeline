@@ -136,9 +136,13 @@ def stroke_mask(Q, pts, w0, w1, soft=0.0004, taper_end=0.25):
 # design (metres; front -Y, +X = the fox's left = the side seen in view 2)
 # ----------------------------------------------------------------------------------------- #
 
-EAR_HALF_W = 0.0340      # ear base half width (front view: ear base 0.046 m across where it meets the head)
-EAR_CUP = 13.0            # rim bends forward 5 mm: the cupped leaf
+EAR_HALF_W = 0.0370      # ear base half width (Cycle 12: 0.034 -> 0.037: with the deep cup the front view read ~20 % narrow)
+EAR_CUP = 0.42            # Cycle 12: the ear is a rolled half-cone: its rims stand forward 0.42 x the local half width
+                          # (was 13 u^2, ~5 mm on a 40 mm leaf: the far ear in view 2 projected only ~30 % of its width)
 EAR_T = (0.0046, 0.0026)  # thickness base -> tip
+# Cycle 12: the bowl opens further out (was (0.60, -0.80)): view 2 (camera az 59) showed the far ear edge-on
+# (normal . view -0.10) where the reference shows its back ~0.08 W wide, and view 1 had 6 % extra ear width
+EAR_OPEN = (0.85, -0.52)  # after orthogonalising to the outward-tilted ear axis the far ear's back faces view 2 ~25 deg
 
 
 def ear_frame(side):
@@ -147,7 +151,7 @@ def ear_frame(side):
     ev = tip - base
     length = float(np.linalg.norm(ev))
     ev = ev / length
-    ew = np.array([side * 0.60, -0.80, 0.06])           # opening faces out-forward (view 2 sees the far ear back)
+    ew = np.array([side * EAR_OPEN[0], EAR_OPEN[1], 0.06])  # opening faces out-forward (view 2 sees the far ear back)
     ew = ew - ev * (ew @ ev)
     ew /= np.linalg.norm(ew)
     eu = np.cross(ev, ew)
@@ -160,6 +164,18 @@ def ear_local(P, side):
     base, eu, ev, ew, length = ear_frame(side)
     d = P - base
     return d @ eu, d @ ev, d @ ew, length
+
+
+def ear_hw(v, length):
+    """Half width of the ear leaf at height v (the pointed arch of ear_d2)."""
+    R = (EAR_HALF_W ** 2 + length ** 2) / (2 * EAR_HALF_W)
+    return np.maximum(np.sqrt(np.maximum(R * R - np.asarray(v, float) ** 2, 0.0)) - (R - EAR_HALF_W), 0.004)
+
+
+def ear_cup(u, v, length):
+    """Forward offset of the cupped leaf at (u, v) and its slope d/du."""
+    hw = ear_hw(np.clip(v, 0.0, length), length)
+    return EAR_CUP * u * u / hw, 2.0 * EAR_CUP * u / hw
 
 
 def ear_d2(u, v, length):
@@ -179,7 +195,8 @@ def sd_ear(side):
         w = dx * ew[0] + dy * ew[1] + dz * ew[2]
         d2 = np.maximum(ear_d2(u, v, length), -v - 0.016)
         th = EAR_T[0] + (EAR_T[1] - EAR_T[0]) * np.clip(v / length, 0.0, 1.0)
-        d3 = np.abs(w - EAR_CUP * u * u) - th * 0.5
+        c, sl = ear_cup(u, v, length)
+        d3 = (np.abs(w - c) - th * 0.5) / np.sqrt(1.0 + sl * sl)
         return S.smax(d2, d3, 0.0012)
     m = length + 0.03
     return S.Prim(fn, base - m, base + m)
@@ -188,7 +205,7 @@ def sd_ear(side):
 def ear_point(side, u, v, w_off):
     base, eu, ev, ew, length = ear_frame(side)
     th = EAR_T[0] + (EAR_T[1] - EAR_T[0]) * min(max(v / length, 0), 1)
-    w = EAR_CUP * u * u + th * 0.5 + w_off
+    w = float(ear_cup(u, v, length)[0]) + th * 0.5 + w_off
     return base + u * eu + v * ev + w * ew
 
 
@@ -198,17 +215,19 @@ def ear_tuft_locks(side):
     rng = random.Random(31 if side > 0 else 47)
     locks = []
     t = np.linspace(0.0, 1.0, 9)
-    for (u0, v0, u1, v1, hw) in ((-0.005, 0.003, -0.015, 0.042, 0.0060),
-                                 (0.000, 0.002, 0.001, 0.035, 0.0066),
-                                 (0.005, 0.003, 0.014, 0.027, 0.0054)):
+    for (u0, v0, u1, v1, hw) in ((-0.006, 0.003, -0.016, 0.044, 0.0058),
+                                 (-0.001, 0.002, 0.000, 0.037, 0.0062),
+                                 (0.004, 0.003, 0.012, 0.030, 0.0054),
+                                 (0.008, 0.002, 0.019, 0.020, 0.0044)):
         v1 = v1 * (1.0 + rng.uniform(-0.08, 0.08))
         uu = u0 + (u1 - u0) * t
         vv = v0 + (v1 - v0) * t
         w = np.maximum(hw * (0.75 + 0.25 * np.sin(math.pi * np.minimum(t / 0.35, 1.0) * 0.5)) * (1 - smoothstep(0.35, 1.0, t)) ** 0.8, 0.0005)
-        th = np.maximum(0.0017 * (1.0 - 0.6 * t), 0.0005)
-        P = np.array([ear_point(side, uu[k], vv[k], th[k] - 0.0004) for k in range(len(t))])
+        th = np.maximum(0.0024 * (1.0 - 0.55 * t), 0.0006)      # Cycle 12: thicker, layered lobes
+        lift = 0.0018 * smoothstep(0.3, 1.0, t)                    # the tips stand off the bowl: shadow lines
+        P = np.array([ear_point(side, uu[k], vv[k], th[k] - 0.0004 + lift[k]) for k in range(len(t))])
         base, eu, ev, ew, length = ear_frame(side)
-        N = np.array([ew - 2 * EAR_CUP * uu[k] * eu for k in range(len(t))])
+        N = np.array([ew - float(ear_cup(uu[k], vv[k], length)[1]) * eu for k in range(len(t))])
         N /= np.linalg.norm(N, axis=1, keepdims=True)
         locks.append(dict(P=P, N=N, w=w, th=th, t=t))
     return locks
@@ -228,17 +247,25 @@ def sd_ear_tuft(side):
 
 
 # tail centre line (side view, Y, Z) and vertical half-thickness; lateral = 1.12 x
+# Cycle 12: the distal part 4-8 mm lower and the end 12 mm further back (view 2 overlay: build too high along the
+# distal top, the reference tip further out; views 1/3: the distal tail stood as a dome above the head)
 TAIL_PTS = np.array([(0.086, 0.125), (0.097, 0.131), (0.108, 0.137), (0.120, 0.145), (0.135, 0.156),
-                     (0.152, 0.171), (0.170, 0.182), (0.188, 0.195), (0.206, 0.209), (0.224, 0.2275),
-                     (0.242, 0.240), (0.258, 0.240), (0.272, 0.232)])
+                     (0.152, 0.171), (0.170, 0.182), (0.188, 0.194), (0.208, 0.205), (0.227, 0.221),
+                     (0.246, 0.232), (0.264, 0.236), (0.284, 0.234)])
 # vertical half-thickness of the tail's fur (outer surface of the locks); review 1: max thickness 8 % less,
 # the distal fifth tapering to a point
-TAIL_RZ = np.array([0.024, 0.027, 0.030, 0.035, 0.042, 0.047, 0.049, 0.048, 0.043, 0.026, 0.012, 0.007,
+# Cycle 12: the end is a broad tongue tapering to a point, not a needle (grid render: at s 0.8-0.9 the reference end is
+# ~1.5x thicker than the old 0.026 / 0.012 / 0.007; 0.036 / 0.025 / 0.014 made a blunt club)
+TAIL_RZ = np.array([0.024, 0.027, 0.030, 0.035, 0.042, 0.047, 0.049, 0.048, 0.045, 0.034, 0.020, 0.009,
                     0.004])
 # lateral / vertical radius per point. Review 1: from behind the tail is 0.76 W wide (render 0.89 W) and the
 # front view shows it beside the shoulders at 0.46-0.58 H: widest low (Z 0.14-0.19, half width ~0.053),
 # narrower above (half 0.047 at Z 0.19-0.21)
-TAIL_W = np.array([1.08, 1.19, 1.33, 1.37, 1.26, 1.15, 1.08, 1.0, 0.98, 1.0, 1.0, 1.0, 1.0])
+# Cycle 12: x1.06 over the proximal half: the back-view egg is 0.057 m half wide (build 0.054, view 3 w/h -2 %) and
+# the front view shows the tail beside the shoulders to |X| ~0.06
+# and the root flares: the front view shows the tail beside the shoulders at Z 0.09-0.17 to |X| 0.064 (view 1 missed
+# 11-13 % there), the back view's egg is 0.05 half wide at Z 0.125 and 0.057 at Z 0.145
+TAIL_W = np.array([1.60, 1.70, 1.70, 1.60, 1.36, 1.22, 1.13, 1.03, 0.98, 1.0, 1.0, 1.0, 1.0])
 TAIL_VOXEL = 0.0007
 TAIL_TRIS = 26000
 
@@ -324,9 +351,19 @@ def tail_surface(s, phi, inset):
 TAIL_RINGS = [(0.00, 0.30, 10), (0.09, 0.30, 11), (0.18, 0.30, 12), (0.27, 0.29, 12), (0.36, 0.28, 12),
               (0.45, 0.27, 12), (0.54, 0.26, 11), (0.63, 0.25, 10)]
 # end locks: (start s, phi, end s, half width) with a fixed width; they converge on the tip
-TAIL_END_LOCKS = [(0.68, 0.15, 1.05, 0.012), (0.70, math.pi - 0.1, 1.00, 0.010), (0.72, 1.5, 1.02, 0.010),
-                  (0.72, -1.5, 1.02, 0.010)]
+# Cycle 12: (start s, phi, end s, half width, flick, converge). The guard hairs converge to a soft point carried by
+# the top lock; the outline breaks into tongues at two notches (view 2): a tuft flicking off the top edge near
+# s 0.86 and a lower tongue ending early (s 0.94) with its tip lifting off back-down
+# build 13: the top tuft's 7.8 mm lift stood as a horn from behind and the five roots at s 0.60-0.70 made a ring
+# crease: roots staggered (0.55-0.70) and sunk deeper, top tuft lift 2.6 -> 0.9
+TAIL_END_LOCKS = [(0.62, 0.10, 1.01, 0.013, 0.0, True), (0.70, 1.45, 1.00, 0.011, 0.0, True),
+                  (0.66, -1.45, 1.00, 0.011, 0.0, True), (0.55, 0.30, 0.86, 0.011, 0.9, False),
+                  (0.59, math.pi - 0.15, 0.94, 0.012, 2.0, False)]
 TAIL_LOCKS = []
+# Cycle 12: this style draws the tail's fur as soft streaks, not scales: low lock relief
+TAIL_LOCK_TH = 0.12      # lock half thickness / half width (was 0.25)
+TAIL_SINK = 0.0006       # how far a lock's root dives under the fur (was 2.4 mm)
+TAIL_LOCK_BLEND = 0.0025  # smooth union of the locks with the fur (was 0.9 mm)
 
 
 def tail_locks():
@@ -350,24 +387,25 @@ def tail_locks():
             flick = 0.0 if k != big else 0.35
             specs.append(dict(s0=s0 + rng.uniform(-0.015, 0.015), s1=None, ln=ln * rng.uniform(0.92, 1.08), phi=ph,
                               drift=rng.uniform(-0.1, 0.1), flick=flick, wj=rng.uniform(0.88, 1.12), m=m, fixed=None))
-    for (s0, ph, s1, hw) in TAIL_END_LOCKS:
-        specs.append(dict(s0=s0, s1=s1, ln=s1 - s0, phi=ph, drift=0.0, flick=0.0, wj=1.0, m=None, fixed=hw))
+    for (s0, ph, s1, hw, fl, conv) in TAIL_END_LOCKS:
+        specs.append(dict(s0=s0, s1=s1, ln=s1 - s0, phi=ph, drift=0.0, flick=fl, wj=1.0, m=None, fixed=hw, conv=conv))
     for sp in specs:
         ss = sp["s0"] + sp["ln"] * t
         ph = sp["phi"] + sp["drift"] * t
-        if sp["fixed"] is not None:                  # end locks converge on the tail's end
-            ph = sp["phi"] * (1.0 - smoothstep(0.5, 1.0, t))
+        if sp["fixed"] is not None:                  # end locks converge on the tail's end (the notch locks do not)
+            if sp.get("conv", True):
+                ph = sp["phi"] * (1.0 - smoothstep(0.5, 1.0, t))
             _, _, _, rz, rx = tail_env(ss)
             w = sp["fixed"] * prof
         else:
             _, _, _, rz, rx = tail_env(ss)
             w = math.pi * np.sqrt(rz * rx) / sp["m"] * 1.35 * sp["wj"] * prof
-        w = np.maximum(w, 0.0012 if sp["fixed"] is not None else 0.00035)
+        w = np.maximum(w, 0.0020 if sp["fixed"] is not None else 0.00035)   # Cycle 12: a soft point, not a needle
         # flat locks lying like shingles: the root dives under the locks rooted behind it, the tip lies on top
-        th = np.clip(0.25 * w, 0.0004, 0.0035)
+        th = np.clip(TAIL_LOCK_TH * w, 0.0004, 0.0022)
         if sp["fixed"] is not None:
             th = np.minimum(th, 0.5 * rz + 0.0005)
-        sink = (0.0024 if sp["fixed"] is None else 0.0035) * (1.0 - t) ** 1.2   # rises to the tip: it lies over younger roots
+        sink = (TAIL_SINK if sp["fixed"] is None else 3.0 * TAIL_SINK) * (1.0 - t) ** 1.2   # rises to the tip: it lies over younger roots
         lift = np.where(t > 0.6, 0.003 * sp["flick"] * ((t - 0.6) / 0.4) ** 2, 0.0)
         P, Nr, rz, rx = tail_surface(ss, ph, th + sink - lift)
         R = np.maximum(np.sqrt((rz * np.cos(ph)) ** 2 + (rx * np.sin(ph)) ** 2) - th - sink, 0.003)
@@ -412,8 +450,12 @@ def lock_seg_sd(seg, x, y, z):
     R = seg[11] + (seg[12] - seg[11]) * tau
     qc = np.minimum(np.abs(qb), R)                  # the lock wraps round the tail: follow its curvature
     qn = qn + (R - np.sqrt(np.maximum(R * R - qc * qc, 0.0)))
-    k0 = np.sqrt((qb / w) ** 2 + (qn / th) ** 2 + (qt / w) ** 2)
-    k1 = np.sqrt((qb / (w * w)) ** 2 + (qn / (th * th)) ** 2 + (qt / (w * w)) ** 2)
+    # Cycle 12: the cap beyond each segment end is short (half a segment + the thickness), not the half width:
+    # a cap as long as w (up to 17 mm) runs straight on along the tangent where the lock bends round the
+    # tapering envelope and stood out of the fur as a thin fin.
+    cap = np.minimum(w, 0.6 * ln + th)
+    k0 = np.sqrt((qb / w) ** 2 + (qn / th) ** 2 + (qt / cap) ** 2)
+    k1 = np.sqrt((qb / (w * w)) ** 2 + (qn / (th * th)) ** 2 + (qt / (cap * cap)) ** 2)
     return k0 * (k0 - 1.0) / np.maximum(k1, 1e-9), tau, qb / w
 
 
@@ -421,7 +463,7 @@ def tail_clay():
     clay = S.Clay((-0.075, 0.055, 0.085), (0.075, 0.315, 0.300), voxel=TAIL_VOXEL, far=0.008)
     for p in tail_underfur_prims(0.88):
         clay.add(p, blend=0.010)
-    blend = 0.0009
+    blend = TAIL_LOCK_BLEND
     margin = blend + 3 * TAIL_VOXEL
     for lk in tail_locks():
         ext = (lk["w"].max() + lk["th"].max())
@@ -547,9 +589,10 @@ def body_clay():
     # cheek ruff: three fluffy pointed tufts per side, out and back (front view: fluff to |X| 0.06)
     for side in (1, -1):
         rng = random.Random(5 if side > 0 else 9)
-        for (a, b, r0) in (((0.028, -0.074, 0.182), (0.046, -0.058, 0.184), 0.0120),
-                           ((0.027, -0.072, 0.172), (0.045, -0.056, 0.170), 0.0110),
-                           ((0.024, -0.072, 0.163), (0.039, -0.058, 0.158), 0.0090)):
+        # Cycle 12: the front view's cheek tufts reach |X| 0.064 (view 1 missed 11-13 % middle left/right)
+        for (a, b, r0) in (((0.028, -0.074, 0.182), (0.055, -0.060, 0.181), 0.0120),
+                           ((0.027, -0.072, 0.172), (0.052, -0.058, 0.167), 0.0110),
+                           ((0.024, -0.072, 0.163), (0.042, -0.059, 0.156), 0.0090)):
             j = rng.uniform(-0.0025, 0.0025)
             clay.add(C(h(side * a[0], a[1], a[2]), h(side * (b[0] + j), b[1] + j * 0.5, b[2] + j), r0 * HSR, 0.0010),
                      blend=0.006)
@@ -755,8 +798,8 @@ def face_y(hm, X, Z):
             + Yg[i + 1, k + 1] * tx * tz)
 
 
-IRIS_C = (-0.0039, -0.0009)              # iris centre in the opening (a, b): 3.9 mm toward the nose, 0.9 mm low
-R_IRIS = 0.0083                            # iris radius (16.6 mm across: it fills the opening's height)
+IRIS_C = (-0.0042, -0.0006)              # iris centre in the opening (a, b): 4.2 mm toward the nose, 0.6 mm low
+R_IRIS = 0.0075                            # Cycle 12: 15 mm across (the reference iris is ~65 % of the eye width; 16.6 mm read 77 %)
 EYE_GROW = 0.0016                          # the eye's front runs this far under the eyelids
 
 
@@ -852,8 +895,8 @@ def carve_eyes(clay):
         X, Z = eye_world2d(side, a, b)
         Y = face_y(EYE[side]["hm"], X, Z) - 0.001
         n = len(a)
-        radii = np.interp(np.arange(n), [0, 2, 12, 30, n - 1], [0.0004, 0.0009, 0.0011, 0.0009, 0.0005])
-        clay.stroke(np.stack([X, Y, Z], 1), radii, 0.00045, op="add", blend=0.0005, n=60)
+        radii = np.interp(np.arange(n), [0, 2, 12, 30, n - 1], [0.0005, 0.0010, 0.0012, 0.0010, 0.0006])
+        clay.stroke(np.stack([X, Y, Z], 1), radii, 0.00045, op="add", blend=0.0006, n=120)   # Cycle 12: smoother
 
 
 def eyelid_marks(P):
@@ -915,7 +958,7 @@ def make_manifold(obj):
         verts |= {v for v in bm.verts if not v.is_manifold and v.link_faces and all(len(e.link_faces) == 2 for e in v.link_edges)}
         if verts:
             bmesh.ops.delete(bm, geom=list(verts), context="VERTS")
-        bmesh.ops.holes_fill(bm, edges=bm.edges[:], sides=16)
+        bmesh.ops.holes_fill(bm, edges=bm.edges[:], sides=200)   # Cycle 12: build 12 left a 7-edge... larger hole open
         loose = [v for v in bm.verts if not v.link_faces]
         bmesh.ops.delete(bm, geom=loose, context="VERTS")
     bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
@@ -1074,10 +1117,11 @@ C_BELLY = hexc("#b19c89")
 C_BROW = hexc("#ddd6cc")
 C_TAIL_TIP, C_TAIL_CREAM, C_TAIL_FOLD = hexc("#dfd9d4"), hexc("#d2c9c2"), hexc("#b5aca8")
 C_TAIL_UNDER = hexc("#4d6c94")
+TAIL_UNDER_W = 0.60      # Cycle 12: from behind the underside is #6586a0 / #486586 (0.70: 0.12 too dark; 0.45: far too light)
 C_EAR_TAN, C_EAR_DEEP, C_EAR_RIMTAN = hexc("#dcc6b4"), hexc("#b89c8b"), hexc("#e6d3c2")
 C_EAR_TUFT = hexc("#e8d9c6")
 C_EAR_RIM = hexc("#8cb3cb")
-C_DARK_MARK, C_EAR_TIP = hexc("#3d5585"), hexc("#5b7ea9")
+C_DARK_MARK, C_EAR_TIP = hexc("#3d5585"), hexc("#4a6a9a")
 C_BACK_PATCH, C_BACK_SPIRAL = hexc("#4f6c9b"), hexc("#97bcd5")
 C_UNDERTAIL, C_UNDERTAIL_RIM = hexc("#b7a28f"), hexc("#9c8675")
 C_MOUTH = hexc("#3b3032")
@@ -1125,30 +1169,53 @@ def tail_pattern(P, side_seed, split=False):
     s, r, dist, phi, L = tail_coords(Pn)
     on_tail = ((dist < np.maximum(r * 1.48, 0.012 + 0.024 * smoothstep(0.85, 1.0, s)) + 0.004) & (s > 0.03)).astype(np.float32)
     aphi = np.abs(phi)
-    jag = 0.035 * fbm(Pn, 90, 2, seed=21) + 0.015 * fbm(Pn, 300, 2, seed=22)
+    # Cycle 13: smooth brush-stroke edges as on the reference (the fbm 90/300 jag frayed every cream edge)
+    jag = 0.014 * fbm(Pn, 60, 2, seed=21) + 0.003 * fbm(Pn, 200, 2, seed=22)
     # Cycle 7: the reference tail is mostly blue with cream markings; only the last ~18 % is all cream
-    tip = smoothstep(0.012, -0.012, (0.80 - s) + jag * 1.4)
-    tongue = -0.12 * np.maximum(0.0, np.cos(aphi * 5.5 + 0.4)) ** 3
-    s_b = np.interp(aphi, [0.0, 0.45, 0.85, 1.20, 1.50, 1.80], [0.40, 0.44, 0.50, 0.62, 0.74, 0.86]) + tongue
-    blaze = smoothstep(0.010, -0.010, (s_b - s) + jag) * (aphi < 1.80)
+    # Cycle 12: on the sides and underside the cream end starts earlier (back view: the top third of the egg is cream)
+    tip = smoothstep(0.012, -0.012, (0.80 - 0.08 * smoothstep(1.3, 2.2, np.abs(phi)) - s) + jag * 1.4)
+    # Cycle 12, placed with the (s, phi) grid render against view 2: the cream end is solid on top from s ~0.5 with
+    # thin cream flame tongues reaching back to ~0.35; a blue tongue at phi ~0.9 runs up to s ~0.8 between the top
+    # cream and the spiral; the spiral sits at s 0.54, phi 1.1, its outer arm sweeping down (phi ~1.9) and back
+    # toward the base along the lower side as a tapered band ending near s 0.33
+    tongue = -0.12 * np.maximum(0.0, np.cos(aphi * 9.0 + 0.6)) ** 6 * (aphi < 0.50)
+    s_b = np.interp(aphi, [0.0, 0.20, 0.35, 0.50, 0.65, 0.90, 1.20, 1.50, 1.80],
+                    [0.42, 0.46, 0.56, 0.70, 0.83, 0.86, 0.86, 0.88, 0.90]) + tongue
+    blaze = smoothstep(0.010, -0.010, (s_b - s) + jag) * (aphi < 1.95)
     Q = np.stack([phi * 0.045, s * L], 1)          # chart: angle x 45 mm around, arc length along
     curls = np.zeros(len(Pn), dtype=np.float32)
     for sg in (1.0, -1.0):
-        big = (0.0190 if sg > 0 else 0.0178) * 1.3        # review 1: the side spiral 1.3x larger
-        cen = np.array([sg * 1.55 * 0.045, 0.57 * L])
-        pts = spiral_pts(big, 1.45, n=80, inner=0.10, phase=math.pi * 0.55, sense=sg) + cen
-        end = pts[-1]
-        arc = np.array([end + np.array([-sg * 0.006 * t, 0.012 * t + 0.004 * t * t]) for t in np.linspace(0, 1, 8)])
-        stroke = np.concatenate([pts, arc[1:]])
-        sel = np.abs(Q[:, 0] - cen[0]) < 0.06
+        # the spiral (centre s 0.50, phi 1.25) winds out to its underside and its outer arm sweeps on toward the
+        # tip as a broad band (phi 1.45 at s 0.62, 1.15 at 0.72, 0.85 at 0.80) into the cream end, enclosing the
+        # blue tongue above it (reference points read through the (s, phi) grid render, view 2)
+        big = 0.0255 if sg > 0 else 0.0245          # t3 render: spiral 0.6x the reference's
+        turns = 1.25
+        cen = np.array([sg * 1.25 * 0.045, 0.50 * L])
+        pts = spiral_pts(big, turns, n=90, inner=0.10, phase=-turns * 2 * math.pi, sense=sg) + cen
+        ctrl = np.array([pts[-1], [sg * 1.47 * 0.045, 0.60 * L], [sg * 1.18 * 0.045, 0.71 * L],
+                         [sg * 0.85 * 0.045, 0.80 * L], [sg * 0.60 * 0.045, 0.88 * L]])
+        tt = np.linspace(0.0, 1.0, 30)
+        kk = np.linspace(0.0, 1.0, len(ctrl))
+        arm = np.stack([np.interp(tt, kk, ctrl[:, 0]), np.interp(tt, kk, ctrl[:, 1])], 1)
+        for _ in range(3):
+            arm[1:-1] = 0.5 * arm[1:-1] + 0.25 * (arm[:-2] + arm[2:])
+        stroke = np.concatenate([pts, arm[1:]])
+        sel = np.abs(Q[:, 0] - cen[0]) < 0.08
         if sel.any():
-            curls[sel] = np.maximum(curls[sel], stroke_mask(Q[sel], stroke, 0.0028, 0.0060, soft=0.0005,
-                                                            taper_end=0.12))
-        hcen = np.array([sg * 0.046, 0.47 * L])
-        hk = spiral_pts(0.0055, 0.75, n=30, inner=0.25, phase=math.pi * 0.2, sense=sg) + hcen
+            curls[sel] = np.maximum(curls[sel], stroke_mask(Q[sel], stroke, 0.0030, 0.0075, soft=0.0005,
+                                                            taper_end=0.04))
+        # the lower band: from under the spiral back toward the base along the lower side, tapering to a point
+        band = np.array([[sg * 1.55 * 0.045, 0.62 * L], [sg * 1.62 * 0.045, 0.52 * L], [sg * 1.66 * 0.045, 0.42 * L],
+                         [sg * 1.68 * 0.045, 0.34 * L]])
+        sel = np.abs(Q[:, 0] - band[1, 0]) < 0.03
+        if sel.any():
+            curls[sel] = np.maximum(curls[sel], stroke_mask(Q[sel], band, 0.0048, 0.0040, soft=0.0005, taper_end=0.6))
+        # a small wave hook on the top cream edge (view 2: hooked crests at the upper left of the cream)
+        hcen = np.array([sg * 0.62 * 0.045, 0.45 * L])
+        hk = spiral_pts(0.0060, 0.80, n=30, inner=0.25, phase=math.pi * 0.2, sense=sg) + hcen
         sel = np.abs(Q[:, 0] - hcen[0]) < 0.02
         if sel.any():
-            curls[sel] = np.maximum(curls[sel], stroke_mask(Q[sel], hk, 0.0010, 0.0022, soft=0.0005, taper_end=0.2))
+            curls[sel] = np.maximum(curls[sel], stroke_mask(Q[sel], hk, 0.0010, 0.0024, soft=0.0005, taper_end=0.2))
         # underside curls left and right of the underside blaze (back view)
         ucen = np.array([sg * 2.5 * 0.045, 0.60 * L])
         up = spiral_pts(0.012 if sg > 0 else 0.011, 1.3, n=60, inner=0.12, phase=math.pi * 1.4, sense=-sg) + ucen
@@ -1180,12 +1247,15 @@ def ear_fields(P):
         Pn = P[idx]
         u, v, w, L = ear_local(Pn, side)
         th = EAR_T[0] + (EAR_T[1] - EAR_T[0]) * np.clip(v / L, 0, 1)
-        ws = w - EAR_CUP * u * u
+        ws = w - ear_cup(u, v, L)[0]
         d2 = ear_d2(u, v, L)
         on = (np.abs(ws) < th * 0.5 + 0.0035) & (d2 < 0.0025) & (v > -0.002)
         inner = ((ws > 0) & on).astype(np.float32)
         jag = 0.0012 * fbm(Pn, 400, 2, seed=40 + side)
-        tan = inner * smoothstep(0.0, -0.0010, d2 + 0.0042 + jag) * smoothstep(0.0012, -0.0012, v - 0.047 - 0.004 * np.cos(u / EAR_HALF_W * 3.0) + jag * 2)
+        # Cycle 12: the tan inner skin is a long pointed teardrop (the ear outline shrunk to 72 % of its length,
+        # 3 mm blue rim) reaching up to the spiral, not a blob cut at mid height
+        d2t = ear_d2(u * 1.08, v, L * 0.72)
+        tan = inner * smoothstep(0.0, -0.0010, d2 + 0.0030 + jag) * smoothstep(0.0006, -0.0006, d2t + 0.0010 + jag)
         deep = smoothstep(-0.006, -0.016, d2) * smoothstep(0.05, 0.015, v)
         Q = np.stack([u, v], 1)
         cen = np.array([0.0025, 0.0640])
@@ -1195,17 +1265,17 @@ def ear_fields(P):
         sel = on & (np.abs(v - 0.06) < 0.03)
         dark = np.zeros(len(Pn), dtype=np.float32)
         if sel.any():
-            dark[sel] = stroke_mask(Q[sel], stroke, 0.0008, 0.0017, soft=0.0003, taper_end=0.25)
+            dark[sel] = stroke_mask(Q[sel], stroke, 0.0012, 0.0019, soft=0.0003, taper_end=0.25)   # 3 mm stroke
         dark *= (ws > 0)
         back = ((ws <= 0) & on).astype(np.float32)
-        cap = smoothstep(-0.0012, 0.0012, v - 0.042 - 0.010 * (u / EAR_HALF_W) ** 2 + jag * 2)
+        cap = smoothstep(-0.0012, 0.0012, v - 0.031 - 0.012 * (u / EAR_HALF_W) ** 2 + jag * 2)   # 60 % of the back
         patch = back * cap
         light = np.zeros(len(Pn), dtype=np.float32)
         sp2 = spiral_pts(0.0092, 1.6, n=80, inner=0.12, phase=math.pi * 0.3, sense=1.0) + np.array([0.0010, 0.0625])
         if sel.any():
             light[sel] = stroke_mask(Q[sel], sp2, 0.0010, 0.0019, soft=0.0003, taper_end=0.2)
         light *= back
-        tipd = on * smoothstep(0.068, 0.088, v)
+        tipd = on * smoothstep(0.062, 0.090, v)
         res[side] = dict(idx=idx, on=on, inner=inner, tan=tan, deep=deep, dark=dark, patch=patch, light=light,
                          tip=tipd, d2=d2)
     return res
@@ -1227,7 +1297,7 @@ def body_color(P, Nn):
     col = lerp(col, C_PAW, smoothstep(0.022, 0.008, Z) * 0.8)
     # tail: underside darker, pattern
     cream_t, tip_t, under_t, on_tail, s_t = tail_pattern(P, 0)
-    col = lerp(col, C_TAIL_UNDER, under_t * 0.70 * (1 - tip_t))
+    col = lerp(col, C_TAIL_UNDER, under_t * TAIL_UNDER_W * (1 - tip_t))
     col = lerp(col, C_UNDER, on_tail * smoothstep(0.25, 0.05, s_t) * 0.25)
     tcol = lerp(C_TAIL_CREAM, C_TAIL_TIP, tip_t)
     tcol = lerp(tcol, C_TAIL_FOLD, np.clip(-nz, 0, 1) * 0.45 * tip_t)
@@ -1235,7 +1305,9 @@ def body_color(P, Nn):
     # cream face, throat, chest, belly
     jag = 0.0022 * fbm(P, 160, 2, seed=11) + 0.0010 * fbm(P, 520, 2, seed=12)
     jag_c = 0.0040 * fbm(P * np.array([1.0, 1.0, 0.35]), 140, 2, seed=13) + jag
-    zb = 0.1915 + 0.0045 * np.clip(np.abs(X) / 0.02, 0, 1) + 0.26 * np.clip(Y + 0.108, 0, 0.034)
+    # Cycle 12: 8 mm lower under the eyes: the front close-up showed the cream touching the eye's lower edge
+    # (reference: the lower lid line, then a ~3 mm blue skin band, then cream)
+    zb = 0.1835 + 0.0030 * np.clip(np.abs(X) / 0.02, 0, 1) + 0.26 * np.clip(Y + 0.108, 0, 0.034)
     yhead = 0.066 - 0.008 * smoothstep(0.170, 0.180, Z) * smoothstep(0.015, 0.03, np.abs(X))
     head_cream = smoothstep(0.0006, -0.0006, Z - zb + jag) * smoothstep(0.0006, -0.0006, Y + yhead + jag_c)
     head_cream *= (Z > 0.160)
@@ -1256,7 +1328,8 @@ def body_color(P, Nn):
     # brow dots
     for side in (1, -1):
         e = eye_centre(side)
-        bd = np.sqrt(((X - side * (abs(e[0]) - 0.0015)) / 0.0049) ** 2 + ((Z - (e[2] + 0.0205)) / 0.0025) ** 2) - 1.0
+        # Cycle 12: measured in the front close-up: dot centres +-25 mm (were +-18) and 2 mm higher, 12 x 5.4 mm
+        bd = np.sqrt(((X - side * (abs(e[0]) + 0.0052)) / 0.0058) ** 2 + ((Z - (e[2] + 0.0225)) / 0.0027) ** 2) - 1.0
         col = lerp(col, C_BROW, smoothstep(0.08, -0.08, bd + 0.25 * jag / 0.003) * (Y < -0.09))
     # ears
     ef = ear_fields(P)
@@ -1287,7 +1360,7 @@ def body_color(P, Nn):
         d, _ = polyline_dist(P, MOUTH_S[side] if side in MOUTH_S else mouth_line(side))
         col = lerp(col, C_MOUTH, smoothstep(0.0010, 0.0005, d) * (Y < -0.11))
     # fur streaks along the flow
-    tail_w = 1.0 - 0.4 * on_tail
+    tail_w = (1.0 - 0.4 * on_tail) * (1.0 - np.maximum(lash_m, lower_m))   # Cycle 12: the painted lid lines stay crisp
     col = col * (1.0 + 0.05 * tail_w * fur_streaks(P))[:, None]
     return col
 
@@ -1327,31 +1400,32 @@ def fur_streaks(P):
 # ---- tail fields --------------------------------------------------------------------------- #
 
 def tail_color(P, Nn):
-    """Each guard-hair lock is blue or cream as a whole (by the tail's flame zones at its middle), darker at
-    its root and lighter at its tip, grey in the creases between locks; the underfur between locks is the
-    zone colour darkened; the curls and the spiral are painted on top; fine streaks along the flow."""
+    """The tail's painted flame zones (cream end, tongues, curls and the spiral) over blue fur. Cycle 12: the
+    reference paints the zones softly over the fur, lock outlines are invisible: the zone colour leads (75 %)
+    and each lock only bends the zone edge a little (25 %); lock shading is faint; fine streaks run along the
+    flow. Underside lighter (view 3 centre measured #6586a0), cream duller on the lit top (view 2 #dbdbdb)."""
     nz = Nn[:, 2]
     zone, curls, tip, under, on_tail, s_t = tail_pattern(P, 0, split=True)
     own, tt, lat, d1, d2 = lock_fields(P)
     locks = tail_locks()
-    lz = np.zeros(len(locks), dtype=np.float32)
     mids = np.array([lk["P"][int(round(0.45 * (len(lk["P"]) - 1)))] + lk["N"][int(round(0.45 * (len(lk["P"]) - 1)))]
                      * lk["th"][int(round(0.45 * (len(lk["P"]) - 1)))] for lk in locks])
     zl, _, tipl, _, onl, _ = tail_pattern(mids, 0, split=True)
     lz = np.maximum(zl, tipl)
     on_lock = own >= 0
-    cream = np.where(on_lock, lz[np.maximum(own, 0)], zone)
-    blue = lerp(C_SIDE, C_TOP, np.clip(nz, 0, 1) * 0.85)
-    blue = lerp(blue, C_TAIL_UNDER, under * 0.70 * (1 - tip))
+    cream = np.where(on_lock, 0.75 * zone + 0.25 * lz[np.maximum(own, 0)], zone)
+    blue = lerp(C_SIDE, C_TOP, np.clip(nz, 0, 1) * 0.6)
+    blue = lerp(blue, C_TAIL_UNDER, under * TAIL_UNDER_W * (1 - tip))
     blue = blue * (1.0 + 0.035 * fbm(P, 28, 3, seed=2))[:, None]
     cr = lerp(C_TAIL_CREAM, C_TAIL_TIP, tip)
     cr = lerp(cr, C_TAIL_FOLD, np.clip(-nz, 0, 1) * 0.45 * tip)
+    cr = lerp(cr, C_TAIL_FOLD, np.clip(nz, 0, 1) * 0.25)          # the lit top would blow out
     col = lerp(blue, cr, cream)
     col = lerp(col, cr, curls)
-    shade = np.where(on_lock, 0.94 + 0.06 * smoothstep(0.0, 0.5, tt) + 0.03 * smoothstep(0.8, 1.0, tt), 0.93)
+    shade = np.where(on_lock, 0.975 + 0.025 * smoothstep(0.0, 0.5, tt), 0.97)
     gap = np.where(np.isfinite(d2) & np.isfinite(d1), d2 - d1, 1.0)
-    shade = shade * (1.0 - 0.06 * smoothstep(0.0008, 0.0, gap) * on_lock)
-    shade = shade * (1.0 + 0.05 * fur_streaks(P))
+    shade = shade * (1.0 - 0.025 * smoothstep(0.0008, 0.0, gap) * on_lock)
+    shade = shade * (1.0 + 0.10 * fur_streaks(P))     # Cycle 12: the reference tail shows clear strand streaks
     return col * shade[:, None]
 
 
@@ -1362,8 +1436,8 @@ def tail_rough(P, Nn, col):
 def tail_height(P, Nn):
     own, tt, lat, d1, d2 = lock_fields(P)
     on_lock = own >= 0
-    grooves = 0.18 * np.cos(3.0 * math.pi * np.clip(lat, -1, 1)) * smoothstep(0.0, 0.15, tt)
-    return np.where(on_lock, 0.5 + 0.22 * fur_streaks(P) + grooves, 0.4 + 0.1 * fur_streaks(P))
+    grooves = 0.07 * np.cos(3.0 * math.pi * np.clip(lat, -1, 1)) * smoothstep(0.0, 0.15, tt)   # Cycle 12: faint
+    return np.where(on_lock, 0.5 + 0.32 * fur_streaks(P) + grooves, 0.45 + 0.28 * fur_streaks(P))
 
 
 def build_tail():
@@ -1386,7 +1460,8 @@ def body_rough(P, Nn, col):
 
 
 def body_height(P, Nn):
-    return 0.5 + 0.22 * fur_streaks(P)
+    lash_m, lower_m = eyelid_marks(P)          # Cycle 12: no fur grain across the painted lid lines
+    return 0.5 + 0.22 * fur_streaks(P) * (1.0 - np.maximum(lash_m, lower_m))
 
 
 # ---- eye --------------------------------------------------------------------------------- #
@@ -1395,9 +1470,10 @@ def eyeball_color_fn(side):
     """The eyeball's paint in front-view coordinates (the fox looks at the viewer): sclera, the iris disc
     with its limbal ring and radial fibres, the pupil and the catch lights; the strip of eye right under the
     eyelid edges is dark (it continues the lash line and the lower lid line); the back is dark."""
-    sclera, sclera_edge, sclera_lid = hexc("#e3dace"), hexc("#c4b9b0"), hexc("#b8ada6")
-    iris_top, iris_mid, iris_bot = hexc("#5f5965"), hexc("#8b8388"), hexc("#b1a9a9")
-    limbal, pupil, pupil_bot = hexc("#3e3943"), hexc("#2c2a31"), hexc("#3d3a44")
+    # Cycle 12: warmer (front close-up: reference sclera warm cream, iris warm grey-brown)
+    sclera, sclera_edge, sclera_lid = hexc("#eadfcf"), hexc("#cbbcae"), hexc("#bbab9f")
+    iris_top, iris_mid, iris_bot = hexc("#5a4f52"), hexc("#8e8080"), hexc("#b9aaa3")
+    limbal, pupil, pupil_bot = hexc("#463d42"), hexc("#2c2a31"), hexc("#3d3a44")
     lash, lower = hexc("#241e24"), hexc("#4a3a3a")
     white, white2 = np.array([1.0, 1.0, 1.0], dtype=np.float32), hexc("#e6e3e8")
 
@@ -1419,13 +1495,13 @@ def eyeball_color_fn(side):
         irisc = irisc * (1.0 + fib + 0.03 * fbm(P, 4000, 2, seed=62))[:, None]
         irisc = lerp(irisc, limbal, smoothstep(0.80 * R_IRIS, 0.90 * R_IRIS, ri))
         col = lerp(col, irisc, smoothstep(R_IRIS + 0.0002, R_IRIS - 0.0002, ri))
-        pe = np.sqrt((u / 0.0047) ** 2 + ((v - 0.0003) / 0.0061) ** 2)
+        pe = np.sqrt((u / 0.0043) ** 2 + ((v - 0.0003) / 0.0056) ** 2)
         pc = lerp(pupil, pupil_bot, smoothstep(0.0, -0.0064, v - 0.0003) * 0.8)
         col = lerp(col, pc, smoothstep(1.04, 0.96, pe))
         h1 = np.sqrt((u + 0.0010) ** 2 + (v - 0.0038) ** 2)
         col = lerp(col, white, smoothstep(0.0023, 0.0019, h1))
         h2 = np.sqrt((u - 0.0045) ** 2 + (v + 0.0050) ** 2)
-        col = lerp(col, white2, smoothstep(0.0011, 0.0007, h2) * 0.0)
+        col = lerp(col, white2, smoothstep(0.0011, 0.0007, h2) * 0.6)     # small second catch light
         col = lerp(col, lash, smoothstep(-0.0011, -0.0006, f) * upw)
         col = lerp(col, lower, smoothstep(-0.0007, -0.0003, f) * (1.0 - upw))
         col[Nn[:, 1] > 0.3] = hexc("#2a2a32")
@@ -1540,7 +1616,7 @@ def build():
 
 def collar(clay):
     """Two-strand braided leather cord around the neck and the silver-set gem pendant."""
-    centre = np.array([0.0, -0.070, 0.146])
+    centre = np.array([0.0, -0.070, 0.152])          # Cycle 12: 6 mm higher (view 1: cord sides 6 mm, pendant 10 mm low)
     vhat = np.array([0.0, 0.814, 0.581])           # loop plane: nape (Y -0.044 Z 0.166) high, front (-0.098, 0.123) low
     xhat = np.array([1.0, 0.0, 0.0])
     cord_r = 0.0034
@@ -1555,7 +1631,12 @@ def collar(clay):
         loop = 0.5 * loop + 0.25 * (np.roll(loop, 1, 0) + np.roll(loop, -1, 0))
     # the cord hangs by gravity: a V toward the pendant at the front, resting on the chest
     front = loop[:, 1] < centre[1]
-    loop[:, 2] -= 0.0055 * np.maximum(0.0, 1.0 - np.abs(loop[:, 0]) / 0.034) ** 1.6 * front
+    # Cycle 12: the pendant's weight pulls the cord straight from where it rests on the neck sides (under the cheek
+    # tufts, |X| 0.037, Z 0.154 in view 1) down to a V at the bail (Z 0.131): a V, not a U round the neck
+    ax = np.abs(loop[:, 0])
+    zv = 0.131 + (0.154 - 0.131) * np.clip(ax / 0.037, 0.0, 1.0) ** 1.15
+    wv = (1.0 - smoothstep(0.030, 0.044, ax)) * front
+    loop[:, 2] = loop[:, 2] * (1.0 - wv) + zv * wv
     for k in np.nonzero(front)[0]:
         dirn = loop[k] - centre
         dirn[2] = 0.0
@@ -1619,11 +1700,16 @@ def collar(clay):
                     mat=silver, segments=40, cap_bottom=True, cap_top=True)
     bez.matrix_world = Matrix.Translation(Vector(tuple(pc))) @ rot
     gem_mat = gem_material()
-    gem = kit.lathe("pendant_gem", [(0.0083, 0.0004), (0.0080, 0.0016), (0.0068, 0.0029),
-                                      (0.0042, 0.0038), (0.0016, 0.0042)], mat=gem_mat, segments=40,
+    # Cycle 12: a higher cabochon dome (5.3 mm, was 4.2): the flat dome caught no highlight (reference: a large
+    # white catch light on a bright domed gem)
+    gem = kit.lathe("pendant_gem", [(0.0083, 0.0004), (0.0081, 0.0018), (0.0070, 0.0034),
+                                      (0.0046, 0.0047), (0.0018, 0.0053)], mat=gem_mat, segments=40,
                     cap_bottom=True, cap_top=True)
     gem.matrix_world = Matrix.Translation(Vector(tuple(pc))) @ rot
     kit.attribute(gem, "gem_r", lambda p: (Vector(tuple(pc)) - p).length / 0.0083)
+    # the cabochon's catch light, as this style paints it (reference: a large soft white spot upper-centre on the dome)
+    hl = Vector(tuple(pc + face * 0.0049 + upv * 0.0030 + np.array([0.0012, 0.0, 0.0])))
+    kit.attribute(gem, "gem_hl", lambda p: (p - hl).length / 0.0024)
     bc = pc + upv * (0.0042 + 0.0121 - 0.0010)
     ring = np.array([bc + 0.0042 * math.cos(a) * upv + 0.0026 * math.sin(a) * face
                      for a in np.linspace(0, 2 * math.pi, 25)[:-1]])
@@ -1659,10 +1745,10 @@ def cord_material():
     at = node(tree, "ShaderNodeAttribute", attribute_name="cord_lobe")
     rp = node(tree, "ShaderNodeValToRGB")
     els = rp.color_ramp.elements
-    els[0].position, els[0].color = 0.05, (*srgb("#4a2f20"), 1)
-    els[1].position, els[1].color = 0.92, (*srgb("#c58e66"), 1)
+    els[0].position, els[0].color = 0.05, (*srgb("#3a2016"), 1)     # Cycle 12: darker reddish leather
+    els[1].position, els[1].color = 0.92, (*srgb("#94603f"), 1)
     e = els.new(0.5)
-    e.color = (*srgb("#8e5f41"), 1)
+    e.color = (*srgb("#5f3726"), 1)
     links.new(at.outputs["Fac"], rp.inputs["Fac"])
     tc = node(tree, "ShaderNodeTexCoord")
     grain = node(tree, "ShaderNodeTexVoronoi")
@@ -1703,8 +1789,8 @@ def silver_material():
     links.new(nz.outputs["Fac"], rp.inputs["Fac"])
     links.new(rp.outputs["Color"], bsdf.inputs["Base Color"])
     mr = node(tree, "ShaderNodeMapRange")
-    mr.inputs["To Min"].default_value = 0.18
-    mr.inputs["To Max"].default_value = 0.36
+    mr.inputs["To Min"].default_value = 0.30     # Cycle 12: satin, not mirror: the reference bezel is light grey
+    mr.inputs["To Max"].default_value = 0.46     # (the mirror-like 0.18-0.36 reflected the dark studio and read dark)
     links.new(nz.outputs["Fac"], mr.inputs["Value"])
     links.new(mr.outputs["Result"], bsdf.inputs["Roughness"])
     bsdf.inputs["Metallic"].default_value = 1.0
@@ -1727,9 +1813,9 @@ def gem_material():
     at = node(tree, "ShaderNodeAttribute", attribute_name="gem_r")
     rp = node(tree, "ShaderNodeValToRGB")
     els = rp.color_ramp.elements
-    els[0].position, els[0].color = 0.0, (*srgb("#7b9be6"), 1)
-    els[1].position, els[1].color = 1.0, (*srgb("#1a33a0"), 1)
-    for pos, hx in ((0.30, "#3f63cc"), (0.70, "#2443b0")):
+    els[0].position, els[0].color = 0.0, (*srgb("#8fb0f0"), 1)      # Cycle 12: brighter (view 1 gem read navy)
+    els[1].position, els[1].color = 1.0, (*srgb("#142a80"), 1)
+    for pos, hx in ((0.30, "#4d74dc"), (0.70, "#2c4cc0")):
         e = els.new(pos)
         e.color = (*srgb(hx), 1)
     links.new(at.outputs["Fac"], rp.inputs["Fac"])
@@ -1741,7 +1827,18 @@ def gem_material():
     mix.inputs["Factor"].default_value = 0.10
     links.new(rp.outputs["Color"], mix.inputs[6])
     links.new(nz.outputs["Color"], mix.inputs[7])
-    links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+    ah = node(tree, "ShaderNodeAttribute", attribute_name="gem_hl")
+    hr_ = node(tree, "ShaderNodeMapRange")
+    hr_.inputs["From Min"].default_value = 0.55
+    hr_.inputs["From Max"].default_value = 1.0
+    hr_.inputs["To Min"].default_value = 0.92
+    hr_.inputs["To Max"].default_value = 0.0
+    links.new(ah.outputs["Fac"], hr_.inputs["Value"])
+    hl_mix = node(tree, "ShaderNodeMix", data_type="RGBA", blend_type="MIX")
+    links.new(hr_.outputs["Result"], hl_mix.inputs["Factor"])
+    links.new(mix.outputs[2], hl_mix.inputs[6])
+    hl_mix.inputs[7].default_value = (*srgb("#f4f8ff"), 1)
+    links.new(hl_mix.outputs[2], bsdf.inputs["Base Color"])
     mr = node(tree, "ShaderNodeMapRange")
     mr.inputs["To Min"].default_value = 0.03
     mr.inputs["To Max"].default_value = 0.08

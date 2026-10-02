@@ -599,6 +599,95 @@ view 3 0.90 (w/h -2 %). Changes this cycle (from the Handoff steps 1-5, 7, Fix 7
 Build 11 = build 10 + the lock-bending clamp (exact sagitta, w <= 1.3 R): 80,088 tris, CHECK clean, overlap
 0.89 / 0.70 / 0.90 (unchanged); the tail fins remain (cause not yet found, see task Tail).
 
+## Cycle 12
+Lead: no Agent tool in this session, so no part builders could be spawned (builder_guide s.8); the lead ran the four
+part tasks itself with a part test harness (work folder parts/: harness.py rebuilds one part into a saved .blend, or
+the whole model, and renders the recorded views with the kit's own studio and cameras; cmp.py puts a reference box
+beside any render, as cv.py closeup does; probe_pat.py prints the tail pattern masks on an (s, phi) grid; --diag paints
+the tail's (s, phi) grid to map the reference onto tail coordinates). The generator stays one file (the hooks allow
+only blue_fox.py; part modules in a new folder were not risked).
+
+Changes, each checked in harness renders beside the reference crops before the build:
+- TAIL (task A). Fins: CAUSE FOUND: lock_seg_sd gave every segment a cap as long as the lock's half width (up to
+  17 mm) beyond each end, along the segment's tangent; where the lock bends round the tapering envelope these straight
+  caps stood out of the fur as thin fins. Cap now min(w, 0.6 ln + th): fins gone (tA clay). Relief: lock half
+  thickness 0.25 -> 0.12 w (max 2.2 mm), root sink 2.4 -> 0.6 mm, blend 0.9 -> 2.5 mm (variant B, chosen over A
+  0.15 / 1.0 / 1.5 mm: softer streaks, as the style draws). End locks min half width 2 mm. End radii TAIL_RZ
+  0.026/0.012/0.007/0.004 -> 0.034/0.020/0.009/0.004 (0.036/0.025/0.014 made a club). Root flares: TAIL_W
+  1.08/1.19/1.33/1.37 -> 1.60/1.70/1.70/1.60 (front view shows the tail beside the shoulders to |X| 0.064).
+  Colour: the flame zones lead (75 %), locks only bend the zone edge (25 %); lock shading 0.94-1.0 -> 0.975-1.0,
+  crease 0.06 -> 0.025; height grooves 0.18 -> 0.07; underside weight 0.70 -> 0.60; lit top cream dulled.
+  Pattern re-placed from the (s, phi) grid render: top cream from s 0.40 with flame tongues, blue tongue at phi
+  0.65-1.2 to s 0.82-0.86, spiral centre s 0.50 phi 1.25 r 25 mm winding out to its underside, its outer arm a broad
+  band (6-15 mm) sweeping to the tip through (phi 1.47, s 0.60) (1.18, 0.71) (0.85, 0.80); lower band from under the
+  spiral back to s 0.34; wave hook at (0.62, 0.45).
+- EARS (task C). EAR_CUP 13 u^2 -> 0.42 u^2 / hw(v) (a rolled half-cone; SDF divided by sqrt(1 + slope^2)),
+  EAR_OPEN (0.60, -0.80) -> (0.85, -0.52): after orthogonalising to the outward-tilted ear axis the old frame faced
+  view 2's far ear 11 deg past edge-on (blade). EAR_HALF_W 0.034 -> 0.037. Tuft: 4 lobes, 2.4 mm thick, tips lifted
+  1.8 mm (shadow lines). Tan inner skin: teardrop (ear outline at 72 % length, 3 mm rim). Dark spiral stroke 3 mm,
+  back patch from v 0.031 (60 %), tip #4a6a9a from v 0.062.
+- FACE (task B). Cream border 5 mm lower (front close-up: cream touched the eye's lower edge; reference shows the
+  lower lid line and a blue band under the eye). Brow dots measured at +-25 mm (were +-18) and 2 mm higher, 12 x 5.4
+  mm (this overrides the Handoff's "do not undo brow dots": the side-by-side shows them 7 mm too close to the centre).
+  Lash ridge stroke n 60 -> 120, radii +0.1 mm; no fur streak colour or bump inside the lid-line masks. Cheek tufts
+  reach |X| 0.063 (were 0.052).
+- COLLAR (task D). The cord hung as a U following the neck; the reference V: the pendant's weight pulls it straight
+  from the neck sides under the cheek tufts (|X| 0.037, Z 0.154) to the bail (Z 0.131). Loop centre 6 mm higher,
+  front points blended to that V. Leather ramp darker (#3a2016 / #5f3726 / #94603f); silver roughness 0.18-0.36 ->
+  0.30-0.46 (read dark); gem ramp brighter (#8fb0f0 centre -> #1d38a8 rim).
+
+Build 12: 80,061 tris (budget 90,000); CHECK 10 parts, no floating, no flat colour, 0 non-manifold, but 7 OPEN edges
+(make_manifold filled holes only up to 16 sides: now 200). Overlap view 1 0.88 (w/h +1 %), view 2 0.70 (-1 %),
+view 3 0.87 (-2 %): views 1/3 lose 1-3 % at the ears (missing top-left/right 12-14 %: the outward opening makes the
+ears narrower from the front and back) and gain extra top-centre 6-12 % (the distal tail as a dome above the head).
+Judged by what each part is (new user rule, below), part by part against the reference crops:
+- Tail: no fins (cause fixed); relief now soft streaks; the composition reads (top cream with flame tongues, the
+  blue tongue, the spiral and its arm sweeping into the cream end, the central tongue and two curls from behind).
+  Still wrong: the end reads as a club with a nib, not as guard hairs converging to a soft point with two notches;
+  the distal part sits too high (dome above the head in views 1/3, yellow along the distal top in view 2) and ends
+  too soon (the reference tip reaches further back); strand streaks fainter than the reference's.
+- Ears: read as cupped fennec ears; the far ear in view 2 now shows its back with the patch and spiral (~50 px vs
+  the reference's ~60; it was an edge-on blade); tuft reads as layered fur lobes. From the front they read ~15 %
+  narrower than the reference (the cost of the outward opening; accepted: the far ear reading as an ear matters
+  more than 1-2 % overlap).
+- Eyes: shape and size of the opening match in clay (22 x 19 mm); the paint still differs: the cream border met the
+  eye's lower edge under its outer half (border now 8 mm lower than build 11 in total), the iris was cool grey and
+  77 % of the eye width (reference warm grey-brown, ~65 %): R_IRIS 8.3 -> 7.5 mm, iris/sclera warmer, second catch
+  light on. Brow dots now at the reference's spacing.
+- Collar: the V drape and height now match the crop; the cord reads as two twisted leather strands (darker since).
+  The gem read flat navy with no catch light (reference: bright domed cabochon, big white highlight): dome 4.2 ->
+  5.3 mm, rim #142a80; silver satin.
+After build 12, written for build 13: tail end locks (main top lock carries the point; a top-notch tuft s 0.60-0.86
+phi 0.30 flick 1.3 and a lower tongue s 0.64-0.94 phi pi-0.15 flick 1.4, neither converging; side locks converge),
+TAIL_PTS distal 4-8 mm lower and the end 12 mm further back, tail streak colour 0.06 -> 0.10 and height 0.25 -> 0.32,
+the eye paint and gem changes above, hole fill 200 sides.
+
+New user rule (coordinator, this cycle): conceptual understanding leads every comparison, not the silhouette
+numbers; overlap/aspect are a coarse outline check only; rank what needs improving by how much it hurts what each
+part is. (Copied into the Handoff's Standing rules.)
+
+## Cycle 13
+Build 13 = build 12 + the tail end/streak changes, the eye paint, the gem dome, hole fill 200 (see Cycle 12's last
+paragraph) + s_b at phi 0.2-0.65 later (blue tongue back). 80,063 tris; CHECK 10 parts, no floating, no flat colour,
+0 open edges but 1 non-manifold edge (left for the next build to find: make_manifold's 200-side fill may close a
+hole across a pinched rim). Overlap 0.88 (w/h +3 %) / 0.70 (+0 %) / 0.87 (-0 %); view 3 centre 0.09 darker.
+Part by part (what it reads as, then measures):
+- Tail: reads as a soft fur plume; it now reaches the reference's tip in view 2 (overlay matches the end) and
+  converges to a point; streaks show. Wrong: from behind a HORN stands on the top of the egg (the top-notch tuft's
+  7.8 mm lift) and a RING crease runs round the end (the five end-lock roots all at s 0.60-0.70); the two notches
+  still do not read in view 2's outline; the cream edges were frayed by the fbm jag (reference: smooth brush curves).
+- Eyes (front close-up b13_eyes_v1): blue band and lower lid under the eye, warm iris at ~65 % of the eye width,
+  brow dots at the reference spacing: reads close to the reference. Remaining: the reference's upper lid arc is
+  ~15 % higher (rounder eye).
+- Collar: V drape correct; the gem still shows no catch light (the studio key does not reach the camera off the
+  dome): this style paints it, so it is painted now (gem_hl).
+- Stair-step check (new standing rule): face cream border (6x) and tail cream border (5x) show no texel stair-steps:
+  every marking is a smooth procedural 3D field painted per texel (2048 px, ~0.2-0.3 mm per texel), nothing comes
+  from an image or a downscaled crop.
+Written for build 14: end-lock roots staggered s 0.55-0.70 and sunk 3x TAIL_SINK, top tuft lift 0.9 (was 2.6), lower
+tongue 2.0; tail pattern jag 0.035 fbm(90) + 0.015 fbm(300) -> 0.014 fbm(60) + 0.003 fbm(200); gem catch light
+(attribute gem_hl, white #f4f8ff mixed into the base colour inputs, not a Mix Shader).
+
 ## Handoff (current: after build 11)
 
 ### 1. Understanding
